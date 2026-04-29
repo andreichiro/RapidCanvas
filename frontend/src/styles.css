@@ -26,7 +26,7 @@ body {
 }
 
 .workspace {
-  width: min(720px, 100%);
+  width: min(920px, 100%);
   border: 1px solid #d9e2ec;
   border-radius: 8px;
   background: #ffffff;
@@ -53,3 +53,156 @@ p {
   color: #52606d;
 }
 
+.explain-form {
+  display: grid;
+  grid-template-columns: 1fr 220px auto;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.explain-form label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.explain-form input,
+.explain-form select,
+.explain-form button {
+  min-height: 44px;
+  border: 1px solid #bcccdc;
+  border-radius: 6px;
+  padding: 0 12px;
+  color: #172026;
+  font: inherit;
+}
+
+.explain-form button {
+  border-color: #1f4fd8;
+  background: #1f4fd8;
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.explain-form button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.error-banner {
+  margin-top: 18px;
+  border: 1px solid #e07a5f;
+  border-radius: 6px;
+  background: #fff4f0;
+  padding: 12px;
+  color: #8a2f17;
+}
+
+.result-view {
+  margin-top: 28px;
+  border-top: 1px solid #d9e2ec;
+  padding-top: 24px;
+}
+
+.post-summary,
+.trust-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: #52606d;
+}
+
+.bullets {
+  display: grid;
+  gap: 14px;
+  margin: 20px 0;
+  padding-left: 22px;
+}
+
+.bullets li {
+  padding-left: 4px;
+}
+
+.citation-row {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.citation-chip {
+  border-radius: 999px;
+  background: #e3f2fd;
+  padding: 2px 8px;
+  color: #0b5cad;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.source-list {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.source-list h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.source-list article {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px 10px;
+  border: 1px solid #d9e2ec;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.source-list article p {
+  grid-column: 1 / -1;
+}
+
+.trace-toggle {
+  margin-top: 14px;
+  border: 1px solid #bcccdc;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 8px 12px;
+  color: #172026;
+  cursor: pointer;
+}
+
+.trace-panel {
+  max-height: 320px;
+  overflow: auto;
+  border-radius: 6px;
+  background: #172026;
+  padding: 16px;
+  color: #f6f8fb;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    padding: 18px;
+  }
+
+  .workspace {
+    padding: 22px;
+  }
+
+  .explain-form {
+    grid-template-columns: 1fr;
+  }
+
+  .source-list article {
+    grid-template-columns: 1fr;
+  }
+}

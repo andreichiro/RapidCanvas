@@ -16,9 +16,12 @@ assignment coverage through `make requirements-review`, which is included in
 `make deep-review`.
 
 Gate 2 is implemented. It provides frozen API/domain contracts, `/api/providers`,
-and a `/api/explain` endpoint that validates Bluesky post URLs but returns
-`501` until the real pipeline exists. Do not replace that with fake explanation
-content.
+and `/api/explain` URL validation. Do not replace later-gate behavior with fake
+explanation content.
+
+Gate 3 is implemented. `/api/explain` performs real Bluesky post/thread fetching
+and returns a schema-valid cited safe summary. Search/RAG and DSPy remain
+deterministic dev adapters, and every response marks that in `trace`.
 
 Do not claim T1-T15 are complete until their files, tests, and requirement
 matrix rows exist.

@@ -1,18 +1,29 @@
-"""Public API routes for the frozen Gate 2 contract."""
+"""Public API routes for the Gate 3 vertical slice."""
 
 from __future__ import annotations
 
+from typing import Protocol
+
 from fastapi import APIRouter, HTTPException, status
 
+from app.clients.bsky import BlueskyClientError
 from app.config import Settings
-from app.deps import get_provider_catalog
+from app.deps import build_gate3_explainer, get_provider_catalog
 from app.schemas.api import ExplainRequest, ExplainResponse, HealthResponse, ProviderListResponse
 
 
-def create_api_router(settings: Settings) -> APIRouter:
+class ExplainerService(Protocol):
+    """Service boundary for current and future explain implementations."""
+
+    def explain(self, request: ExplainRequest) -> ExplainResponse:
+        """Return a schema-valid explanation response."""
+
+
+def create_api_router(settings: Settings, explainer: ExplainerService | None = None) -> APIRouter:
     """Create versionless API routes under the configured prefix."""
 
     router = APIRouter(prefix=settings.api_prefix)
+    explain_service = explainer or build_gate3_explainer()
 
     @router.get("/health", response_model=HealthResponse, tags=["health"])
     def health() -> HealthResponse:
@@ -29,16 +40,12 @@ def create_api_router(settings: Settings) -> APIRouter:
         tags=["explain"],
     )
     def explain(request: ExplainRequest) -> ExplainResponse:
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail={
-                "code": "explain_pipeline_not_implemented",
-                "message": (
-                    "Gate 2 freezes the request and response contract. The real "
-                    "Bluesky/search/DSPy pipeline is implemented in later gates."
-                ),
-                "post_url": request.post_url,
-            },
-        )
+        try:
+            return explain_service.explain(request)
+        except BlueskyClientError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail={"code": "bluesky_fetch_failed", "message": str(exc)},
+            ) from exc
 
     return router

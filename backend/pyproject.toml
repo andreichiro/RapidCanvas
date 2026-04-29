@@ -5,6 +5,7 @@ description = "FastAPI + DSPy backend for contextual Bluesky post explanations."
 readme = "../README.md"
 requires-python = ">=3.11,<3.14"
 dependencies = [
+  "atproto>=0.0.61",
   "diskcache>=5.6.3",
   "fastapi>=0.115.0",
   "httpx>=0.27.0",
@@ -16,7 +17,6 @@ dependencies = [
 
 [project.optional-dependencies]
 bluesky = [
-  "atproto>=0.0.61",
   "beautifulsoup4>=4.12.0",
   "ddgs>=9.0.0",
   "trafilatura>=1.12.0",

@@ -141,7 +141,7 @@ check-secrets:
 		echo "Tracked env file detected. Remove it before committing."; \
 		exit 1; \
 	fi
-	@if rg --hidden -nE 'sk-proj-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{32,}' \
+	@if rg --hidden -n -e 'sk-proj-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{32,}' \
 		--glob '!.git/**' \
 		--glob '!backend/.venv/**' \
 		--glob '!frontend/node_modules/**' \

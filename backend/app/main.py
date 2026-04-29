@@ -5,11 +5,11 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import create_api_router
+from app.api.routes import ExplainerService, create_api_router
 from app.config import get_settings
 
 
-def create_app() -> FastAPI:
+def create_app(explainer: ExplainerService | None = None) -> FastAPI:
     """Create the FastAPI application."""
 
     settings = get_settings()
@@ -21,7 +21,7 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization"],
     )
-    app.include_router(create_api_router(settings))
+    app.include_router(create_api_router(settings, explainer=explainer))
 
     return app
 

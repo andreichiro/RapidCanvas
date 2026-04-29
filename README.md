@@ -12,6 +12,7 @@ adds the requirement matrix and validates assignment coverage in the review gate
 - T0 scaffold: implemented.
 - Gate 1 requirement matrix: implemented.
 - Gate 2 API and domain contracts: implemented.
+- Gate 3 vertical slice: implemented with real Bluesky fetch and trace-marked deterministic dev adapters.
 - T1-T15: planned next phases.
 - The assignment API key must be placed only in local `.env`; do not commit it.
 - Because the key was shared in plain text during intake, rotate it before real use.
@@ -34,10 +35,10 @@ make dev-backend
 make dev-frontend
 ```
 
-The backend exposes `GET /api/health`, `GET /api/providers`, and the frozen
-`POST /api/explain` contract. `/api/explain` validates Bluesky post URLs and
-returns `501` until the real Bluesky/search/DSPy pipeline is implemented, so no
-fake explanation is presented as product behavior.
+The backend exposes `GET /api/health`, `GET /api/providers`, and `POST /api/explain`.
+`/api/explain` validates Bluesky post URLs, performs real Bluesky post/thread
+fetching, and returns a schema-valid safe summary. Search/RAG and DSPy are still
+deterministic dev adapters and are marked in `trace`.
 
 ## Environment
 
@@ -82,7 +83,9 @@ GET /api/providers
 
 The successful `ExplainResponse` schema already requires 3-5 cited bullets,
 sources, and trace fields for trust score, fallback mode, and guardrail flags.
-The route intentionally returns `501` until the real pipeline is available.
+The route now returns a Gate 3 vertical-slice response. It is not the final
+contextual explainer because Search/RAG and DSPy are trace-marked deterministic
+dev adapters.
 
 ## Integration Adapter Rule
 
@@ -152,5 +155,5 @@ all rows have moved from planned or reserved to implemented where required.
 ## Next Phase
 
 T1 research docs, project skills, and `docs/task_packets.md` remain part of the
-handoff spine. Gate 3 is the vertical slice that connects the frozen API shape
-to the first implementation path without claiming mocks as final behavior.
+handoff spine. The next implementation replacement should remove the Gate 3
+Search/RAG and DSPy adapters only when real modules and tests are ready.

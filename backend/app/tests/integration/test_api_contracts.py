@@ -6,8 +6,16 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from pytest import raises
 
+from app.clients.bsky import BlueskyClientError
 from app.main import create_app
-from app.schemas.api import ExplainRequest, ExplainResponse
+from app.schemas.api import (
+    Bullet,
+    ExplainRequest,
+    ExplainResponse,
+    PostSummary,
+    Source,
+    Trace,
+)
 
 client = TestClient(create_app())
 
@@ -38,8 +46,49 @@ def test_explain_request_rejects_non_bluesky_post_url() -> None:
     assert response.status_code == 422
 
 
-def test_explain_route_is_contract_frozen_without_fake_agent_output() -> None:
-    response = client.post(
+class FakeExplainer:
+    def explain(self, request: ExplainRequest) -> ExplainResponse:
+        return ExplainResponse(
+            post=PostSummary(
+                url=request.post_url,
+                author="example.com",
+                text="A real fetched post would be summarized here.",
+                created_at=datetime(2026, 4, 29, tzinfo=UTC),
+            ),
+            bullets=[
+                Bullet(text="Fetched post text is available.", source_ids=["S1"]),
+                Bullet(text="Trace marks deterministic adapters.", source_ids=["S1"]),
+                Bullet(text="This is not final Search/RAG or DSPy behavior.", source_ids=["S1"]),
+            ],
+            sources=[
+                Source(
+                    id="S1",
+                    title="Bluesky post by example.com",
+                    url=request.post_url,
+                    type="thread",
+                    snippet="A real fetched post would be summarized here.",
+                )
+            ],
+            trace=Trace(
+                category="gate3_vertical_slice",
+                warnings=["real_bluesky_fetch_enabled"],
+                trust_score=0.35,
+                fallback_mode="safe_summary",
+                guardrail_flags=["dev_adapter_search_rag", "dev_adapter_dspy"],
+                adapter_mode="deterministic_dev",
+                adapter_notes=["Real Bluesky fetch active; adapters are non-final."],
+            ),
+        )
+
+
+class FailingExplainer:
+    def explain(self, request: ExplainRequest) -> ExplainResponse:
+        raise BlueskyClientError("upstream unavailable")
+
+
+def test_explain_route_returns_schema_valid_gate3_response() -> None:
+    route_client = TestClient(create_app(explainer=FakeExplainer()))
+    response = route_client.post(
         "/api/explain",
         json={
             "post_url": "https://bsky.app/profile/example.com/post/3abcxyz",
@@ -48,8 +97,27 @@ def test_explain_route_is_contract_frozen_without_fake_agent_output() -> None:
         },
     )
 
-    assert response.status_code == 501
-    assert response.json()["detail"]["code"] == "explain_pipeline_not_implemented"
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["bullets"]) == 3
+    assert payload["trace"]["fallback_mode"] == "safe_summary"
+    assert payload["trace"]["adapter_mode"] == "deterministic_dev"
+    assert "dev_adapter_dspy" in payload["trace"]["guardrail_flags"]
+
+
+def test_explain_route_maps_bluesky_fetch_failure() -> None:
+    route_client = TestClient(create_app(explainer=FailingExplainer()))
+    response = route_client.post(
+        "/api/explain",
+        json={
+            "post_url": "https://bsky.app/profile/example.com/post/3abcxyz",
+            "provider": "openai",
+            "include_trace": True,
+        },
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"]["code"] == "bluesky_fetch_failed"
 
 
 def test_openapi_exposes_frozen_explain_contract() -> None:

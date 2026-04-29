@@ -75,6 +75,8 @@ class Trace(ApiModel):
     trust_score: float = Field(default=0.0, ge=0.0, le=1.0)
     fallback_mode: FallbackMode = "abstain"
     guardrail_flags: list[str] = Field(default_factory=list)
+    adapter_mode: Literal["none", "deterministic_dev"] = "none"
+    adapter_notes: list[str] = Field(default_factory=list)
 
 
 class ExplainResponse(ApiModel):
