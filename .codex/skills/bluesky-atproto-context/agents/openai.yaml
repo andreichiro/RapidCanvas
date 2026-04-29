@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bluesky ATProto Context"
+  short_description: "Fetch and normalize Bluesky post context."
+  default_prompt: "Use $bluesky-atproto-context to parse and normalize a public Bluesky post thread."

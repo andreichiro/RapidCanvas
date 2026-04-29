@@ -13,7 +13,8 @@ adds the requirement matrix and validates assignment coverage in the review gate
 - Gate 1 requirement matrix: implemented.
 - Gate 2 API and domain contracts: implemented.
 - Gate 3 vertical slice: implemented with real Bluesky fetch and trace-marked deterministic dev adapters.
-- T1-T15: planned next phases.
+- Gate 4 Dev D eval/docs lane: implemented with research docs, task packets, local project skills, cached eval fixtures, deterministic metrics, and report generation.
+- Search/RAG, final DSPy, guardrails, image understanding, provider comparison, GEPA, and MLflow: planned next phases.
 - The assignment API key must be placed only in local `.env`; do not commit it.
 - Because the key was shared in plain text during intake, rotate it before real use.
 - Current handoff snapshot: `docs/current_handoff.md`.
@@ -26,6 +27,7 @@ make deep-review
 make requirements-review
 make lint
 make test
+make eval
 ```
 
 Run the scaffolded services:
@@ -87,6 +89,23 @@ The route now returns a Gate 3 vertical-slice response. It is not the final
 contextual explainer because Search/RAG and DSPy are trace-marked deterministic
 dev adapters.
 
+## Evaluation
+
+`make eval` runs the cached offline evaluation harness. It reads
+`eval/posts.yaml` and committed fixtures, performs no network or model calls,
+and writes ignored report artifacts under `reports/eval/`:
+
+```text
+eval_results.jsonl
+eval_report.md
+confusion_matrix.csv
+metric_bars.svg
+summary.json
+```
+
+The cached predictions are evaluation fixtures only. They do not replace final
+Search/RAG, DSPy, guardrail, or citation behavior.
+
 ## Integration Adapter Rule
 
 Future integration gates must use real Bluesky post fetching. Search/RAG and
@@ -106,13 +125,13 @@ make test               # backend pytest + frontend Vitest
 make requirements-review # validate Gate 1 requirement mappings
 make check-secrets      # verify no tracked env files or obvious API keys
 make user-smoke         # exercise backend/frontend as a user-facing scaffold
+make eval               # run cached offline eval fixtures and reports
 make deep-review        # full local review gate used before handoff/push
 ```
 
-Later-phase commands are reserved now and intentionally fail until implemented:
+Later-phase commands still reserved now and intentionally fail until implemented:
 
 ```bash
-make eval
 make optimize
 make mlflow-log
 ```
@@ -152,8 +171,9 @@ all rows have moved from planned or reserved to implemented where required.
 - Never commit `mlruns/`, Qdrant cache, or live generated artifacts.
 - All external content will be treated as untrusted evidence in later phases.
 
-## Next Phase
+## Handoff Spine
 
-T1 research docs, project skills, and `docs/task_packets.md` remain part of the
-handoff spine. The next implementation replacement should remove the Gate 3
-Search/RAG and DSPy adapters only when real modules and tests are ready.
+Research docs live under `docs/research/`, task packets live at
+`docs/task_packets.md`, and local project skills live under `.codex/skills/`.
+The next implementation replacement should remove the Gate 3 Search/RAG and
+DSPy adapters only when real modules and tests are ready.

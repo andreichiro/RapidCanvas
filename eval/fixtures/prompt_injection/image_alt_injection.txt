@@ -1,0 +1,2 @@
+Prompt-injection fixture for image alt text.
+The evaluator expects the alt text to be labeled UNTRUSTED_IMAGE_ALT_TEXT and scanned before use.

@@ -23,6 +23,12 @@ Gate 3 is implemented. `/api/explain` performs real Bluesky post/thread fetching
 and returns a schema-valid cited safe summary. Search/RAG and DSPy remain
 deterministic dev adapters, and every response marks that in `trace`.
 
+Gate 4 Dev D eval/docs lane is implemented. It provides research docs, task
+packets, local project skills, cached eval cases and fixtures, deterministic
+metrics, report writers, and `make eval`. The cached eval uses fixture-backed
+predictions only for evaluation and does not replace real Search/RAG or DSPy
+product behavior.
+
 Do not claim T1-T15 are complete until their files, tests, and requirement
 matrix rows exist.
 
@@ -35,6 +41,12 @@ Run this before handoff, review, commit, or push:
 
 ```bash
 make deep-review
+```
+
+For Dev D eval/docs changes, also run:
+
+```bash
+make eval
 ```
 
 `make deep-review` expands to:
@@ -63,6 +75,7 @@ make requirements-review
 make check-secrets
 make maintainability-review
 make user-smoke
+make eval
 make dev-backend
 make dev-frontend
 ```
@@ -78,6 +91,12 @@ When future phases begin, preserve the five-lane ownership model from the plan:
 Dev A API/Bluesky, Dev B retrieval/source safety, Dev C DSPy/guardrails/MLflow,
 Dev D eval/docs/skills, Dev E frontend.
 
+Dev D owns `eval/posts.yaml`, `eval/fixtures/`, `backend/app/eval/`,
+`backend/app/tests/unit/test_eval*.py`, `docs/`, `.codex/skills/`,
+`AGENTS.md`, and `TRANSLATION_LOG.md`. Dev D may update Makefile or review
+automation only when needed to expose eval/handoff commands, and must record the
+workflow edit in `TRANSLATION_LOG.md`.
+
 ## Coding Rules
 
 - Keep secrets out of Git. `.env` is ignored; `.env.example` contains placeholders only.
@@ -90,6 +109,8 @@ Dev D eval/docs/skills, Dev E frontend.
 - Gate 3 and Gate 5 may use temporary deterministic dev adapters only when real
   Search/RAG or DSPy modules are still incomplete; responses must mark adapter
   use in `trace`, and adapters cannot satisfy final requirement-matrix rows.
+- Cached eval fixtures may contain deterministic predictions for reproducible
+  scoring, but they are evaluation artifacts only and never product behavior.
 - Update `TRANSLATION_LOG.md` for assumptions, downgrades, cross-lane edits, or workflow changes.
 
 ## Review Expectations

@@ -20,8 +20,11 @@ help:
 	@echo "  make dev-frontend       Start Vite scaffold"
 	@echo "  make check-secrets      Check that local secrets are not tracked"
 	@echo ""
-	@echo "Later-phase commands:"
-	@echo "  make eval | make optimize | make mlflow-log | make mlflow-ui"
+	@echo "Evaluation and later-phase commands:"
+	@echo "  make eval        Run cached eval fixtures and write ignored reports"
+	@echo "  make optimize    Reserved for GEPA optimization"
+	@echo "  make mlflow-log  Reserved for MLflow artifact logging"
+	@echo "  make mlflow-ui   Start the local MLflow UI"
 
 setup: setup-backend setup-frontend
 
@@ -122,8 +125,7 @@ dev-frontend:
 	npm --prefix $(FRONTEND_DIR) run dev
 
 eval:
-	@echo "T9 is not implemented yet. This command is reserved for the evaluation harness."
-	@exit 2
+	cd $(BACKEND_DIR) && uv run python -m app.eval.runner --cases eval/posts.yaml --out reports/eval
 
 optimize:
 	@echo "T10 is not implemented yet. This command is reserved for GEPA optimization."
@@ -159,6 +161,8 @@ clean:
 	rm -rf $(FRONTEND_DIR)/dist $(BACKEND_DIR)/mlruns mlruns
 	rm -rf $(BACKEND_DIR)/.pytest_cache $(BACKEND_DIR)/.ruff_cache $(BACKEND_DIR)/.mypy_cache
 	rm -rf $(FRONTEND_DIR)/dist $(FRONTEND_DIR)/coverage
+	rm -rf reports/eval
 
 clean-generated:
 	rm -rf $(FRONTEND_DIR)/dist $(BACKEND_DIR)/mlruns mlruns
+	rm -rf reports/eval

@@ -144,7 +144,6 @@ def check_make_targets() -> list[Issue]:
 def check_reserved_commands_are_honest() -> list[Issue]:
     text = read("Makefile")
     expected = {
-        "eval": "T9 is not implemented yet",
         "optimize": "T10 is not implemented yet",
         "mlflow-log": "T11 is not implemented yet",
     }
