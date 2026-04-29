@@ -3,6 +3,7 @@
 Updated: 2026-04-29  
 Repository: `andreichiro/RapidCanvas`  
 Shared branch: `main`  
+Dev A remote branch: `codex/dev-a-gate4`
 Dev B isolated branch: `codex/dev-b-gate4-retrieval-safety`
 
 ## Current State
@@ -11,6 +12,7 @@ Dev B isolated branch: `codex/dev-b-gate4-retrieval-safety`
 - Gate 1 is implemented: `docs/requirements_matrix.md` maps every assignment and Plan Final E requirement, and `make requirements-review` enforces 45 rows.
 - Gate 2 is implemented: FastAPI/domain contracts are frozen in `backend/app/schemas/`, `backend/app/api/routes.py`, and `backend/app/deps.py`.
 - Gate 3 is implemented: `/api/explain` performs real Bluesky post/thread fetching and returns a schema-valid cited safe summary.
+- Dev A Gate 4 has shipped remotely on `github/codex/dev-a-gate4` at `080900d`; it expands Backend/API/Bluesky normalization and adds a read-only Bluesky `search_posts()` wrapper.
 - Dev B Gate 4 lane is implemented in the isolated clone at `/Users/akatsurada/Documents/New-project-dev-b-gate4`.
 - Dev B added real Search/RAG/source-safety modules, but the live `/api/explain` route still uses the Gate 3 adapter until Dev A/C integration replaces the route builder.
 - DSPy is still a deterministic dev adapter and every Gate 3 response marks this in `trace`.
@@ -47,6 +49,11 @@ Added Dev B-owned behavior:
 
 Important integration notes:
 
+- Dev B was compared against Dev A remote branch `github/codex/dev-a-gate4` before shipping.
+- Backend implementation ownership is disjoint: Dev A changed API/Bluesky/schema/test files, while Dev B added retrieval/source-safety modules.
+- Merge overlap exists in `docs/current_handoff.md`, `TRANSLATION_LOG.md`, `scripts/verify_lane_isolation.sh`, and `scripts/assert_lane_execution_context.sh`; preserve both lanes' handoff entries during integration.
+- Dev B's generic isolation verifier is stricter about standalone clones and exact shared worktree ownership checks; Dev B's context guard now also accepts execution from subdirectories under the approved execution root, matching Dev A's useful behavior.
+- Dev A's `BlueskyClient.search_posts()` and `PostContext.warnings` should be preserved. Dev B's `BlueskySearchProvider` can consume or wrap Dev A's read-only Bluesky search during the integration window.
 - Dev B did not change frozen API/domain schemas.
 - Dev B did not wire Search/RAG into `/api/explain`; that integration belongs to the Dev A/C merge window.
 - `RagService.retrieve(query, documents) -> Evidence[]` is ready for integration and exposes prompt-injection diagnostics through `last_diagnostics`.
@@ -72,6 +79,9 @@ uv run pytest app/tests/unit/test_search.py app/tests/unit/test_rag.py
 uv run --extra bluesky pytest app/tests/unit/test_fetcher.py app/tests/unit/test_search.py
 uv run --extra ai pytest app/tests/unit/test_rag.py::test_qdrant_vector_store_recreate_and_query_when_dependency_available
 make deep-review
+git fetch github --prune
+git diff --name-status github/main..github/codex/dev-a-gate4
+git diff --name-status github/main..codex/dev-b-gate4-retrieval-safety
 ```
 
 All Dev B checks above passed in the isolated clone.
@@ -100,10 +110,11 @@ R008 no longer references a missing scripts/user_smoke_check.py file.
 - Any dev adapter use must be visible in `trace`.
 - Dev adapters cannot satisfy final acceptance or requirement-matrix rows.
 - Shared `/Users/akatsurada/Documents/New project` remained inspection-only for Dev B lane work.
+- Do not merge Dev B by overwriting Dev A's `docs/current_handoff.md` or `TRANSLATION_LOG.md`; combine the lane sections additively.
 
 ## Next Work
 
-Recommended next step: integrate Dev B Search/RAG with Dev A/C service wiring, and keep T1 handoff spine/research deliverables moving through Dev D.
+Recommended next step: merge Dev A and Dev B through normal review, preserving both lanes' code and handoff notes, then integrate Dev B Search/RAG with Dev A/C service wiring while Dev D keeps the T1 handoff spine/research deliverables moving.
 
 Expected additions:
 
