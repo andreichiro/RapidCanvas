@@ -2,7 +2,8 @@
 
 Updated: 2026-04-29  
 Repository: `andreichiro/RapidCanvas`  
-Current branch: `main`
+Shared baseline branch: `main`
+Current isolated Dev A branch: `codex/dev-a-gate4`
 
 ## Current State
 
@@ -13,6 +14,8 @@ Current branch: `main`
 - Search/RAG and DSPy are still deterministic dev adapters and every Gate 3 response marks this in `trace`.
 - `R045` is partially exercised by Gate 3 adapter tracing but remains planned for final real-pipeline enforcement.
 - Post-review Gate 3 matrix fix is applied: `R008` now points to actual smoke/browser verification files and commands.
+- Gate 4 Dev A lane is implemented on `codex/dev-a-gate4`: Backend/API/Bluesky normalization now covers URL parsing, DID/handle AT URI construction, real thread fetch, parent context, quote text, external links, image alt text/fullsize/thumb URLs, unavailable/blocked warnings, concise upstream error wrapping, and a read-only Bluesky `search_posts()` wrapper returning `ContextDocument` objects.
+- Gate 4 as a whole is not complete until Dev B/C/D/E work lands. Search/RAG, DSPy, eval/docs/skills, and full frontend Gate 4 behavior remain owned by their lanes.
 
 ## Verified Commands
 
@@ -39,6 +42,23 @@ Review follow-up:
 R008 no longer references a missing scripts/user_smoke_check.py file.
 ```
 
+Additional Dev A Gate 4 checks performed before handoff:
+
+```text
+bash scripts/verify_lane_isolation.sh assets/dev_A_gate4_WORKSPACE_CONTRACT.json
+bash scripts/assert_lane_execution_context.sh assets/dev_A_gate4_WORKSPACE_CONTRACT.json
+make deep-review
+make check-secrets
+git diff --check
+live Bluesky fetch_context smoke with https://bsky.app/profile/bsky.app/post/3mk6ipt5iv22y
+live /api/explain smoke with https://bsky.app/profile/bsky.app/post/3mk6ipt5iv22y
+live SDK normalization probes for external, image, quote, and record-with-media embeds
+```
+
+The live `/api/explain` smoke returned `200`, 3 bullets, `fallback_mode=safe_summary`, and `adapter_mode=deterministic_dev`, preserving the explicit non-final adapter boundary.
+
+Live unauthenticated `app.bsky.feed.searchPosts` returned `403` in this environment. The wrapper now sanitizes upstream errors to concise messages such as `Unable to search Bluesky posts: UnauthorizedError status=403`; Dev B should treat live Bluesky search auth/fallback behavior as part of the retrieval/search lane.
+
 ## Important Boundaries
 
 - Do not replace the trace-marked Gate 3 adapter with unmarked fake explanation bullets.
@@ -47,10 +67,12 @@ R008 no longer references a missing scripts/user_smoke_check.py file.
 - Temporary deterministic dev adapters may be used only while real Search/RAG or DSPy modules are incomplete.
 - Any dev adapter use must be visible in `trace`.
 - Dev adapters cannot satisfy final acceptance or requirement-matrix rows.
+- `PostContext.warnings` is normalized by Dev A, but the current Gate 3 adapter does not expose those warnings in public API trace because `backend/app/agent/` is outside Dev A ownership.
+- Dev A added `assets/dev_A_gate4_WORKSPACE_CONTRACT.json`, `scripts/verify_lane_isolation.sh`, and `scripts/assert_lane_execution_context.sh` in the isolated clone so future Dev A work can verify that implementation commands are not run from the shared checkout.
 
 ## Next Work
 
-Recommended next step: T1 handoff spine and research deliverables, followed by real Search/RAG and DSPy replacement work.
+Recommended next step: merge Dev A through normal review, then continue T1 handoff spine/research deliverables and the remaining Gate 4 lanes. Dev B can consume `BlueskyClient.search_posts()` or wrap it behind the search provider protocol; Dev C can consume normalized `PostContext.warnings` when guardrail trace integration lands.
 
 Expected additions:
 
