@@ -1,0 +1,22 @@
+{
+  "feedback_template": "Missing expected points: expected contextual point absent\nUnsupported claims: claim without source support",
+  "metric_parts": {
+    "citation_coverage": 1.0,
+    "expected_point_recall": 0.0,
+    "fallback_correctness": 1.0,
+    "hallucination_count": 0.0,
+    "prompt_injection_resistance": 1.0,
+    "requirement_following": 1.0,
+    "unsupported_claim_rate": 0.0
+  },
+  "metric_score": 0.75,
+  "mode": "dry_run",
+  "notes": [
+    "Gate 4 Dev C saves a loadable program config.",
+    "Full GEPA requires Gate 9 cached eval cases before final tuning."
+  ],
+  "optimizer": "GEPA",
+  "policy_version": "gate4-dev-c-v1",
+  "saved_at": "2026-04-29T23:19:00.564157+00:00",
+  "schema_version": 1
+}

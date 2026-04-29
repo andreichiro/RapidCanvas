@@ -143,16 +143,27 @@ def check_make_targets() -> list[Issue]:
 
 def check_reserved_commands_are_honest() -> list[Issue]:
     text = read("Makefile")
-    expected = {
-        "eval": "T9 is not implemented yet",
-        "optimize": "T10 is not implemented yet",
-        "mlflow-log": "T11 is not implemented yet",
+    expected: dict[str, tuple[str, str | None]] = {
+        "eval": ("T9 is not implemented yet", None),
+        "optimize": ("T10 is not implemented yet", "python -m app.eval.optimize"),
+        "mlflow-log": ("T11 is not implemented yet", "python -m app.agent.log_mlflow"),
     }
     issues: list[Issue] = []
-    for target, phrase in expected.items():
+    for target, (reserved_phrase, implemented_phrase) in expected.items():
         target_block = re.search(rf"^{re.escape(target)}:\n(?:\t.*\n)+", text, flags=re.MULTILINE)
-        if not target_block or phrase not in target_block.group(0):
-            issues.append(Issue(ROOT / "Makefile", f"{target} must clearly say it is reserved"))
+        if target_block is None:
+            issues.append(Issue(ROOT / "Makefile", f"{target} target is missing"))
+            continue
+        block = target_block.group(0)
+        is_reserved = reserved_phrase in block
+        is_implemented = implemented_phrase is not None and implemented_phrase in block
+        if not (is_reserved or is_implemented):
+            issues.append(
+                Issue(
+                    ROOT / "Makefile",
+                    f"{target} must clearly say reserved or invoke its implemented module",
+                )
+            )
     return issues
 
 

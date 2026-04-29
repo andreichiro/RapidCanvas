@@ -126,12 +126,10 @@ eval:
 	@exit 2
 
 optimize:
-	@echo "T10 is not implemented yet. This command is reserved for GEPA optimization."
-	@exit 2
+	cd $(BACKEND_DIR) && uv run python -m app.eval.optimize --dry-run
 
 mlflow-log:
-	@echo "T11 is not implemented yet. This command is reserved for MLflow logging."
-	@exit 2
+	cd $(BACKEND_DIR) && uv run --extra eval python -m app.agent.log_mlflow --reports-dir ../reports --skip-model-package
 
 mlflow-ui:
 	cd $(BACKEND_DIR) && uv run --extra eval mlflow ui --backend-store-uri "$${MLFLOW_TRACKING_URI:-file:./mlruns}"
