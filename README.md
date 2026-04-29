@@ -106,6 +106,19 @@ summary.json
 The cached predictions are evaluation fixtures only. They do not replace final
 Search/RAG, DSPy, guardrail, or citation behavior.
 
+The runner has explicit integration modes for later gates:
+
+```bash
+cd backend && uv run python -m app.eval.runner --mode fake-agent --judge deterministic
+cd backend && uv run python -m app.eval.runner --mode api --judge deterministic
+cd backend && uv run python -m app.eval.runner --mode cached --judge dspy
+cd backend && uv run python -m app.eval.runner --mode cached --judge ragas
+```
+
+`api`, `dspy`, and `ragas` modes require the relevant optional dependencies,
+provider configuration, and live-service readiness. The default `make eval`
+path stays offline and deterministic for reproducible review.
+
 ## Integration Adapter Rule
 
 Future integration gates must use real Bluesky post fetching. Search/RAG and

@@ -161,8 +161,8 @@ clean:
 	rm -rf $(FRONTEND_DIR)/dist $(BACKEND_DIR)/mlruns mlruns
 	rm -rf $(BACKEND_DIR)/.pytest_cache $(BACKEND_DIR)/.ruff_cache $(BACKEND_DIR)/.mypy_cache
 	rm -rf $(FRONTEND_DIR)/dist $(FRONTEND_DIR)/coverage
-	rm -rf reports/eval
+	find reports -mindepth 1 ! -name .gitkeep -exec rm -rf {} +
 
 clean-generated:
 	rm -rf $(FRONTEND_DIR)/dist $(BACKEND_DIR)/mlruns mlruns
-	rm -rf reports/eval
+	find reports -mindepth 1 ! -name .gitkeep -exec rm -rf {} +

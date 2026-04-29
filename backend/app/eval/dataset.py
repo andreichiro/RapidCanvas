@@ -46,7 +46,10 @@ def resolve_repo_path(path: str | Path) -> Path:
     candidate = Path(path)
     if candidate.is_absolute():
         return candidate
-    return REPO_ROOT / candidate
+    resolved = (REPO_ROOT / candidate).resolve()
+    if not resolved.is_relative_to(REPO_ROOT):
+        raise ValueError(f"repo-relative path escapes repository root: {path}")
+    return resolved
 
 
 def load_eval_cases(path: str | Path = DEFAULT_CASES_PATH) -> list[EvalCase]:
@@ -86,4 +89,3 @@ def load_cached_fixture(case: EvalCase) -> CachedFixture:
             fixture_errors.append(f"{path}: {exc}")
 
     raise ValueError(f"no usable cached fixture for {case.id}: {'; '.join(fixture_errors)}")
-

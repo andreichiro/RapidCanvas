@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from app.eval.dataset import load_cached_fixture, load_eval_cases
+from pathlib import Path
+
+from pytest import raises
+
+from app.eval.dataset import load_cached_fixture, load_eval_cases, resolve_repo_path
 
 
 def test_eval_dataset_has_cached_assignment_coverage() -> None:
@@ -22,3 +26,7 @@ def test_cached_fixture_loads_prediction_for_each_case() -> None:
         assert fixture.prediction["sources"]
         assert fixture.trace_sequence
 
+
+def test_repo_relative_path_cannot_escape_repo_root() -> None:
+    with raises(ValueError):
+        resolve_repo_path(Path("../outside"))

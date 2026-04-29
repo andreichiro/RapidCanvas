@@ -22,6 +22,10 @@ shared checkout `/Users/akatsurada/Documents/New project` remains read-only on
 - `make eval` runs cached fixture evaluation offline and emits ignored reports
   under `reports/eval/`: JSONL, Markdown, confusion matrix CSV, SVG graph, and
   summary JSON.
+- The eval runner has an `EvalAgent` protocol with cached/fake-agent/API modes
+  and selectable deterministic, DSPy, Ragas, and composite judge backends.
+  Default `make eval` remains deterministic/offline; DSPy and Ragas modes
+  require optional extras and model/provider configuration.
 
 ## Verified Commands
 
@@ -30,6 +34,7 @@ Run this before any handoff, commit, or push:
 ```bash
 make deep-review
 make eval
+targeted eval protocol/judge/metric tests
 ```
 
 The current passing gate covers linting, typing, backend tests, frontend tests, secret scan, config validation, frontend audit/build, optional backend dependency dry-run, requirement matrix validation, generated artifact cleanup, maintainability review, and user smoke checks.
@@ -70,7 +75,10 @@ R008 no longer references a missing scripts/user_smoke_check.py file.
 ## Important Boundaries
 
 - Do not replace the trace-marked Gate 3 adapter with unmarked fake explanation bullets.
-- Do not claim Search/RAG, DSPy, runtime guardrails, image understanding, provider comparison, GEPA, MLflow, or live/provider eval are complete until their real files, tests, eval artifacts, and matrix rows are updated.
+- Do not claim Search/RAG, runtime DSPy agent replacement, runtime guardrails,
+  image understanding, provider comparison, GEPA, MLflow, or live/provider eval
+  results are complete until their real files, tests, eval artifacts, and matrix
+  rows are updated.
 - Real Bluesky post fetch is required for future integration gates.
 - Temporary deterministic dev adapters may be used only while real Search/RAG or DSPy modules are incomplete.
 - Any dev adapter use must be visible in `trace`.
