@@ -70,6 +70,7 @@ make setup-backend-full # install optional backend deps for later phases
 make lint               # backend ruff/mypy + frontend TypeScript check
 make test               # backend pytest + frontend Vitest
 make check-secrets      # verify no tracked env files or obvious API keys
+make user-smoke         # exercise backend/frontend as a user-facing scaffold
 make deep-review        # full local review gate used before handoff/push
 ```
 
@@ -90,8 +91,8 @@ make deep-review
 ```
 
 It runs linting, tests, secret scanning, config validation, frontend audit,
-frontend build, optional backend dependency dry-run, and an API health smoke
-test. The same gate is registered in GitHub Actions at
+frontend build, optional backend dependency dry-run, maintainability review,
+and backend/frontend user smoke tests. The same gate is registered in GitHub Actions at
 `.github/workflows/deep-review.yml`.
 
 See `docs/deep_review_workflow.md` for the detailed review checklist.

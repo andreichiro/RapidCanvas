@@ -32,7 +32,9 @@ cd backend && uv run python -m app.config
 npm --prefix frontend audit --audit-level=moderate
 npm --prefix frontend run build
 cd backend && uv sync --dev --all-extras --dry-run
+maintainability review for simplicity/handoff/changeability
 uvicorn smoke test for GET /api/health
+Vite smoke test for the user-facing scaffold shell
 ```
 
 Useful narrower commands:
@@ -42,6 +44,8 @@ make setup
 make lint
 make test
 make check-secrets
+make maintainability-review
+make user-smoke
 make dev-backend
 make dev-frontend
 ```
@@ -78,4 +82,5 @@ Every review must cover:
 - Optional dependency resolvability.
 - API health smoke behavior.
 - Whether later-phase commands are honestly reserved or fully implemented.
-
+- Whether the code is easy to understand, maintain, change, and explain.
+- Whether a user-facing smoke test proves the scaffold behaves as intended.

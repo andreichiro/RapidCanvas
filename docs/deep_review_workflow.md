@@ -66,12 +66,36 @@ make deep-review
    cd backend && uv sync --dev --all-extras --dry-run
    ```
 
-10. Backend API smoke test:
+10. Generated artifact cleanup:
+
+    ```bash
+    make clean-generated
+    ```
+
+11. Backend API smoke test:
 
     ```bash
     uvicorn app.main:app
     curl http://127.0.0.1:8001/api/health
     ```
+
+12. Maintainability review:
+
+    ```bash
+    python3 scripts/review_quality.py
+    ```
+
+    This checks handoff docs, command discoverability, generated artifact
+    hygiene, reserved-command honesty, file/function size, placeholder markers,
+    and whether the user-facing scaffold text matches the current plan.
+
+13. Frontend user smoke test:
+
+    ```bash
+    make frontend-smoke
+    ```
+
+    This starts Vite and verifies the browser-facing scaffold shell is served.
 
 ## Manual Review Checklist
 
@@ -85,9 +109,10 @@ Use this checklist for advanced human or agent review:
 - Verify no background `uvicorn`, `vite`, or `mlflow` process remains after smoke tests.
 - Verify generated TypeScript metadata and build outputs are ignored.
 - Verify optional heavy dependencies resolve without being installed during normal T0 setup.
+- Verify code is easy to understand, easy to maintain, easy to change, easy to explain, and free of unnecessary complexity.
+- Verify user-facing behavior with browser-use when local UI work changes.
 
 ## Acceptance Rule
 
 T0 is accepted only when `make deep-review` passes locally and the GitHub
 Actions `Deep Review` workflow is registered for pushes and pull requests.
-

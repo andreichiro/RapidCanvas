@@ -3,7 +3,7 @@ SHELL := /bin/bash
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 
-.PHONY: help setup setup-backend setup-backend-full setup-frontend lint backend-lint frontend-lint test backend-test frontend-test dev dev-backend dev-frontend eval optimize mlflow-log mlflow-ui clean check-secrets config-check frontend-audit frontend-build extras-dry-run api-smoke deep-review
+.PHONY: help setup setup-backend setup-backend-full setup-frontend lint backend-lint frontend-lint test backend-test frontend-test dev dev-backend dev-frontend eval optimize mlflow-log mlflow-ui clean clean-generated check-secrets config-check frontend-audit frontend-build extras-dry-run maintainability-review api-smoke frontend-smoke user-smoke deep-review
 
 help:
 	@echo "Bluesky Contextual Post Explainer"
@@ -14,6 +14,7 @@ help:
 	@echo "  make lint               Run backend and frontend lint/type checks"
 	@echo "  make test               Run backend and frontend tests"
 	@echo "  make deep-review        Run the full local review gate"
+	@echo "  make user-smoke         Exercise the scaffold as a user would"
 	@echo "  make dev-backend        Start FastAPI scaffold"
 	@echo "  make dev-frontend       Start Vite scaffold"
 	@echo "  make check-secrets      Check that local secrets are not tracked"
@@ -62,6 +63,9 @@ extras-dry-run:
 	cd $(BACKEND_DIR) && uv sync --dev --all-extras --dry-run >/tmp/rapidcanvas_extras_dry_run.txt 2>&1
 	@echo "Optional backend dependencies resolve."
 
+maintainability-review:
+	python3 scripts/review_quality.py
+
 api-smoke:
 	@bash -lc 'set -euo pipefail; \
 		cd "$(BACKEND_DIR)"; \
@@ -81,7 +85,26 @@ api-smoke:
 		cat "$$LOG_FILE"; \
 		exit 1'
 
-deep-review: lint test check-secrets config-check frontend-audit frontend-build extras-dry-run api-smoke
+frontend-smoke:
+	@bash -lc 'set -euo pipefail; \
+		LOG_FILE="/tmp/rapidcanvas_frontend_smoke.log"; \
+		npm --prefix "$(FRONTEND_DIR)" run dev -- --host 127.0.0.1 --port 5174 >"$$LOG_FILE" 2>&1 & \
+		PID=$$!; \
+		trap "kill $$PID >/dev/null 2>&1 || true" EXIT; \
+		for _ in {1..30}; do \
+			if curl -fsS http://127.0.0.1:5174 >/tmp/rapidcanvas_frontend_smoke.html 2>/dev/null; then \
+				grep -q "Bluesky Contextual Post Explainer" /tmp/rapidcanvas_frontend_smoke.html; \
+				echo "Frontend smoke loaded application shell."; \
+				exit 0; \
+			fi; \
+			sleep 0.5; \
+		done; \
+		cat "$$LOG_FILE"; \
+		exit 1'
+
+user-smoke: api-smoke frontend-smoke
+
+deep-review: lint test check-secrets config-check frontend-audit frontend-build extras-dry-run clean-generated maintainability-review user-smoke
 
 dev:
 	@echo "Run backend and frontend in separate terminals:"
@@ -129,5 +152,9 @@ check-secrets:
 	@echo "No tracked .env files or obvious OpenAI keys found in unignored project files."
 
 clean:
+	rm -rf $(FRONTEND_DIR)/dist $(BACKEND_DIR)/mlruns mlruns
 	rm -rf $(BACKEND_DIR)/.pytest_cache $(BACKEND_DIR)/.ruff_cache $(BACKEND_DIR)/.mypy_cache
 	rm -rf $(FRONTEND_DIR)/dist $(FRONTEND_DIR)/coverage
+
+clean-generated:
+	rm -rf $(FRONTEND_DIR)/dist $(BACKEND_DIR)/mlruns mlruns
