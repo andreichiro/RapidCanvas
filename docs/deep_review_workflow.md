@@ -113,6 +113,7 @@ Use this checklist for advanced human or agent review:
 
 - Verify no `.env`, API key, `mlruns/`, Qdrant cache, `frontend/dist/`, or live generated report is tracked.
 - Verify `.env.example` contains placeholders only.
+- Verify `docs/current_handoff.md` reflects the current gate, boundaries, and next work.
 - Verify `TRANSLATION_LOG.md` records assumptions and workflow changes.
 - Verify `docs/requirements_matrix.md` maps every assignment and Plan Final E requirement.
 - Verify README describes the current implementation honestly.

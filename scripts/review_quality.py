@@ -67,6 +67,7 @@ def check_required_handoff_files() -> list[Issue]:
         "Makefile",
         "README.md",
         "TRANSLATION_LOG.md",
+        "docs/current_handoff.md",
         "docs/deep_review_workflow.md",
         "docs/requirements_matrix.md",
         ".github/workflows/deep-review.yml",
@@ -89,6 +90,7 @@ def check_docs_explain_review_gate() -> list[Issue]:
             "Manual Review Checklist",
             "Acceptance Rule",
         ],
+        "docs/current_handoff.md": ["Gate 2", "R045", "make deep-review", "no-fake-product-behavior"],
         "docs/requirements_matrix.md": ["R001", "R044", "implemented", "planned"],
     }
     for file_name, snippets in expected_mentions.items():

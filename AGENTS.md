@@ -23,6 +23,9 @@ content.
 Do not claim T1-T15 are complete until their files, tests, and requirement
 matrix rows exist.
 
+Read `docs/current_handoff.md` before starting a new gate. It is the concise
+handoff snapshot for current status, boundaries, and next work.
+
 ## Required Commands
 
 Run this before handoff, review, commit, or push:

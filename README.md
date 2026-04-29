@@ -15,6 +15,7 @@ adds the requirement matrix and validates assignment coverage in the review gate
 - T1-T15: planned next phases.
 - The assignment API key must be placed only in local `.env`; do not commit it.
 - Because the key was shared in plain text during intake, rotate it before real use.
+- Current handoff snapshot: `docs/current_handoff.md`.
 
 ## Quick Start
 
