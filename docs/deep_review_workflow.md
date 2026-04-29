@@ -66,20 +66,30 @@ make deep-review
    cd backend && uv sync --dev --all-extras --dry-run
    ```
 
-10. Generated artifact cleanup:
+10. Requirement matrix completeness:
+
+    ```bash
+    make requirements-review
+    ```
+
+    This verifies Gate 1 has every required assignment and plan row, each row has
+    implementation, test, eval, documentation, and status mappings, and no row
+    has a missing mapping.
+
+11. Generated artifact cleanup:
 
     ```bash
     make clean-generated
     ```
 
-11. Backend API smoke test:
+12. Backend API smoke test:
 
     ```bash
     uvicorn app.main:app
     curl http://127.0.0.1:8001/api/health
     ```
 
-12. Maintainability review:
+13. Maintainability review:
 
     ```bash
     python3 scripts/review_quality.py
@@ -89,7 +99,7 @@ make deep-review
     hygiene, reserved-command honesty, file/function size, placeholder markers,
     and whether the user-facing scaffold text matches the current plan.
 
-13. Frontend user smoke test:
+14. Frontend user smoke test:
 
     ```bash
     make frontend-smoke
@@ -104,6 +114,7 @@ Use this checklist for advanced human or agent review:
 - Verify no `.env`, API key, `mlruns/`, Qdrant cache, `frontend/dist/`, or live generated report is tracked.
 - Verify `.env.example` contains placeholders only.
 - Verify `TRANSLATION_LOG.md` records assumptions and workflow changes.
+- Verify `docs/requirements_matrix.md` maps every assignment and Plan Final E requirement.
 - Verify README describes the current implementation honestly.
 - Verify later-phase commands fail clearly if not implemented.
 - Verify no background `uvicorn`, `vite`, or `mlflow` process remains after smoke tests.
@@ -114,5 +125,6 @@ Use this checklist for advanced human or agent review:
 
 ## Acceptance Rule
 
-T0 is accepted only when `make deep-review` passes locally and the GitHub
-Actions `Deep Review` workflow is registered for pushes and pull requests.
+The current scaffold gates are accepted only when `make deep-review` passes
+locally and the GitHub Actions `Deep Review` workflow is registered for pushes
+and pull requests.

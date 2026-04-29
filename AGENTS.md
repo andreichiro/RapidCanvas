@@ -11,6 +11,10 @@ retrieved, cited context.
 T0 / Gate 0 is implemented. It provides the safe scaffold, command surface,
 backend settings, FastAPI health route, React shell, tests, and review workflow.
 
+Gate 1 is implemented. It provides `docs/requirements_matrix.md` and enforces
+assignment coverage through `make requirements-review`, which is included in
+`make deep-review`.
+
 Do not claim T1-T15 are complete until their files, tests, and requirement
 matrix rows exist.
 
@@ -32,6 +36,7 @@ cd backend && uv run python -m app.config
 npm --prefix frontend audit --audit-level=moderate
 npm --prefix frontend run build
 cd backend && uv sync --dev --all-extras --dry-run
+requirements matrix review for Gate 1 coverage
 maintainability review for simplicity/handoff/changeability
 uvicorn smoke test for GET /api/health
 Vite smoke test for the user-facing scaffold shell
@@ -43,6 +48,7 @@ Useful narrower commands:
 make setup
 make lint
 make test
+make requirements-review
 make check-secrets
 make maintainability-review
 make user-smoke
@@ -82,5 +88,6 @@ Every review must cover:
 - Optional dependency resolvability.
 - API health smoke behavior.
 - Whether later-phase commands are honestly reserved or fully implemented.
+- Whether every assignment requirement is mapped in `docs/requirements_matrix.md`.
 - Whether the code is easy to understand, maintain, change, and explain.
 - Whether a user-facing smoke test proves the scaffold behaves as intended.

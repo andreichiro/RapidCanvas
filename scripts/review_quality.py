@@ -68,6 +68,7 @@ def check_required_handoff_files() -> list[Issue]:
         "README.md",
         "TRANSLATION_LOG.md",
         "docs/deep_review_workflow.md",
+        "docs/requirements_matrix.md",
         ".github/workflows/deep-review.yml",
     ]
     return [
@@ -80,13 +81,15 @@ def check_required_handoff_files() -> list[Issue]:
 def check_docs_explain_review_gate() -> list[Issue]:
     issues: list[Issue] = []
     expected_mentions = {
-        "README.md": ["make deep-review", "Deep Review Workflow", "T0"],
-        "AGENTS.md": ["make deep-review", "Review Expectations", "Current Gate"],
+        "README.md": ["make deep-review", "make requirements-review", "Deep Review Workflow", "Gate 1"],
+        "AGENTS.md": ["make deep-review", "make requirements-review", "Review Expectations", "Current Gate"],
         "docs/deep_review_workflow.md": [
             "make deep-review",
+            "make requirements-review",
             "Manual Review Checklist",
             "Acceptance Rule",
         ],
+        "docs/requirements_matrix.md": ["R001", "R044", "implemented", "planned"],
     }
     for file_name, snippets in expected_mentions.items():
         text = read(file_name)
@@ -101,6 +104,7 @@ def check_translation_log_current() -> list[Issue]:
     required = [
         "T0 repo safety",
         "deep review workflow",
+        "Requirement matrix",
         "andreichiro/RapidCanvas",
     ]
     return [
@@ -119,6 +123,7 @@ def check_make_targets() -> list[Issue]:
         "api-smoke:",
         "frontend-smoke:",
         "check-secrets:",
+        "requirements-review:",
     ]
     issues = [
         Issue(ROOT / "Makefile", f"missing required target {target}")
@@ -127,7 +132,7 @@ def check_make_targets() -> list[Issue]:
     ]
     expected_chain = (
         "deep-review: lint test check-secrets config-check frontend-audit frontend-build "
-        "extras-dry-run clean-generated maintainability-review user-smoke"
+        "extras-dry-run requirements-review clean-generated maintainability-review user-smoke"
     )
     if expected_chain not in text:
         issues.append(Issue(ROOT / "Makefile", "deep-review does not include the full quality/user-smoke chain"))
