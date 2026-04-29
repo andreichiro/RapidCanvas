@@ -104,3 +104,7 @@ make deep-review
 ## Ship Decision
 
 Approved to ship Gate 3 after rerunning `make deep-review` with this review file included.
+
+## Post-Review Correction
+
+The follow-up review finding about `docs/requirements_matrix.md` row `R008` was resolved after Gate 3 shipped. `R008` now references the actual Makefile smoke targets, frontend/API files, browser-use verification, and this review record instead of a missing `scripts/user_smoke_check.py` file.

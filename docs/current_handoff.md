@@ -12,6 +12,7 @@ Current branch: `main`
 - Gate 3 is implemented: `/api/explain` performs real Bluesky post/thread fetching and returns a schema-valid cited safe summary.
 - Search/RAG and DSPy are still deterministic dev adapters and every Gate 3 response marks this in `trace`.
 - `R045` is partially exercised by Gate 3 adapter tracing but remains planned for final real-pipeline enforcement.
+- Post-review Gate 3 matrix fix is applied: `R008` now points to actual smoke/browser verification files and commands.
 
 ## Verified Commands
 
@@ -31,6 +32,12 @@ browser-use verification at http://127.0.0.1:5174/
 ```
 
 Both checks confirmed real Bluesky fetch, 3 cited bullets, `fallback_mode=safe_summary`, `adapter_mode=deterministic_dev`, and visible adapter guardrail flags.
+
+Review follow-up:
+
+```text
+R008 no longer references a missing scripts/user_smoke_check.py file.
+```
 
 ## Important Boundaries
 
