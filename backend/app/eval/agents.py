@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Protocol
+from typing import Any, Protocol
 
 from app.eval.dataset import CachedFixture, EvalCase, load_cached_fixture
 
@@ -13,6 +13,22 @@ class EvalAgent(Protocol):
 
     def predict(self, case: EvalCase) -> CachedFixture:
         """Return a prediction fixture for one eval case."""
+
+
+class HttpResponse(Protocol):
+    """Subset of an HTTP response needed by API eval."""
+
+    status_code: int
+
+    def json(self) -> Any:
+        """Return decoded JSON."""
+
+
+class HttpClient(Protocol):
+    """Subset of TestClient needed by API eval."""
+
+    def post(self, url: str, *, json: Any) -> HttpResponse:
+        """POST JSON to a route."""
 
 
 class FixtureEvalAgent:
@@ -42,12 +58,8 @@ class FastApiEvalAgent:
     3 is still the default app implementation.
     """
 
-    def __init__(self, provider: str = "openai") -> None:
-        from fastapi.testclient import TestClient
-
-        from app.main import create_app
-
-        self._client = TestClient(create_app())
+    def __init__(self, provider: str = "openai", client: HttpClient | None = None) -> None:
+        self._client = client or _build_test_client()
         self._provider = provider
 
     def predict(self, case: EvalCase) -> CachedFixture:
@@ -55,7 +67,8 @@ class FastApiEvalAgent:
             "/api/explain",
             json={"post_url": case.url, "provider": self._provider, "include_trace": True},
         )
-        response.raise_for_status()
+        if response.status_code >= 400:
+            return _error_fixture(case, response)
         prediction = response.json()
         return CachedFixture(
             prediction=prediction,
@@ -63,6 +76,14 @@ class FastApiEvalAgent:
             trace_sequence=_trace_sequence(prediction),
             unsupported_claims=[],
         )
+
+
+def _build_test_client() -> HttpClient:
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    return TestClient(create_app())
 
 
 def build_eval_agent(mode: str) -> EvalAgent:
@@ -73,6 +94,38 @@ def build_eval_agent(mode: str) -> EvalAgent:
     if mode == "api":
         return FastApiEvalAgent()
     raise ValueError(f"unsupported eval mode: {mode}")
+
+
+def _error_fixture(case: EvalCase, response: HttpResponse) -> CachedFixture:
+    payload = response.json()
+    if not isinstance(payload, dict):
+        payload = {"detail": payload}
+    detail = payload.get("detail", payload)
+    message = str(detail)
+    return CachedFixture(
+        prediction={
+            "bullets": [],
+            "sources": [],
+            "trace": {
+                "category": "api_error",
+                "fallback_mode": "abstain",
+                "guardrail_flags": ["api_eval_error"],
+                "warnings": [message],
+                "latency_ms": 0,
+            },
+        },
+        retrieved_source_hints=[],
+        trace_sequence=[
+            "fetch_post",
+            "scan_input",
+            "classify",
+            "retrieve",
+            "assess_trust",
+            "validate",
+        ],
+        unsupported_claims=[f"{case.id}: API returned {response.status_code}"],
+        notes=message,
+    )
 
 
 def _source_hints(prediction: dict[str, object]) -> list[str]:
@@ -92,4 +145,3 @@ def _trace_sequence(prediction: dict[str, object]) -> list[str]:
         events = trace["events"]
         return [str(event.get("step")) for event in events if isinstance(event, dict)]
     return ["fetch_post", "scan_input", "classify", "retrieve", "assess_trust", "validate"]
-

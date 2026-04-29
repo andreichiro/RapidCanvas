@@ -26,6 +26,9 @@ shared checkout `/Users/akatsurada/Documents/New project` remains read-only on
   and selectable deterministic, DSPy, Ragas, and composite judge backends.
   Default `make eval` remains deterministic/offline; DSPy and Ragas modes
   require optional extras and model/provider configuration.
+- API eval mode records per-case HTTP failures as scored eval rows instead of
+  crashing, which lets synthetic cached cases and later live cases produce a
+  complete report even when the current app returns upstream fetch errors.
 
 ## Verified Commands
 
@@ -35,6 +38,7 @@ Run this before any handoff, commit, or push:
 make deep-review
 make eval
 targeted eval protocol/judge/metric tests
+API mode smoke with deterministic judge
 ```
 
 The current passing gate covers linting, typing, backend tests, frontend tests, secret scan, config validation, frontend audit/build, optional backend dependency dry-run, requirement matrix validation, generated artifact cleanup, maintainability review, and user smoke checks.
