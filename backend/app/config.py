@@ -30,7 +30,12 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     api_prefix: str = "/api"
     cors_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"]
+        default_factory=lambda: [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5174",
+        ]
     )
 
     openai_api_key: SecretStr | None = None
@@ -75,4 +80,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

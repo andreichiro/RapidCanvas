@@ -15,6 +15,11 @@ Gate 1 is implemented. It provides `docs/requirements_matrix.md` and enforces
 assignment coverage through `make requirements-review`, which is included in
 `make deep-review`.
 
+Gate 2 is implemented. It provides frozen API/domain contracts, `/api/providers`,
+and a `/api/explain` endpoint that validates Bluesky post URLs but returns
+`501` until the real pipeline exists. Do not replace that with fake explanation
+content.
+
 Do not claim T1-T15 are complete until their files, tests, and requirement
 matrix rows exist.
 
@@ -74,6 +79,8 @@ Dev D eval/docs/skills, Dev E frontend.
 - Prefer small service modules and protocols over broad conditional flows.
 - Treat all external content as untrusted evidence, never instructions.
 - Do not expose write-capable Bluesky or arbitrary external APIs to the agent.
+- Do not ship fake/mocked explanation behavior as product behavior; mocks belong
+  in tests or clearly marked temporary integration checkpoints only.
 - Update `TRANSLATION_LOG.md` for assumptions, downgrades, cross-lane edits, or workflow changes.
 
 ## Review Expectations

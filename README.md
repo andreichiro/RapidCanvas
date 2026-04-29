@@ -11,6 +11,7 @@ adds the requirement matrix and validates assignment coverage in the review gate
 
 - T0 scaffold: implemented.
 - Gate 1 requirement matrix: implemented.
+- Gate 2 API and domain contracts: implemented.
 - T1-T15: planned next phases.
 - The assignment API key must be placed only in local `.env`; do not commit it.
 - Because the key was shared in plain text during intake, rotate it before real use.
@@ -32,8 +33,10 @@ make dev-backend
 make dev-frontend
 ```
 
-The backend scaffold exposes `GET /api/health`. The full `/api/explain` contract
-will be implemented in T2/T3.
+The backend exposes `GET /api/health`, `GET /api/providers`, and the frozen
+`POST /api/explain` contract. `/api/explain` validates Bluesky post URLs and
+returns `501` until the real Bluesky/search/DSPy pipeline is implemented, so no
+fake explanation is presented as product behavior.
 
 ## Environment
 
@@ -64,6 +67,21 @@ Bluesky URL
 -> guardrail fallback
 -> response
 ```
+
+## API Contract Status
+
+Gate 2 freezes the public response shape for later frontend, eval, and agent
+lanes:
+
+```text
+POST /api/explain
+GET /api/health
+GET /api/providers
+```
+
+The successful `ExplainResponse` schema already requires 3-5 cited bullets,
+sources, and trace fields for trust score, fallback mode, and guardrail flags.
+The route intentionally returns `501` until the real pipeline is available.
 
 ## Commands
 
@@ -123,5 +141,6 @@ all rows have moved from planned or reserved to implemented where required.
 
 ## Next Phase
 
-Gate 2 freezes API and domain contracts, while T1 research docs, project skills,
-and `docs/task_packets.md` remain part of the handoff spine.
+T1 research docs, project skills, and `docs/task_packets.md` remain part of the
+handoff spine. Gate 3 is the vertical slice that connects the frozen API shape
+to the first implementation path without claiming mocks as final behavior.
