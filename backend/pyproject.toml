@@ -1,0 +1,70 @@
+[project]
+name = "bluesky-contextual-post-explainer"
+version = "0.1.0"
+description = "FastAPI + DSPy backend for contextual Bluesky post explanations."
+readme = "../README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "diskcache>=5.6.3",
+  "fastapi>=0.115.0",
+  "httpx>=0.27.0",
+  "pydantic>=2.8.0",
+  "pydantic-settings>=2.4.0",
+  "tenacity>=8.5.0",
+  "uvicorn[standard]>=0.30.0",
+]
+
+[project.optional-dependencies]
+bluesky = [
+  "atproto>=0.0.61",
+  "beautifulsoup4>=4.12.0",
+  "ddgs>=9.0.0",
+  "trafilatura>=1.12.0",
+]
+ai = [
+  "dspy>=2.6.0",
+  "openai>=1.60.0",
+  "qdrant-client>=1.12.0",
+]
+eval = [
+  "datasets>=3.0.0",
+  "matplotlib>=3.9.0",
+  "mlflow>=2.18.0",
+  "numpy>=1.26.0",
+  "ragas>=0.2.0",
+  "scikit-learn>=1.5.0",
+  "seaborn>=0.13.0",
+]
+rerank = [
+  "sentence-transformers>=3.0.0",
+]
+
+[dependency-groups]
+dev = [
+  "mypy>=1.11.0",
+  "pytest>=8.3.0",
+  "pytest-asyncio>=0.24.0",
+  "respx>=0.21.0",
+  "ruff>=0.6.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["app/tests"]
+asyncio_mode = "auto"
+pythonpath = ["."]

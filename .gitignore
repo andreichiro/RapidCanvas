@@ -1,0 +1,49 @@
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.python-version
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Python/package caches and generated app state
+.cache/
+backend/.cache/
+qdrant_storage/
+*.sqlite
+*.sqlite3
+
+# MLflow and generated evaluation artifacts
+mlruns/
+**/mlruns/
+reports/*
+!reports/.gitkeep
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+frontend/vite.config.d.ts.map
+*.tsbuildinfo
+
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
