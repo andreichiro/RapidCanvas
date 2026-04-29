@@ -40,6 +40,28 @@ The backend exposes `GET /api/health`, `GET /api/providers`, and `POST /api/expl
 fetching, and returns a schema-valid safe summary. Search/RAG and DSPy are still
 deterministic dev adapters and are marked in `trace`.
 
+## Frontend UI
+
+The React app runs at `http://localhost:5173` with Vite proxying `/api` to the
+FastAPI backend on `http://127.0.0.1:8000`.
+
+The Gate 4 UI includes the Dev E surface from Plan Final E:
+
+- Bluesky post URL form with provider selection from `GET /api/providers`.
+- Loading and API error states.
+- Cited 3-5 bullet rendering with chips that jump to source cards.
+- Source list with title, URL, source type, and snippet.
+- Trust/fallback status for `none`, `partial`, `abstain`, and `safe_summary`.
+- Guardrail flags and a toggleable trace panel with category, queries,
+  warnings, latency, trust score, fallback mode, adapter mode, and notes.
+
+Focused frontend checks:
+
+```bash
+npm --prefix frontend test
+npm --prefix frontend run build
+```
+
 ## Environment
 
 ```bash

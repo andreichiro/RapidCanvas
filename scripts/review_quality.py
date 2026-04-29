@@ -227,21 +227,22 @@ def check_no_placeholder_implementation_markers() -> list[Issue]:
 
 
 def check_frontend_user_text_matches_plan() -> list[Issue]:
-    text = read("frontend/src/App.tsx")
-    required = [
-        "Bluesky Contextual Post Explainer",
-        "T0 scaffold",
-        "URL input",
-        "provider selector",
-        "citations",
-        "trust display",
-        "trace panel",
-    ]
-    return [
-        Issue(ROOT / "frontend/src/App.tsx", f"user-visible scaffold text missing: {snippet}")
-        for snippet in required
-        if snippet not in text
-    ]
+    required = {
+        "frontend/src/App.tsx": ["Bluesky Contextual Post Explainer"],
+        "frontend/src/components/UrlForm.tsx": ["Bluesky post URL", "Provider"],
+        "frontend/src/components/CitationChip.tsx": ["Citation"],
+        "frontend/src/components/SourceList.tsx": ["Sources"],
+        "frontend/src/components/TrustBadge.tsx": ["Safe summary", "Abstain", "Partial"],
+        "frontend/src/components/GuardrailFlags.tsx": ["guardrail flags"],
+        "frontend/src/components/TracePanel.tsx": ["trace panel", "Category", "Warnings"],
+    }
+    issues: list[Issue] = []
+    for file_name, snippets in required.items():
+        text = read(file_name)
+        for snippet in snippets:
+            if snippet not in text:
+                issues.append(Issue(ROOT / file_name, f"user-visible frontend surface missing: {snippet}"))
+    return issues
 
 
 def check_generated_artifacts_absent() -> list[Issue]:

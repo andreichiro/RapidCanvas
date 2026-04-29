@@ -1,9 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import App from "./App";
+import { type ExplainResponse } from "./api/client";
 
-const explainResponse = {
+const baseResponse: ExplainResponse = {
   post: {
     url: "https://bsky.app/profile/example.com/post/3abcxyz",
     author: "example.com",
@@ -12,7 +13,7 @@ const explainResponse = {
   },
   bullets: [
     { text: "Fetched post text is available.", source_ids: ["S1"] },
-    { text: "Trace marks deterministic adapters.", source_ids: ["S1"] },
+    { text: "Trace marks deterministic adapters.", source_ids: ["S1", "S2"] },
     { text: "This is not final Search/RAG or DSPy behavior.", source_ids: ["S1"] },
   ],
   sources: [
@@ -23,10 +24,17 @@ const explainResponse = {
       type: "thread",
       snippet: "Fetched post",
     },
+    {
+      id: "S2",
+      title: "Bluesky parent context",
+      url: "https://bsky.app/profile/example.com/post/3abcxyz",
+      type: "bluesky",
+      snippet: "Parent reply",
+    },
   ],
   trace: {
     category: "gate3_vertical_slice",
-    queries: [],
+    queries: ["example context"],
     warnings: ["real_bluesky_fetch_enabled"],
     latency_ms: 12,
     trust_score: 0.35,
@@ -37,63 +45,176 @@ const explainResponse = {
   },
 };
 
-beforeEach(() => {
-  vi.restoreAllMocks();
-  vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+const providersPayload = {
+  providers: [
+    {
+      name: "openai",
+      configured: false,
+      skipped_reason: "OPENAI_API_KEY is not configured",
+      default_model: null,
+    },
+    {
+      name: "ollama",
+      configured: true,
+      skipped_reason: null,
+      default_model: "llama3.2",
+    },
+  ],
+};
+
+function jsonResponse(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function mockFetch(response: ExplainResponse = baseResponse) {
+  return vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
     const url = String(input);
     if (url.endsWith("/api/providers")) {
-      return Promise.resolve(
-        new Response(
-          JSON.stringify({
-            providers: [
-              {
-                name: "openai",
-                configured: false,
-                skipped_reason: "OPENAI_API_KEY is not configured",
-                default_model: null,
-              },
-            ],
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
-      );
+      return Promise.resolve(jsonResponse(providersPayload));
     }
-    return Promise.resolve(
-      new Response(JSON.stringify(explainResponse), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      }),
-    );
+    if (url.endsWith("/api/explain")) {
+      return Promise.resolve(jsonResponse(response));
+    }
+    return Promise.reject(new Error(`Unexpected request: ${url} ${init?.method ?? "GET"}`));
   });
+}
+
+beforeEach(() => {
+  vi.restoreAllMocks();
 });
 
 afterEach(() => {
   cleanup();
 });
 
-test("renders the Gate 3 application shell", async () => {
+test("renders the application shell and provider selector", async () => {
+  mockFetch();
   render(<App />);
 
   expect(screen.getByRole("heading", { name: "Bluesky Contextual Post Explainer" })).toBeVisible();
-  expect(screen.getByText(/T0 scaffold/)).toBeVisible();
-  expect(await screen.findByLabelText("URL input")).toBeVisible();
+  expect(await screen.findByLabelText("Bluesky post URL")).toBeVisible();
+  expect(await screen.findByRole("combobox", { name: "Provider" })).toHaveTextContent("openai (skipped)");
 });
 
-test("submits a Bluesky URL and renders cited bullets, trust display, and trace panel", async () => {
+test("submits a Bluesky URL through the typed API client", async () => {
+  const fetchMock = mockFetch();
   render(<App />);
 
-  fireEvent.change(await screen.findByLabelText("URL input"), {
-    target: { value: "https://bsky.app/profile/example.com/post/3abcxyz" },
+  const input = await screen.findByLabelText("Bluesky post URL");
+  fireEvent.change(input, {
+    target: { value: " https://bsky.app/profile/example.com/post/3abcxyz " },
   });
   fireEvent.click(screen.getByRole("button", { name: "Explain" }));
 
   expect(await screen.findByText("Fetched post text is available.")).toBeVisible();
-  expect(screen.getAllByLabelText("citations")[0]).toHaveTextContent("S1");
-  expect(screen.getByText(/trust display/i)).toHaveTextContent("safe_summary");
+  const explainCall = fetchMock.mock.calls.find(([inputArg]) => String(inputArg).endsWith("/api/explain"));
+  expect(explainCall?.[1]?.method).toBe("POST");
+  expect(JSON.parse(String(explainCall?.[1]?.body))).toMatchObject({
+    post_url: "https://bsky.app/profile/example.com/post/3abcxyz",
+    provider: "openai",
+    include_trace: true,
+  });
+});
 
-  fireEvent.click(screen.getByRole("button", { name: "trace panel" }));
+test("submits the selected provider", async () => {
+  const fetchMock = mockFetch();
+  render(<App />);
+
+  const providerSelect = await screen.findByRole("combobox", { name: "Provider" });
+  fireEvent.change(providerSelect, { target: { value: "ollama" } });
+  fireEvent.click(screen.getByRole("button", { name: "Explain" }));
+
+  expect(await screen.findByText("Fetched post text is available.")).toBeVisible();
+  const explainCall = fetchMock.mock.calls.find(([inputArg]) => String(inputArg).endsWith("/api/explain"));
+  expect(JSON.parse(String(explainCall?.[1]?.body))).toMatchObject({
+    provider: "ollama",
+  });
+});
+
+test("renders cited bullets and source cards", async () => {
+  mockFetch();
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
+
+  const bullets = await screen.findByLabelText("explanation bullets");
+  expect(within(bullets).getAllByRole("listitem")).toHaveLength(3);
+  expect(screen.getAllByLabelText("Citation S1: Bluesky post by example.com")).toHaveLength(3);
+  expect(screen.getByLabelText("Citation S2: Bluesky parent context")).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Sources" })).toBeVisible();
+  expect(screen.getByText("Parent reply")).toBeVisible();
+});
+
+test("toggles trace details with trust, fallback, warnings, and guardrail flags", async () => {
+  mockFetch();
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
+
+  expect(await screen.findByLabelText("trust and fallback status")).toHaveTextContent("Safe summary");
+  expect(screen.getByLabelText("guardrail flags")).toHaveTextContent("dev adapter dspy");
+
+  fireEvent.click(screen.getByRole("button", { name: "Show trace" }));
 
   await waitFor(() => {
-    expect(screen.getByText(/dev_adapter_dspy/)).toBeVisible();
+    expect(screen.getByText("gate3_vertical_slice")).toBeVisible();
+    expect(screen.getByText("real_bluesky_fetch_enabled")).toBeVisible();
+    expect(screen.getByText("deterministic dev")).toBeVisible();
   });
+});
+
+test("renders a partial-success state distinctly", async () => {
+  mockFetch({
+    ...baseResponse,
+    trace: {
+      ...baseResponse.trace,
+      trust_score: 0.52,
+      fallback_mode: "partial",
+      guardrail_flags: ["low_evidence"],
+    },
+  });
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
+
+  expect(await screen.findByLabelText("trust and fallback status")).toHaveTextContent("Partial");
+  expect(screen.getByText("Only supported points are shown.")).toBeVisible();
+  expect(screen.getByLabelText("guardrail flags")).toHaveTextContent("low evidence");
+});
+
+test("renders an abstain state distinctly", async () => {
+  mockFetch({
+    ...baseResponse,
+    trace: {
+      ...baseResponse.trace,
+      trust_score: 0.08,
+      fallback_mode: "abstain",
+      guardrail_flags: ["low_evidence"],
+    },
+  });
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
+
+  expect(await screen.findByLabelText("trust and fallback status")).toHaveTextContent("Abstain");
+  expect(screen.getByText("Evidence was not sufficient for a contextual explanation.")).toBeVisible();
+  expect(screen.getByLabelText("guardrail flags")).toHaveTextContent("low evidence");
+});
+
+test("renders API errors", async () => {
+  vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+    const url = String(input);
+    if (url.endsWith("/api/providers")) {
+      return Promise.resolve(jsonResponse(providersPayload));
+    }
+    return Promise.resolve(jsonResponse({ detail: { message: "Bluesky fetch failed" } }, 502));
+  });
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("Bluesky fetch failed");
 });

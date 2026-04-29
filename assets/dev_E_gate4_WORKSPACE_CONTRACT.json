@@ -1,0 +1,39 @@
+{
+  "lane": "dev_E_gate4_frontend_ux_browser_verification",
+  "developer": "dev_e",
+  "plan": "Plan Final E Consolidated Gate 4",
+  "required_branch": "codex/dev-e-gate4-frontend-ux",
+  "execution_roots": [
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/New-project-dev-e-gate4",
+      "checkout_kind": "standalone_clone",
+      "role": "implementation"
+    }
+  ],
+  "shared_read_only_roots": [
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/New project",
+      "checkout_kind": "standalone_clone",
+      "role": "shared_read_only_context"
+    }
+  ],
+  "forbidden_operations": [
+    "switch shared repo to lane branch",
+    "stage shared repo",
+    "commit shared repo",
+    "reset shared repo",
+    "stash shared repo",
+    "clean shared repo",
+    "create linked worktree for live lane",
+    "run implementation commands from shared repo root"
+  ],
+  "verification": [
+    "execution roots exist",
+    "execution roots are standalone clones",
+    "execution roots are on required branch",
+    "shared repos do not own required branch",
+    "current working directory is an approved execution root"
+  ]
+}

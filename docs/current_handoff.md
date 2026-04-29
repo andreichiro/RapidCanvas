@@ -2,7 +2,9 @@
 
 Updated: 2026-04-29  
 Repository: `andreichiro/RapidCanvas`  
-Current branch: `main`
+Shared branch: `main`
+Active Dev E isolated branch: `codex/dev-e-gate4-frontend-ux`
+Active Dev E isolated clone: `/Users/akatsurada/Documents/New-project-dev-e-gate4`
 
 ## Current State
 
@@ -13,6 +15,12 @@ Current branch: `main`
 - Search/RAG and DSPy are still deterministic dev adapters and every Gate 3 response marks this in `trace`.
 - `R045` is partially exercised by Gate 3 adapter tracing but remains planned for final real-pipeline enforcement.
 - Post-review Gate 3 matrix fix is applied: `R008` now points to actual smoke/browser verification files and commands.
+- Dev E Gate 4 frontend scope is implemented in the isolated clone:
+  - componentized React UI for `UrlForm`, `ProviderSelect`, `ResultView`, `CitationChip`, `SourceList`, `TracePanel`, `ErrorBanner`, `TrustBadge`, and `GuardrailFlags`;
+  - typed API client error handling for FastAPI detail payloads;
+  - visible loading, error, cited bullets, sources, trust/fallback states, guardrail flags, and trace panel;
+  - frontend tests now cover provider selection, successful submit, cited bullets, source cards, trace toggle, partial fallback, abstain fallback, and API errors.
+- Dev E added a narrow maintainability-review update so the review gate checks the componentized Gate 4 UI surface instead of stale Gate 3 App-only strings.
 
 ## Verified Commands
 
@@ -33,6 +41,25 @@ browser-use verification at http://127.0.0.1:5174/
 
 Both checks confirmed real Bluesky fetch, 3 cited bullets, `fallback_mode=safe_summary`, `adapter_mode=deterministic_dev`, and visible adapter guardrail flags.
 
+Additional Dev E Gate 4 checks performed in the isolated clone:
+
+```text
+scripts/verify_dev_E_gate4_isolation.sh
+scripts/assert_dev_E_gate4_execution_context.sh
+npm --prefix frontend test
+npm --prefix frontend run build
+python3 scripts/review_quality.py
+make deep-review
+POST /api/explain with https://bsky.app/profile/bsky.app/post/3mk6ipt5iv22y
+browser-use verification at http://127.0.0.1:5173/
+```
+
+The Dev E browser-use pass verified the heading/provider/form, live explain result,
+4 citation chips, 2 source cards, `safe_summary`, guardrail flags, open trace, and
+zero console errors. A later review attempt to reconnect to the in-app browser
+backend timed out, but `make deep-review`, Vite smoke, backend smoke, `curl`
+against the frontend shell, `/api/providers`, and `/api/explain` all passed.
+
 Review follow-up:
 
 ```text
@@ -47,19 +74,32 @@ R008 no longer references a missing scripts/user_smoke_check.py file.
 - Temporary deterministic dev adapters may be used only while real Search/RAG or DSPy modules are incomplete.
 - Any dev adapter use must be visible in `trace`.
 - Dev adapters cannot satisfy final acceptance or requirement-matrix rows.
+- Dev E changes were made in a standalone isolated clone; the shared repo at
+  `/Users/akatsurada/Documents/New project` stayed on `main` and inspection-only.
+- Dev E touched `scripts/review_quality.py` only to keep the review gate aligned
+  with the componentized frontend surface; this cross-lane workflow change is
+  logged in `TRANSLATION_LOG.md`.
 
 ## Next Work
 
-Recommended next step: T1 handoff spine and research deliverables, followed by real Search/RAG and DSPy replacement work.
+Recommended next step: integrate other Gate 4 lanes without losing the Dev E UI
+contract. T1 handoff spine/research deliverables, real Search/RAG, real DSPy,
+eval, guardrails, image, provider comparison, GEPA, and MLflow remain owned by
+their respective lanes until their files/tests/matrix rows exist.
 
-Expected additions:
+Expected non-Dev-E additions:
 
 - `docs/research/*.md`
 - `.codex/skills/*`
 - `docs/task_packets.md`
 - updated `AGENTS.md`, `README.md`, `TRANSLATION_LOG.md`, and `docs/requirements_matrix.md`
+- backend Search/RAG, DSPy, eval, guardrail, image, provider, GEPA, and MLflow modules/tests
 
 After T1, replace deterministic adapters with real Search/RAG and DSPy modules while preserving the no-fake-product-behavior rule.
+
+When merging Dev E, preserve the public API client contract and keep the visible
+adapter/trust/fallback trace fields until real pipeline lanes replace the
+deterministic adapters honestly.
 
 ## Review Records
 
