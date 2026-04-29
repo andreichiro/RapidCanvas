@@ -45,6 +45,7 @@ class PostContext(DomainModel):
     quoted_texts: list[str] = Field(default_factory=list)
     links: list[str] = Field(default_factory=list)
     images: list[ImageRef] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class ContextDocument(DomainModel):
