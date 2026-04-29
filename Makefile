@@ -110,7 +110,7 @@ mlflow-ui:
 	cd $(BACKEND_DIR) && uv run --extra eval mlflow ui --backend-store-uri "$${MLFLOW_TRACKING_URI:-file:./mlruns}"
 
 check-secrets:
-	@if git ls-files | grep -E '(^|/)\.env($|\.)'; then \
+	@if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -vE '(^|/)\.env\.example$$'; then \
 		echo "Tracked env file detected. Remove it before committing."; \
 		exit 1; \
 	fi
