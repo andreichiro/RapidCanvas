@@ -5,6 +5,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   t0-gate:
     name: T0 scaffold gate
@@ -33,4 +36,3 @@ jobs:
 
       - name: Run deep review gate
         run: make deep-review
-
