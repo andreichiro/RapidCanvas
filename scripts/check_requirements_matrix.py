@@ -23,7 +23,7 @@ EXPECTED_HEADERS = [
     "Status",
 ]
 
-REQUIRED_IDS = {f"R{index:03d}" for index in range(1, 45)}
+REQUIRED_IDS = {f"R{index:03d}" for index in range(1, 46)}
 VALID_STATUSES = {"implemented", "planned", "reserved"}
 EMPTY_MARKERS = {"", "-", "n/a", "na", "none", "missing"}
 FORBIDDEN_CELL_MARKERS = {"unmapped"}

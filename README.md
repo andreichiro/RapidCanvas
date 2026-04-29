@@ -83,6 +83,15 @@ The successful `ExplainResponse` schema already requires 3-5 cited bullets,
 sources, and trace fields for trust score, fallback mode, and guardrail flags.
 The route intentionally returns `501` until the real pipeline is available.
 
+## Integration Adapter Rule
+
+Future integration gates must use real Bluesky post fetching. Search/RAG and
+DSPy may use temporary deterministic dev adapters only while their real modules
+are incomplete, and any response that uses such adapters must mark that clearly
+in `trace`. Those adapters are not accepted as final implementation and cannot
+satisfy requirement-matrix rows. Final acceptance requires real Search/RAG, real
+DSPy workflow, real citations, real trust/fallback behavior, and real eval.
+
 ## Commands
 
 ```bash

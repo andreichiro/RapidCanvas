@@ -81,6 +81,9 @@ Dev D eval/docs/skills, Dev E frontend.
 - Do not expose write-capable Bluesky or arbitrary external APIs to the agent.
 - Do not ship fake/mocked explanation behavior as product behavior; mocks belong
   in tests or clearly marked temporary integration checkpoints only.
+- Gate 3 and Gate 5 may use temporary deterministic dev adapters only when real
+  Search/RAG or DSPy modules are still incomplete; responses must mark adapter
+  use in `trace`, and adapters cannot satisfy final requirement-matrix rows.
 - Update `TRANSLATION_LOG.md` for assumptions, downgrades, cross-lane edits, or workflow changes.
 
 ## Review Expectations
