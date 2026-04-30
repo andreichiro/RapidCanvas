@@ -8,27 +8,38 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import sys
+from pathlib import Path
+
+
+def is_within(path: str, root: str) -> bool:
+    real_path = os.path.realpath(path)
+    real_root = os.path.realpath(root)
+    return real_path == real_root or os.path.commonpath([real_path, real_root]) == real_root
 
 
 contract = json.loads(Path(sys.argv[1]).read_text())
-cwd = Path(os.getcwd()).resolve()
-execution_roots = [Path(root["path"]).resolve() for root in contract["execution_roots"]]
-shared_roots = [Path(root["path"]).resolve() for root in contract["shared_read_only_roots"]]
-
-
-def is_within(path: Path, root: Path) -> bool:
-    return path == root or root in path.parents
-
+cwd = os.getcwd()
+execution_roots = [root["path"] for root in contract["execution_roots"]]
+shared_roots = [root["path"] for root in contract.get("shared_read_only_roots", [])]
 
 if any(is_within(cwd, root) for root in execution_roots):
-    print(f"lane execution context ok: {cwd}")
+    print(f"execution context check passed for {contract['lane']}: {cwd}")
     raise SystemExit(0)
 
 if any(is_within(cwd, root) for root in shared_roots):
-    raise SystemExit(f"lane execution context failed: {cwd} is inside shared read-only root")
+    print(
+        f"execution context check failed: {cwd} is inside shared read-only root "
+        f"for {contract['lane']}",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
 
-allowed = ", ".join(str(root) for root in execution_roots)
-raise SystemExit(f"lane execution context failed: {cwd} is not an approved execution root; allowed: {allowed}")
+allowed = ", ".join(execution_roots)
+print(
+    f"execution context check failed: {cwd} is not an approved execution root "
+    f"for {contract['lane']}; allowed: {allowed}",
+    file=sys.stderr,
+)
+raise SystemExit(1)
 PY
