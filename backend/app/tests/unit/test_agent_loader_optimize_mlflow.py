@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 
 from pydantic import SecretStr
 
-from app.agent.loader import load_program
+from app.agent.loader import configure_dspy, load_program
 from app.config import Settings
 from app.eval import optimize as optimize_module
 from app.eval.optimize import GepaMetricParts, combined_gepa_metric, run_gepa_optimization
@@ -62,12 +63,23 @@ class FakeOptimizer:
         self.compile_called = True
         assert trainset
         assert valset
-        student.compiled = True
-        return student
+        compiled = FakeCompiledStudent()
+        compiled.compiled = True
+        return compiled
 
 
 class FakeStudent:
     compiled = False
+
+
+class FakeDetailedResults:
+    val_aggregate_scores = [0.7]
+    total_metric_calls = 2
+    num_full_val_evals = 1
+
+
+class FakeCompiledStudent(FakeStudent):
+    detailed_results = FakeDetailedResults()
 
 
 def test_optimizer_real_mode_calls_gepa_compile_with_train_and_val_sets(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -109,6 +121,38 @@ def test_optimizer_real_mode_rejects_placeholder_credentials(tmp_path) -> None: 
         )
 
 
+class FakeFailedDetails:
+    val_aggregate_scores = [0.0]
+    total_metric_calls = 2
+    num_full_val_evals = 1
+
+
+class FakeFailedCompiledStudent(FakeStudent):
+    detailed_results = FakeFailedDetails()
+
+
+class FakeFailedOptimizer:
+    failure_score = 0.0
+
+    def compile(self, student, *, trainset, valset):  # type: ignore[no-untyped-def]
+        del student, trainset, valset
+        return FakeFailedCompiledStudent()
+
+
+def test_optimizer_real_mode_rejects_failed_gepa_rollouts(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from pytest import raises
+
+    with raises(RuntimeError, match="no successful validation rollouts"):
+        run_gepa_optimization(
+            dry_run=False,
+            output_path=tmp_path / "program.json",
+            settings=Settings(openai_api_key=SecretStr("sk-test-key")),
+            optimizer_factory=lambda metric: FakeFailedOptimizer(),
+            student=FakeStudent(),
+            configure_provider=False,
+        )
+
+
 def test_default_gepa_factory_supplies_reflection_lm(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     class FakeLM:
         def __init__(self, model: str, **kwargs) -> None:  # type: ignore[no-untyped-def]
@@ -132,6 +176,15 @@ def test_default_gepa_factory_supplies_reflection_lm(monkeypatch) -> None:  # ty
 
     assert optimizer.kwargs["reflection_lm"].model == "openai/test-judge"
     assert optimizer.kwargs["reflection_lm"].kwargs["temperature"] == 1.0
+
+
+def test_configure_dspy_exports_settings_openai_key(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("OPENAI_API_KEY", "stale-key")
+
+    warnings = configure_dspy(Settings(openai_api_key=SecretStr("sk-test-key")))
+
+    assert warnings == []
+    assert os.environ["OPENAI_API_KEY"] == "sk-test-key"
 
 
 def test_mlflow_param_payload_includes_required_dev_c_fields() -> None:

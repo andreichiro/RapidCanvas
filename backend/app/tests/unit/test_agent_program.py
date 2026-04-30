@@ -110,8 +110,12 @@ class RevisingRunner:
         del post, category
         return ["test query"]
 
-    def detect_prompt_injection(self, content: str) -> list[str]:
-        del content
+    def detect_prompt_injection(
+        self,
+        content: str,
+        label: str = "UNTRUSTED_WEB_CONTEXT",
+    ) -> list[str]:
+        del content, label
         return []
 
     def rerank_evidence(self, post: PostContext, evidence: Sequence[Evidence]) -> list[Evidence]:

@@ -9,11 +9,18 @@ from typing import Any, cast
 
 from app.agent.runner import HeuristicSignatureRunner, SignatureRunner
 from app.agent.sources import sources_for_response
+from app.agent.untrusted import scan_inputs
 from app.guardrails.output import ExplanationDraft, OutputGuardrail, ValidationResult
 from app.guardrails.policies import DEFAULT_POLICY, GuardrailPolicy
 from app.guardrails.trust import TrustScorer
 from app.schemas.api import ExplainRequest, ExplainResponse, PostSummary, Trace
-from app.schemas.domain import ContextDocument, Evidence, PostContext, TraceEvent, TrustAssessment
+from app.schemas.domain import (
+    ContextDocument,
+    Evidence,
+    PostContext,
+    TraceEvent,
+    TrustAssessment,
+)
 
 
 def _dspy_module_base() -> type[Any]:
@@ -81,7 +88,7 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         started = perf_counter()
         self.last_trace_events = []
         self._set_runner_documents(documents)
-        injection_flags = self._scan_for_injection(post, evidence)
+        injection_flags = self._scan_for_injection(post, evidence, documents)
         classification = self._classify(post)
         queries = self._queries(post, classification.category)
         ranked_evidence = self._rerank(post, evidence)
@@ -119,9 +126,14 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
             latency_ms=int((perf_counter() - started) * 1000),
         )
 
-    def _scan_for_injection(self, post: PostContext, evidence: Sequence[Evidence]) -> list[str]:
+    def _scan_for_injection(
+        self,
+        post: PostContext,
+        evidence: Sequence[Evidence],
+        documents: Sequence[ContextDocument],
+    ) -> list[str]:
         self._event("prompt_injection_scan", "started")
-        flags = self._scan_untrusted_content(post, evidence)
+        flags = self._scan_untrusted_content(post, evidence, documents)
         self._event("prompt_injection_scan", "completed", warnings=flags)
         return flags
 
@@ -262,18 +274,14 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         self,
         post: PostContext,
         evidence: Sequence[Evidence],
+        documents: Sequence[ContextDocument],
     ) -> list[str]:
-        content = [
-            post.text,
-            *post.parent_texts,
-            *post.quoted_texts,
-            *(image.alt_text or "" for image in post.images),
-            *(item.text for item in evidence),
-        ]
+        source_types = {document.id: document.source_type for document in documents}
+        content = scan_inputs(post, evidence, source_types)
         hits: list[str] = []
-        for item in content:
+        for label, item in content:
             hits.extend(self._policy.prompt_injection_hits(item))
-            hits.extend(self._runner.detect_prompt_injection(item))
+            hits.extend(self._runner.detect_prompt_injection(item, label))
         return ["prompt_injection_risk"] if hits else []
 
     def _event(

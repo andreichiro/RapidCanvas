@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
@@ -63,10 +64,17 @@ def configure_dspy(settings: Settings) -> list[str]:
     dspy = import_module("dspy")
     warnings: list[str] = []
     try:
+        _export_openai_key(settings)
         dspy.configure(lm=dspy.LM(settings.dspy_model), async_max_workers=4)
     except Exception as exc:  # pragma: no cover - depends on optional provider config.
         warnings.append(f"dspy_config_failed:{exc.__class__.__name__}")
     return warnings
+
+
+def _export_openai_key(settings: Settings) -> None:
+    if settings.openai_api_key is None:
+        return
+    os.environ["OPENAI_API_KEY"] = settings.openai_api_key.get_secret_value()
 
 
 def asyncify_program(program: BlueskyExplainer) -> Any:

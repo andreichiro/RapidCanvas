@@ -15,6 +15,7 @@ from typing import Any
 from app.agent.loader import OPTIMIZED_PROGRAM_PATH
 from app.agent.signatures import build_dspy_signature_classes
 from app.config import Settings, get_settings
+from app.eval.gepa_validation import gepa_success_stats
 from app.guardrails.policies import DEFAULT_POLICY
 
 
@@ -154,6 +155,7 @@ def _run_real_gepa_compile(
     )
     compiled = optimizer.compile(active_student, trainset=trainset, valset=valset)
     predictor_count = len(compiled.predictors()) if hasattr(compiled, "predictors") else 0
+    success_stats = gepa_success_stats(compiled, optimizer)
     return {
         "executed": True,
         "optimizer_class": optimizer.__class__.__name__,
@@ -161,6 +163,7 @@ def _run_real_gepa_compile(
         "trainset_size": len(trainset),
         "valset_size": len(valset),
         "predictor_count": predictor_count,
+        **success_stats,
     }
 
 
@@ -168,7 +171,7 @@ def _configure_dspy(settings: Settings) -> None:
     dspy = _dspy()
     api_key = settings.openai_api_key.get_secret_value() if settings.openai_api_key else ""
     if api_key:
-        os.environ.setdefault("OPENAI_API_KEY", api_key)
+        os.environ["OPENAI_API_KEY"] = api_key
     dspy.configure(lm=dspy.LM(settings.dspy_model), async_max_workers=4)
 
 

@@ -34,7 +34,11 @@ class SignatureRunner(Protocol):
     def generate_queries(self, post: PostContext, category: str) -> list[str]:
         """Generate read-only search queries."""
 
-    def detect_prompt_injection(self, content: str) -> list[str]:
+    def detect_prompt_injection(
+        self,
+        content: str,
+        label: str = "UNTRUSTED_WEB_CONTEXT",
+    ) -> list[str]:
         """Return prompt-injection guardrail flags for labeled untrusted content."""
 
     def rerank_evidence(self, post: PostContext, evidence: Sequence[Evidence]) -> list[Evidence]:
@@ -105,7 +109,12 @@ class HeuristicSignatureRunner:
             return [f"{post.author} Bluesky {category} context"]
         return [f"{base} {category} context"]
 
-    def detect_prompt_injection(self, content: str) -> list[str]:
+    def detect_prompt_injection(
+        self,
+        content: str,
+        label: str = "UNTRUSTED_WEB_CONTEXT",
+    ) -> list[str]:
+        del label
         return ["prompt_injection_risk"] if DEFAULT_POLICY.prompt_injection_hits(content) else []
 
     def rerank_evidence(self, post: PostContext, evidence: Sequence[Evidence]) -> list[Evidence]:

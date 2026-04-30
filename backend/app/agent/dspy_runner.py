@@ -9,6 +9,7 @@ from typing import cast
 
 from app.agent.runner import AdapterMode, ClassificationResult
 from app.agent.signatures import build_dspy_signature_classes
+from app.agent.untrusted import evidence_untrusted_label
 from app.guardrails.output import BulletDraft, ExplanationDraft, ValidationResult
 from app.guardrails.policies import compact_text
 from app.schemas.domain import (
@@ -63,8 +64,12 @@ class DspySignatureRunner:
         )
         return _json_list(str(getattr(prediction, "queries_json", "[]")))[:4]
 
-    def detect_prompt_injection(self, content: str) -> list[str]:
-        prediction = self._detect(content=_label_once("UNTRUSTED_WEB_CONTEXT", content))
+    def detect_prompt_injection(
+        self,
+        content: str,
+        label: str = "UNTRUSTED_WEB_CONTEXT",
+    ) -> list[str]:
+        prediction = self._detect(content=_label_once(label, content))
         risk = str(getattr(prediction, "risk", "none")).lower()
         reasons = _json_list(str(getattr(prediction, "reasons_json", "[]")))
         if risk in {"medium", "high"} or reasons:
@@ -182,22 +187,13 @@ def _evidence_json(
             "source_id": item.source_id,
             "score": item.score,
             "text": _label_once(
-                _evidence_label(item, source_types),
+                evidence_untrusted_label(item, source_types),
                 compact_text(item.text, limit=800),
             ),
         }
         for item in evidence
     ]
     return json.dumps(payload)
-
-
-def _evidence_label(item: Evidence, source_types: dict[str, SourceType]) -> str:
-    source_type = source_types.get(item.document_id)
-    if source_type == "image":
-        return "UNTRUSTED_IMAGE_ALT_TEXT"
-    if source_type in {"thread", "bluesky"}:
-        return "UNTRUSTED_THREAD_CONTEXT"
-    return "UNTRUSTED_WEB_CONTEXT"
 
 
 def _draft_from_json(value: str) -> ExplanationDraft:
