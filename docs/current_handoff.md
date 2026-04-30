@@ -258,6 +258,52 @@ During the integration window:
 - Keep DSPy provider failures guarded with `dspy_provider_error`.
 - Run `make deep-review`, `make eval`, `make optimize`, and `make mlflow-log`.
 
+## Gate 5 Dev C C2/C3 Handoff
+
+Dev C's Gate 5 lane exposes the explainer service checkpoint without wiring the
+public route. Dev A can instantiate it with:
+
+```python
+from app.agent.service import AgentExplainerService, build_agent_explainer_service
+
+service = AgentExplainerService(fetcher=bluesky_client, retriever=dev_b_retriever, settings=settings)
+response = service.explain(request)
+```
+
+or use `build_agent_explainer_service(...)` for the same C3 service boundary.
+With no fixed program supplied, `AgentExplainerService` lazily loads a
+provider-aware DSPy program per `ExplainRequest.provider`; missing optional
+providers are skipped with trace warnings and the OpenAI/default path remains
+the normal configuration. Passing an explicit `program` preserves the current
+route-compatible fixed-program behavior.
+
+Dev B-shaped retrieval output is consumed through
+`app.agent.evidence_contract.normalize_retrieval_output`. The service accepts
+the legacy `(Evidence[], ContextDocument[])` tuple as well as objects or dicts
+with `evidence`, `documents` or `context_documents`, `warnings`, `diagnostics`,
+`prompt_injection_flags`, `guardrail_flags`, and `source_safety_diagnostics`.
+The service now scans visible post/thread/image text for prompt-injection risk
+before DSPy query planning. Clean inputs continue through DSPy classification
+and query generation; risky inputs use a trusted metadata-only query and record
+`query_generation_skipped_prompt_injection_risk`. The service passes queries to
+a query-aware retriever when supported and threads retrieval warnings,
+source-safety diagnostics, and prompt-injection flags into the final
+`ExplainResponse.trace`.
+
+Trace fields emitted by Dev C include category, DSPy-generated queries,
+retrieval and provider warnings, trust score, fallback mode, guardrail flags
+such as `prompt_injection_risk`, `source_safety_private_url_blocked`,
+`unknown_citation`, `uncited_output`, `dspy_provider_error`, and the current
+adapter mode/notes. Provider failures still degrade to guarded fallback output
+instead of route crashes. Fallback bullets about the visible Bluesky post cite
+the stable post source (`S-post`) rather than borrowing a web evidence source.
+
+This satisfies Dev C's C2 and C3 checkpoint responsibility only: the explainer
+can consume Dev B-shaped evidence/diagnostics and return a schema-valid
+`ExplainResponse` for Dev A to wire. It does not mark final Search/RAG route
+wiring, public eval coverage, frontend verification, or C5 end-to-end
+acceptance complete.
+
 ## Review Records
 
 - `docs/reviews/gate1_final_review.md`

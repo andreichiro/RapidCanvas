@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from importlib import import_module
 from time import perf_counter
-from typing import Any, cast
+from typing import Any
 
-from app.agent.runner import HeuristicSignatureRunner, SignatureRunner
+from app.agent.dspy_base import dspy_module_base
+from app.agent.response import build_guarded_response
+from app.agent.runner import HeuristicSignatureRunner, QueryPlan, SignatureRunner
 from app.agent.sources import sources_for_response
-from app.agent.untrusted import scan_inputs
+from app.agent.untrusted import scan_untrusted_flags
 from app.guardrails.output import ExplanationDraft, OutputGuardrail, ValidationResult
 from app.guardrails.policies import DEFAULT_POLICY, GuardrailPolicy
 from app.guardrails.trust import TrustScorer
-from app.schemas.api import ExplainRequest, ExplainResponse, PostSummary, Trace
+from app.schemas.api import ExplainRequest, ExplainResponse
 from app.schemas.domain import (
     ContextDocument,
     Evidence,
@@ -22,17 +23,7 @@ from app.schemas.domain import (
     TrustAssessment,
 )
 
-
-def _dspy_module_base() -> type[Any]:
-    try:
-        dspy = import_module("dspy")
-    except ImportError:
-        return object
-    return cast(type[Any], dspy.Module)
-
-
-_DspyModuleBase = _dspy_module_base()
-
+_DspyModuleBase = dspy_module_base()
 
 class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
     """Agent workflow from post/evidence to guarded public API response."""
@@ -62,6 +53,7 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         documents: Sequence[ContextDocument] = (),
         request: ExplainRequest | None = None,
         warnings: Sequence[str] = (),
+        retrieval_guardrail_flags: Sequence[str] = (),
     ) -> ExplainResponse:
         """DSPy-compatible forward method."""
 
@@ -71,7 +63,24 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
             documents=documents,
             request=request,
             warnings=warnings,
+            retrieval_guardrail_flags=retrieval_guardrail_flags,
         )
+
+    def plan_queries(self, post: PostContext, *, reset_trace: bool = True) -> QueryPlan:
+        """Classify the post and produce read-only retrieval intents before search."""
+
+        if reset_trace:
+            self.last_trace_events = []
+        classification = self._classify(post)
+        queries = self._queries(post, classification.category)
+        return QueryPlan(category=classification.category, queries=queries)
+
+    def scan_known_context(self, post: PostContext, *, reset_trace: bool = True) -> list[str]:
+        """Scan visible post/thread/image text before it can influence retrieval planning."""
+
+        if reset_trace:
+            self.last_trace_events = []
+        return self._scan_for_injection(post, (), (), include_post_context=True)
 
     def explain_context(
         self,
@@ -81,31 +90,37 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         documents: Sequence[ContextDocument] = (),
         request: ExplainRequest | None = None,
         warnings: Sequence[str] = (),
+        retrieval_guardrail_flags: Sequence[str] = (),
+        pre_retrieval_guardrail_flags: Sequence[str] = (),
+        planned_category: str | None = None,
+        planned_queries: Sequence[str] | None = None,
+        scan_post_context: bool = True,
+        reset_trace: bool = True,
     ) -> ExplainResponse:
         """Explain a normalized post using retrieved evidence and guardrails."""
 
         del request
         started = perf_counter()
-        self.last_trace_events = []
+        if reset_trace:
+            self.last_trace_events = []
         self._set_runner_documents(documents)
-        injection_flags = self._scan_for_injection(post, evidence, documents)
-        classification = self._classify(post)
-        queries = self._queries(post, classification.category)
+        injection_flags = self._scan_for_injection(
+            post, evidence, documents, include_post_context=scan_post_context
+        )
+        category, queries = self._resolve_plan(post, planned_category, planned_queries)
         ranked_evidence = self._rerank(post, evidence)
         sources = sources_for_response(post, ranked_evidence, documents)
         allowed_source_ids = {source.id for source in sources}
         post_source_id = sources[0].id
-        pre_validation_trust = self._assess_initial_trust(post, ranked_evidence, injection_flags)
+        guardrail_flags = _combined_flags(
+            pre_retrieval_guardrail_flags, injection_flags, retrieval_guardrail_flags
+        )
+        pre_validation_trust = self._assess_initial_trust(post, ranked_evidence, guardrail_flags)
         draft, validation_issues = self._generate_validated_draft(
-            post,
-            ranked_evidence,
-            allowed_source_ids,
+            post, ranked_evidence, allowed_source_ids
         )
         final_trust = self._assess_final_trust(
-            post,
-            ranked_evidence,
-            pre_validation_trust.flags,
-            validation_issues,
+            post, ranked_evidence, pre_validation_trust.flags, validation_issues
         )
         bullets = self._output_guardrail.repair(
             draft,
@@ -114,26 +129,40 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
             post=post,
             post_source_id=post_source_id,
         )
-        return self._response(
-            post=post,
-            sources=sources,
-            bullets=bullets,
-            category=classification.category,
-            queries=queries,
-            warnings=warnings,
-            validation_issues=validation_issues,
-            trust=final_trust,
+        return build_guarded_response(
+            post=post, sources=sources, bullets=bullets, category=category, queries=queries,
+            warnings=warnings, validation_issues=validation_issues, trust=final_trust,
             latency_ms=int((perf_counter() - started) * 1000),
+            adapter_mode=self._runner.adapter_mode, adapter_notes=self._runner.adapter_notes,
+            optimized_config=self.optimized_config,
         )
+
+    def _resolve_plan(
+        self,
+        post: PostContext,
+        planned_category: str | None,
+        planned_queries: Sequence[str] | None,
+    ) -> tuple[str, list[str]]:
+        if planned_category is None or planned_queries is None:
+            plan = self.plan_queries(post, reset_trace=False)
+            return plan.category, plan.queries
+        return planned_category, list(planned_queries)
 
     def _scan_for_injection(
         self,
         post: PostContext,
         evidence: Sequence[Evidence],
         documents: Sequence[ContextDocument],
+        *,
+        include_post_context: bool = True,
     ) -> list[str]:
         self._event("prompt_injection_scan", "started")
-        flags = self._scan_untrusted_content(post, evidence, documents)
+        flags = self._scan_untrusted_content(
+            post,
+            evidence,
+            documents,
+            include_post_context=include_post_context,
+        )
         self._event("prompt_injection_scan", "completed", warnings=flags)
         return flags
 
@@ -159,14 +188,14 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         self,
         post: PostContext,
         evidence: Sequence[Evidence],
-        injection_flags: Sequence[str],
+        guardrail_flags: Sequence[str],
     ) -> TrustAssessment:
         self._event("trust_assessment", "started")
         runner_assessment = self._runner.assess_evidence_trust(post, evidence)
         assessment = self._trust_scorer.assess(
             post,
             evidence,
-            guardrail_flags=[*injection_flags, *runner_assessment.flags],
+            guardrail_flags=[*guardrail_flags, *runner_assessment.flags],
         )
         self._event("trust_assessment", "completed", warnings=assessment.flags)
         return assessment
@@ -182,7 +211,13 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         self._event("explain", "completed", tool="dspy")
         self._event("validate", "started", tool="dspy")
         validation = self._runner.validate(post, draft, evidence)
-        draft, validation = self._revise_once_if_needed(post, evidence, draft, validation)
+        draft, validation = self._revise_once_if_needed(
+            post,
+            evidence,
+            draft,
+            validation,
+            allowed_source_ids,
+        )
         output_validation = self._output_guardrail.validate(draft, allowed_source_ids)
         validation_issues = validation.issues + output_validation.issues
         self._event("validate", "completed", tool="dspy", warnings=validation_issues)
@@ -194,11 +229,11 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         evidence: Sequence[Evidence],
         draft: ExplanationDraft,
         validation: ValidationResult,
+        allowed_source_ids: set[str],
     ) -> tuple[ExplanationDraft, ValidationResult]:
         if validation.is_valid:
             return draft, validation
         revised = self._runner.revise(post, draft, evidence, validation.issues)
-        allowed_source_ids = {item.source_id for item in evidence}
         revision_validation = self._output_guardrail.validate(revised, allowed_source_ids)
         if revision_validation.is_valid:
             return revised, revision_validation
@@ -221,72 +256,27 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
             validation_issues=validation_issues,
         )
 
-    def _response(
-        self,
-        *,
-        post: PostContext,
-        sources: list[Any],
-        bullets: list[Any],
-        category: str,
-        queries: list[str],
-        warnings: Sequence[str],
-        validation_issues: Sequence[str],
-        trust: TrustAssessment,
-        latency_ms: int,
-    ) -> ExplainResponse:
-        trace_warnings = self._trace_warnings(warnings, trust, validation_issues)
-        return ExplainResponse(
-            post=PostSummary(
-                url=post.url,
-                author=post.author,
-                text=post.text,
-                created_at=post.created_at,
-            ),
-            bullets=bullets,
-            sources=sources,
-            trace=Trace(
-                category=category,
-                queries=queries,
-                warnings=trace_warnings,
-                latency_ms=latency_ms,
-                trust_score=trust.score,
-                fallback_mode=trust.fallback_mode,
-                guardrail_flags=_dedupe([*trust.flags, *validation_issues]),
-                adapter_mode=self._runner.adapter_mode,
-                adapter_notes=self._runner.adapter_notes,
-            ),
-        )
-
     def _set_runner_documents(self, documents: Sequence[ContextDocument]) -> None:
         setter = getattr(self._runner, "set_context_documents", None)
         if callable(setter):
             setter(documents)
-
-    def _trace_warnings(
-        self,
-        warnings: Sequence[str],
-        trust: TrustAssessment,
-        validation_issues: Sequence[str],
-    ) -> list[str]:
-        optimized = (
-            ["optimized_program_loaded"] if self.optimized_config.get("schema_version") else []
-        )
-        return _dedupe([*warnings, *trust.reasons, *validation_issues, *optimized])
 
     def _scan_untrusted_content(
         self,
         post: PostContext,
         evidence: Sequence[Evidence],
         documents: Sequence[ContextDocument],
+        *,
+        include_post_context: bool = True,
     ) -> list[str]:
-        source_types = {document.id: document.source_type for document in documents}
-        content = scan_inputs(post, evidence, source_types)
-        flags: list[str] = []
-        for label, item in content:
-            if self._policy.prompt_injection_hits(item):
-                flags.append("prompt_injection_risk")
-            flags.extend(self._runner.detect_prompt_injection(item, label))
-        return _dedupe(flags)
+        return scan_untrusted_flags(
+            policy=self._policy,
+            runner=self._runner,
+            post=post,
+            evidence=evidence,
+            source_types={document.id: document.source_type for document in documents},
+            include_post_context=include_post_context,
+        )
 
     def _event(
         self,
@@ -307,11 +297,5 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         )
 
 
-def _dedupe(values: Sequence[str]) -> list[str]:
-    seen: set[str] = set()
-    deduped: list[str] = []
-    for value in values:
-        if value not in seen:
-            seen.add(value)
-            deduped.append(value)
-    return deduped
+def _combined_flags(*groups: Sequence[str]) -> list[str]:
+    return [flag for group in groups for flag in group]

@@ -8,6 +8,8 @@ from app.guardrails.policies import compact_text
 from app.schemas.api import Source
 from app.schemas.domain import ContextDocument, Evidence, PostContext, SourceType
 
+POST_SOURCE_ID = "S-post"
+
 
 def sources_for_response(
     post: PostContext,
@@ -16,18 +18,16 @@ def sources_for_response(
 ) -> list[Source]:
     """Build API sources from evidence and context documents."""
 
-    if not evidence:
-        return [post_source(post, "S1")]
-
     documents_by_id = {document.id: document for document in documents}
-    sources: list[Source] = []
-    seen: set[str] = set()
+    post_source_id = _post_source_id({item.source_id for item in evidence})
+    sources: list[Source] = [post_source(post, post_source_id)]
+    seen: set[str] = {post_source_id}
     for item in evidence:
         if item.source_id in seen:
             continue
         seen.add(item.source_id)
         sources.append(_source_from_evidence(post, item, documents_by_id.get(item.document_id)))
-    return sources or [post_source(post, "S1")]
+    return sources
 
 
 def post_source(post: PostContext, source_id: str) -> Source:
@@ -58,3 +58,11 @@ def _source_from_evidence(
         snippet=compact_text(document.text, limit=260),
     )
 
+
+def _post_source_id(evidence_source_ids: set[str]) -> str:
+    if POST_SOURCE_ID not in evidence_source_ids:
+        return POST_SOURCE_ID
+    suffix = 1
+    while f"{POST_SOURCE_ID}-{suffix}" in evidence_source_ids:
+        suffix += 1
+    return f"{POST_SOURCE_ID}-{suffix}"
