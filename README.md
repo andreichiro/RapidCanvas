@@ -111,12 +111,14 @@ The runner has explicit integration modes for later gates:
 ```bash
 cd backend && uv run python -m app.eval.runner --mode fake-agent --judge deterministic
 cd backend && uv run python -m app.eval.runner --mode api --judge deterministic
-cd backend && uv run python -m app.eval.runner --mode cached --judge dspy
-cd backend && uv run python -m app.eval.runner --mode cached --judge ragas
+cd backend && uv run --extra ai python -m app.eval.runner --mode cached --judge dspy
+cd backend && uv run --extra eval python -m app.eval.runner --mode cached --judge ragas
 ```
 
-`api`, `dspy`, and `ragas` modes require the relevant optional dependencies,
-provider configuration, and live-service readiness. The default `make eval`
+`api` mode requires the local FastAPI app path to be ready for the selected
+cases. `dspy` and `ragas` modes require the listed optional extras; when
+`OPENAI_API_KEY` is absent they use no-network review paths, and when it is set
+they use `dspy_judge_model` for provider-backed judging. The default `make eval`
 path stays offline and deterministic for reproducible review.
 
 ## Integration Adapter Rule

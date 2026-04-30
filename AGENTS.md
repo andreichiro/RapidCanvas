@@ -137,14 +137,18 @@ explicit modes for later integration:
 cd backend && uv run python -m app.eval.runner --mode cached --judge deterministic
 cd backend && uv run python -m app.eval.runner --mode fake-agent --judge deterministic
 cd backend && uv run python -m app.eval.runner --mode api --judge deterministic
-cd backend && uv run python -m app.eval.runner --mode cached --judge dspy
-cd backend && uv run python -m app.eval.runner --mode cached --judge ragas
+cd backend && uv run --extra ai python -m app.eval.runner --mode cached --judge dspy
+cd backend && uv run --extra eval python -m app.eval.runner --mode cached --judge ragas
+cd backend && uv run --all-extras python -m app.eval.runner --mode cached --judge composite
 ```
 
 `--mode api` may perform live Bluesky reads through the currently wired FastAPI
-app. `--judge dspy` and `--judge ragas` require optional backend extras and
-provider configuration; the default deterministic judge remains the
-reproducible CI-safe path.
+app. `--judge dspy` uses `OPENAI_API_KEY` plus `dspy_judge_model` when
+configured, and otherwise runs a no-network DSPy `BaseLM` so the DSPy program
+path is still executable in local review. `--judge ragas` calls
+`ragas.evaluate`; with `OPENAI_API_KEY` it uses the Ragas LLM metrics, and
+without a key it uses Ragas non-LLM context metrics plus local faithfulness
+scoring. The default deterministic judge remains the reproducible CI-safe path.
 
 ## Coding Rules
 

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import pytest
+
+from app.config import Settings
 from app.eval.judge import DeterministicJudge, DspyJudge, RagasJudge
 from app.tests.unit.test_eval_metrics import make_case, make_fixture
 
@@ -43,3 +46,28 @@ def test_ragas_judge_executes_injected_evaluator() -> None:
     assert result["ragas_faithfulness"] == 0.4
     assert result["ragas_context_precision"] == 0.3
     assert result["ragas_context_recall"] == 0.2
+
+
+def test_dspy_judge_runs_offline_dspy_program_when_available() -> None:
+    pytest.importorskip("dspy")
+
+    result = DspyJudge(settings=Settings(openai_api_key=None)).score(make_case(), make_fixture())
+
+    assert result["dspy_judge_backend"] == "dspy"
+    assert 0.0 <= float(result["dspy_judge_expected_support"]) <= 1.0
+    assert 0.0 <= float(result["dspy_judge_evidence_selection"]) <= 1.0
+    assert result["dspy_judge_safety"] == 1.0
+
+
+def test_ragas_judge_runs_offline_ragas_metrics_when_available() -> None:
+    pytest.importorskip("datasets")
+    pytest.importorskip("ragas")
+    pytest.importorskip("rapidfuzz")
+
+    result = RagasJudge(settings=Settings(openai_api_key=None)).score(make_case(), make_fixture())
+
+    assert result["ragas_backend"] == "ragas"
+    assert result["ragas_mode"] == "ragas_non_llm_offline"
+    assert 0.0 <= float(result["ragas_faithfulness"]) <= 1.0
+    assert 0.0 <= float(result["ragas_context_precision"]) <= 1.0
+    assert 0.0 <= float(result["ragas_context_recall"]) <= 1.0

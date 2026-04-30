@@ -24,8 +24,9 @@ shared checkout `/Users/akatsurada/Documents/New project` remains read-only on
   summary JSON.
 - The eval runner has an `EvalAgent` protocol with cached/fake-agent/API modes
   and selectable deterministic, DSPy, Ragas, and composite judge backends.
-  Default `make eval` remains deterministic/offline; DSPy and Ragas modes
-  require optional extras and model/provider configuration.
+  Default `make eval` remains deterministic/offline; DSPy and Ragas modes run
+  with optional extras, use provider-backed judging when `OPENAI_API_KEY` is
+  configured, and retain no-network local review paths when it is absent.
 - API eval mode records per-case HTTP failures as scored eval rows instead of
   crashing, which lets synthetic cached cases and later live cases produce a
   complete report even when the current app returns upstream fetch errors.
@@ -39,6 +40,7 @@ make deep-review
 make eval
 targeted eval protocol/judge/metric tests
 API mode smoke with deterministic judge
+DSPy/Ragas/composite judge smoke with optional extras
 ```
 
 The current passing gate covers linting, typing, backend tests, frontend tests, secret scan, config validation, frontend audit/build, optional backend dependency dry-run, requirement matrix validation, generated artifact cleanup, maintainability review, and user smoke checks.
@@ -53,6 +55,9 @@ make lint
 make test
 make deep-review
 make eval
+cd backend && uv run --extra ai python -m app.eval.runner --mode cached --judge dspy
+cd backend && uv run --extra eval python -m app.eval.runner --mode cached --judge ragas
+cd backend && uv run --all-extras python -m app.eval.runner --mode cached --judge composite
 ```
 
 `make eval` generated 18 cached-case report artifacts under ignored
@@ -60,6 +65,8 @@ make eval
 private URL block rate 1.0, unsafe output rate 0.0, and unsupported claim rate
 0.0. `make deep-review` removes generated eval reports during cleanup, so rerun
 `make eval` after deep review when reports are needed for inspection.
+Optional judge smoke generated DSPy, Ragas, and composite reports successfully;
+the no-key Ragas path records `ragas_mode=ragas_non_llm_offline`.
 
 Additional Gate 3 user-style checks performed before handoff:
 

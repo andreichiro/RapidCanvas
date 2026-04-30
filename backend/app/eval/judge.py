@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
-import importlib
 from collections.abc import Callable
-from typing import Any, Protocol, cast
+from typing import Protocol
 
+from app.config import Settings
 from app.eval.dataset import CachedFixture, EvalCase
+from app.eval.judge_runtime import (
+    build_dspy_program,
+    build_ragas_evaluate_fn,
+    prediction_text,
+    result_value,
+    score_value,
+)
 from app.eval.metrics import expected_point_recall, retrieval_recall
-
-
-class MissingJudgeDependency(RuntimeError):
-    """Raised when an explicit optional judge backend cannot run."""
 
 
 class EvalJudge(Protocol):
@@ -43,21 +46,26 @@ class DspyJudge:
 
     backend_name = "dspy"
 
-    def __init__(self, program: Callable[..., object] | None = None) -> None:
+    def __init__(
+        self,
+        program: Callable[..., object] | None = None,
+        settings: Settings | None = None,
+    ) -> None:
         self._program = program
+        self._settings = settings
 
     def score(self, case: EvalCase, fixture: CachedFixture) -> dict[str, float | str]:
-        program = self._program or _build_dspy_program()
+        program = self._program or build_dspy_program(self._settings)
         result = program(
             expected="\n".join(case.expected_key_points),
-            prediction=_prediction_text(fixture),
+            prediction=prediction_text(fixture),
             evidence="\n".join(fixture.retrieved_source_hints),
         )
         return {
             "dspy_judge_backend": self.backend_name,
-            "dspy_judge_expected_support": _score_value(result, "expected_support"),
-            "dspy_judge_evidence_selection": _score_value(result, "evidence_selection"),
-            "dspy_judge_safety": _score_value(result, "safety"),
+            "dspy_judge_expected_support": score_value(result, "expected_support"),
+            "dspy_judge_evidence_selection": score_value(result, "evidence_selection"),
+            "dspy_judge_safety": score_value(result, "safety"),
         }
 
 
@@ -69,26 +77,40 @@ class RagasJudge:
     def __init__(
         self,
         evaluate_fn: Callable[[dict[str, object]], object] | None = None,
+        settings: Settings | None = None,
     ) -> None:
         self._evaluate_fn = evaluate_fn
+        self._settings = settings
 
     def score(self, case: EvalCase, fixture: CachedFixture) -> dict[str, float | str]:
-        evaluate_fn = self._evaluate_fn or _build_ragas_evaluate_fn()
+        evaluate_fn = self._evaluate_fn or build_ragas_evaluate_fn(self._settings)
         row: dict[str, object] = {
             "user_input": case.url,
-            "response": _prediction_text(fixture),
+            "response": prediction_text(fixture),
             "retrieved_contexts": fixture.retrieved_source_hints,
             "reference": "\n".join(case.expected_key_points),
+            "reference_contexts": case.expected_source_hints or case.expected_key_points,
         }
         result = evaluate_fn(row)
         return {
             "ragas_backend": self.backend_name,
-            "ragas_faithfulness": _result_value(result, ("faithfulness", "ragas_faithfulness")),
-            "ragas_context_precision": _result_value(
+            "ragas_mode": str(result_value(result, ("ragas_mode",), default=self.backend_name)),
+            "ragas_faithfulness": result_value(
                 result,
-                ("context_precision", "llm_context_precision_with_reference"),
+                ("faithfulness", "ragas_faithfulness"),
             ),
-            "ragas_context_recall": _result_value(result, ("context_recall", "llm_context_recall")),
+            "ragas_context_precision": result_value(
+                result,
+                (
+                    "context_precision",
+                    "llm_context_precision_with_reference",
+                    "non_llm_context_precision_with_reference",
+                ),
+            ),
+            "ragas_context_recall": result_value(
+                result,
+                ("context_recall", "llm_context_recall", "non_llm_context_recall"),
+            ),
         }
 
 
@@ -127,91 +149,3 @@ def judge_case(
     """Score one eval case with the requested judge backend."""
 
     return (judge or DeterministicJudge()).score(case, fixture)
-
-
-def _build_dspy_program() -> Callable[..., object]:
-    try:
-        dspy = importlib.import_module("dspy")
-    except ImportError as exc:
-        raise MissingJudgeDependency("Install the backend ai extra to use --judge dspy.") from exc
-
-    class JudgeEvaluationCase(dspy.Signature):  # type: ignore[name-defined]
-        """Score whether prediction matches expected points and evidence safely."""
-
-        expected: str = dspy.InputField()
-        prediction: str = dspy.InputField()
-        evidence: str = dspy.InputField()
-        expected_support: float = dspy.OutputField()
-        evidence_selection: float = dspy.OutputField()
-        safety: float = dspy.OutputField()
-
-    return cast(Callable[..., object], dspy.Predict(JudgeEvaluationCase))
-
-
-def _build_ragas_evaluate_fn() -> Callable[[dict[str, object]], object]:
-    try:
-        datasets = importlib.import_module("datasets")
-        ragas = importlib.import_module("ragas")
-        ragas_metrics = importlib.import_module("ragas.metrics")
-    except ImportError as exc:
-        raise MissingJudgeDependency(
-            "Install the backend eval extra to use --judge ragas."
-        ) from exc
-
-    metric_classes = [
-        "Faithfulness",
-        "LLMContextPrecisionWithReference",
-        "LLMContextRecall",
-    ]
-    metrics = []
-    for class_name in metric_classes:
-        metric_class = getattr(ragas_metrics, class_name, None)
-        if metric_class is not None:
-            metrics.append(metric_class())
-    if not metrics:
-        raise MissingJudgeDependency("Installed Ragas package did not expose required metrics.")
-
-    def evaluate(row: dict[str, object]) -> object:
-        dataset = datasets.Dataset.from_list([row])
-        return ragas.evaluate(dataset, metrics=metrics)
-
-    return evaluate
-
-
-def _prediction_text(fixture: CachedFixture) -> str:
-    bullets = fixture.prediction.get("bullets", [])
-    if not isinstance(bullets, list):
-        return ""
-    return "\n".join(str(bullet.get("text", "")) for bullet in bullets if isinstance(bullet, dict))
-
-
-def _score_value(result: object, key: str) -> float:
-    if isinstance(result, dict):
-        return _coerce_float(result.get(key, 0.0))
-    return _coerce_float(getattr(result, key, 0.0))
-
-
-def _result_value(result: object, aliases: tuple[str, ...]) -> float:
-    if hasattr(result, "to_pandas"):
-        frame = result.to_pandas()
-        row = frame.iloc[0].to_dict()
-        return _dict_value(row, aliases)
-    if isinstance(result, dict):
-        return _dict_value(result, aliases)
-    return 0.0
-
-
-def _dict_value(result: dict[str, object], aliases: tuple[str, ...]) -> float:
-    for alias in aliases:
-        if alias in result:
-            return _coerce_float(result[alias])
-    return 0.0
-
-
-def _coerce_float(value: object) -> float:
-    if isinstance(value, list | tuple):
-        value = value[0] if value else 0.0
-    try:
-        return float(cast(Any, value))
-    except (TypeError, ValueError):
-        return 0.0
