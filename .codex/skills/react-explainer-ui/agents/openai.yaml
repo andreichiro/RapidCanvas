@@ -1,0 +1,4 @@
+interface:
+  display_name: "React Explainer UI"
+  short_description: "Build the cited Bluesky explainer React UI."
+  default_prompt: "Use $react-explainer-ui to update the Bluesky explainer interface."

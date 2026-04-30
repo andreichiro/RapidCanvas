@@ -1,0 +1,286 @@
+.notice {
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-weight: 700;
+}
+
+.notice-error {
+  border: 1px solid #cf7056;
+  background: #fff1ed;
+  color: #8a2f17;
+}
+
+.notice-warning {
+  border: 1px solid #d7a541;
+  background: #fff8e8;
+  color: #6e4a00;
+}
+
+.result-region {
+  min-height: 42px;
+}
+
+.loading-state {
+  width: fit-content;
+  border: 1px solid #d8dfdc;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 10px 12px;
+  color: #52625e;
+}
+
+.result-view {
+  display: grid;
+  gap: 18px;
+  border: 1px solid #d8dfdc;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 20px;
+  box-shadow: 0 12px 32px rgba(28, 37, 40, 0.08);
+}
+
+.result-view.fallback-partial {
+  border-left: 6px solid #c28716;
+}
+
+.result-view.fallback-abstain {
+  border-left: 6px solid #b94b3f;
+}
+
+.result-view.fallback-safe_summary {
+  border-left: 6px solid #3b7f67;
+}
+
+.post-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: end;
+  justify-content: space-between;
+}
+
+.post-summary time {
+  color: #667672;
+  font-size: 0.9rem;
+}
+
+.post-text {
+  max-width: 78ch;
+  color: #40504c;
+  overflow-wrap: anywhere;
+}
+
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.trust-badge {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #b9c6c1;
+  border-radius: 999px;
+  background: #f7faf8;
+  padding: 4px 10px;
+  color: #1c2528;
+}
+
+.trust-badge span {
+  font-weight: 800;
+}
+
+.trust-badge strong {
+  color: #52625e;
+}
+
+.trust-badge-none {
+  border-color: #7db99f;
+  background: #edf8f2;
+}
+
+.trust-badge-partial {
+  border-color: #dfc069;
+  background: #fff8df;
+}
+
+.trust-badge-abstain {
+  border-color: #e0a094;
+  background: #fff1ed;
+}
+
+.trust-badge-safe_summary {
+  border-color: #93c3b2;
+  background: #eef8f4;
+}
+
+.guardrail-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guardrail-flags li {
+  border: 1px solid #d2cbc0;
+  border-radius: 999px;
+  background: #fbf8f2;
+  padding: 4px 9px;
+  color: #5f5444;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.muted-text {
+  color: #667672;
+  font-size: 0.9rem;
+}
+
+.fallback-banner {
+  border-radius: 6px;
+  background: #eef8f4;
+  padding: 10px 12px;
+  color: #305d4f;
+  font-weight: 800;
+}
+
+.bullets {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding-left: 24px;
+}
+
+.bullets li {
+  padding-left: 6px;
+}
+
+.citation-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.citation-chip {
+  display: inline-flex;
+  min-width: 34px;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #bdd7ee;
+  border-radius: 999px;
+  background: #edf6ff;
+  padding: 1px 8px;
+  color: #185fbf;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.citation-chip:hover {
+  border-color: #185fbf;
+}
+
+.source-list {
+  display: grid;
+  gap: 10px;
+}
+
+.source-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.source-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d8dfdc;
+  border-radius: 8px;
+  padding: 12px;
+  scroll-margin-top: 18px;
+}
+
+.source-card:target {
+  border-color: #185fbf;
+  box-shadow: 0 0 0 3px #d9ecff;
+}
+
+.source-card-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.source-card-header strong {
+  color: #1c2528;
+}
+
+.source-card-header span {
+  border-radius: 999px;
+  background: #edf1ef;
+  padding: 2px 8px;
+  color: #52625e;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.source-card p {
+  color: #52625e;
+  overflow-wrap: anywhere;
+}
+
+.trace-section {
+  display: grid;
+  gap: 10px;
+}
+
+.trace-toggle {
+  width: fit-content;
+  min-height: 38px;
+  border: 1px solid #b9c6c1;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 0 12px;
+  color: #1c2528;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.trace-panel {
+  max-height: 360px;
+  overflow: auto;
+  border-radius: 8px;
+  background: #1c2528;
+  padding: 16px;
+  color: #f4f6f4;
+}
+
+.trace-panel dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.trace-panel div {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.trace-panel dt {
+  color: #b8d4ca;
+  font-weight: 800;
+}
+
+.trace-panel dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

@@ -76,20 +76,30 @@ make deep-review
     implementation, test, eval, documentation, and status mappings, and no row
     has a missing mapping.
 
-11. Generated artifact cleanup:
+11. Project skill validation:
+
+    ```bash
+    make skills-review
+    ```
+
+    This verifies each local project skill has `SKILL.md`, `agents/openai.yaml`,
+    references, required metadata, and a working skill-local `quick_validate.py`
+    entry point.
+
+12. Generated artifact cleanup:
 
     ```bash
     make clean-generated
     ```
 
-12. Backend API smoke test:
+13. Backend API smoke test:
 
     ```bash
     uvicorn app.main:app
     curl http://127.0.0.1:8001/api/health
     ```
 
-13. Maintainability review:
+14. Maintainability review:
 
     ```bash
     python3 scripts/review_quality.py
@@ -99,7 +109,7 @@ make deep-review
     hygiene, reserved-command honesty, file/function size, placeholder markers,
     and whether the user-facing scaffold text matches the current plan.
 
-14. Frontend user smoke test:
+15. Frontend user smoke test:
 
     ```bash
     make frontend-smoke
@@ -116,6 +126,7 @@ Use this checklist for advanced human or agent review:
 - Verify `docs/current_handoff.md` reflects the current gate, boundaries, and next work.
 - Verify `TRANSLATION_LOG.md` records assumptions and workflow changes.
 - Verify `docs/requirements_matrix.md` maps every assignment and Plan Final E requirement.
+- Verify `make skills-review` and skill-local `quick_validate.py` entry points pass.
 - Verify README describes the current implementation honestly.
 - Verify later-phase commands fail clearly if not implemented.
 - Verify no background `uvicorn`, `vite`, or `mlflow` process remains after smoke tests.

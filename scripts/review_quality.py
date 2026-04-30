@@ -126,6 +126,7 @@ def check_make_targets() -> list[Issue]:
         "frontend-smoke:",
         "check-secrets:",
         "requirements-review:",
+        "skills-review:",
     ]
     issues = [
         Issue(ROOT / "Makefile", f"missing required target {target}")
@@ -134,7 +135,8 @@ def check_make_targets() -> list[Issue]:
     ]
     expected_chain = (
         "deep-review: lint test check-secrets config-check frontend-audit frontend-build "
-        "extras-dry-run requirements-review clean-generated maintainability-review user-smoke"
+        "extras-dry-run requirements-review skills-review clean-generated "
+        "maintainability-review user-smoke"
     )
     if expected_chain not in text:
         issues.append(Issue(ROOT / "Makefile", "deep-review does not include the full quality/user-smoke chain"))
@@ -144,7 +146,7 @@ def check_make_targets() -> list[Issue]:
 def check_reserved_commands_are_honest() -> list[Issue]:
     text = read("Makefile")
     expected: dict[str, tuple[str, str | None]] = {
-        "eval": ("T9 is not implemented yet", None),
+        "eval": ("T9 is not implemented yet", "python -m app.eval.runner"),
         "optimize": ("T10 is not implemented yet", "python -m app.eval.optimize"),
         "mlflow-log": ("T11 is not implemented yet", "python -m app.agent.log_mlflow"),
     }
@@ -238,21 +240,38 @@ def check_no_placeholder_implementation_markers() -> list[Issue]:
 
 
 def check_frontend_user_text_matches_plan() -> list[Issue]:
-    text = read("frontend/src/App.tsx")
-    required = [
-        "Bluesky Contextual Post Explainer",
-        "T0 scaffold",
-        "URL input",
-        "provider selector",
-        "citations",
-        "trust display",
-        "trace panel",
-    ]
-    return [
-        Issue(ROOT / "frontend/src/App.tsx", f"user-visible scaffold text missing: {snippet}")
-        for snippet in required
-        if snippet not in text
-    ]
+    required = {
+        "frontend/src/App.tsx": ["Bluesky Contextual Post Explainer"],
+        "frontend/src/components/UrlForm.tsx": ["Bluesky post URL", "Provider"],
+        "frontend/src/components/CitationChip.tsx": ["Citation"],
+        "frontend/src/components/SourceList.tsx": ["Sources"],
+        "frontend/src/components/TrustBadge.tsx": ["Safe summary", "Abstain", "Partial"],
+        "frontend/src/components/GuardrailFlags.tsx": ["guardrail flags"],
+        "frontend/src/components/TracePanel.tsx": ["trace panel", "Category", "Warnings"],
+    }
+    issues: list[Issue] = []
+    for file_name, snippets in required.items():
+        text = read(file_name)
+        for snippet in snippets:
+            if snippet not in text:
+                issues.append(Issue(ROOT / file_name, f"user-visible frontend surface missing: {snippet}"))
+    return issues
+
+
+def check_no_viewport_scaled_font_size() -> list[Issue]:
+    font_scale_pattern = re.compile(
+        r"font-size\s*:[^;]*(?:clamp\(|\b\d*\.?\d+(?:vw|vh|vmin|vmax)\b)",
+        re.IGNORECASE,
+    )
+    issues: list[Issue] = []
+    for path in tracked_like_files():
+        if path.suffix.lower() != ".css":
+            continue
+        text = path.read_text(encoding="utf-8")
+        for match in font_scale_pattern.finditer(text):
+            line_no = text[: match.start()].count("\n") + 1
+            issues.append(Issue(path, f"viewport-scaled font-size near line {line_no}: {match.group(0)}"))
+    return issues
 
 
 def check_generated_artifacts_absent() -> list[Issue]:
@@ -280,6 +299,7 @@ def main() -> int:
         check_python_function_complexity,
         check_no_placeholder_implementation_markers,
         check_frontend_user_text_matches_plan,
+        check_no_viewport_scaled_font_size,
         check_generated_artifacts_absent,
     ]
     issues = [issue for check in checks for issue in check()]

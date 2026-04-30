@@ -1,2 +1,1 @@
-"""Evaluation and optimization helpers."""
-
+"""Evaluation, reporting, judging, and GEPA optimization helpers."""

@@ -1,2 +1,1 @@
-"""Guardrail policy, trust, and output validation helpers."""
-
+"""Guardrail helpers for retrieval safety, trust, output validation, and agent policy."""

@@ -3,7 +3,7 @@ SHELL := /bin/bash
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 
-.PHONY: help setup setup-backend setup-backend-full setup-frontend lint backend-lint frontend-lint test backend-test frontend-test dev dev-backend dev-frontend eval optimize mlflow-log mlflow-ui clean clean-generated check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review maintainability-review api-smoke frontend-smoke user-smoke deep-review
+.PHONY: help setup setup-backend setup-backend-full setup-frontend lint backend-lint frontend-lint test backend-test frontend-test dev dev-backend dev-frontend eval optimize mlflow-log mlflow-ui clean clean-generated check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review skills-review maintainability-review api-smoke frontend-smoke user-smoke deep-review
 
 help:
 	@echo "Bluesky Contextual Post Explainer"
@@ -15,13 +15,17 @@ help:
 	@echo "  make test               Run backend and frontend tests"
 	@echo "  make deep-review        Run the full local review gate"
 	@echo "  make requirements-review Validate Gate 1 requirement mappings"
+	@echo "  make skills-review      Validate local project skills"
 	@echo "  make user-smoke         Exercise the scaffold as a user would"
 	@echo "  make dev-backend        Start FastAPI scaffold"
 	@echo "  make dev-frontend       Start Vite scaffold"
 	@echo "  make check-secrets      Check that local secrets are not tracked"
 	@echo ""
-	@echo "Later-phase commands:"
-	@echo "  make eval | make optimize | make mlflow-log | make mlflow-ui"
+	@echo "Evaluation and later-phase commands:"
+	@echo "  make eval        Run cached eval fixtures and write ignored reports"
+	@echo "  make optimize    Reserved for GEPA optimization"
+	@echo "  make mlflow-log  Reserved for MLflow artifact logging"
+	@echo "  make mlflow-ui   Start the local MLflow UI"
 
 setup: setup-backend setup-frontend
 
@@ -70,6 +74,9 @@ maintainability-review:
 requirements-review:
 	python3 scripts/check_requirements_matrix.py
 
+skills-review:
+	python3 scripts/quick_validate.py .codex/skills/*
+
 api-smoke:
 	@bash -lc 'set -euo pipefail; \
 		cd "$(BACKEND_DIR)"; \
@@ -108,7 +115,7 @@ frontend-smoke:
 
 user-smoke: api-smoke frontend-smoke
 
-deep-review: lint test check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review clean-generated maintainability-review user-smoke
+deep-review: lint test check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review skills-review clean-generated maintainability-review user-smoke
 
 dev:
 	@echo "Run backend and frontend in separate terminals:"
@@ -122,8 +129,7 @@ dev-frontend:
 	npm --prefix $(FRONTEND_DIR) run dev
 
 eval:
-	@echo "T9 is not implemented yet. This command is reserved for the evaluation harness."
-	@exit 2
+	cd $(BACKEND_DIR) && uv run python -m app.eval.runner --cases eval/posts.yaml --out reports/eval
 
 optimize:
 	cd $(BACKEND_DIR) && uv run python -m app.eval.optimize --dry-run
@@ -157,6 +163,8 @@ clean:
 	rm -rf $(FRONTEND_DIR)/dist $(BACKEND_DIR)/mlruns mlruns
 	rm -rf $(BACKEND_DIR)/.pytest_cache $(BACKEND_DIR)/.ruff_cache $(BACKEND_DIR)/.mypy_cache
 	rm -rf $(FRONTEND_DIR)/dist $(FRONTEND_DIR)/coverage
+	find reports -mindepth 1 ! -name .gitkeep -exec rm -rf {} +
 
 clean-generated:
 	rm -rf $(FRONTEND_DIR)/dist $(BACKEND_DIR)/mlruns mlruns
+	find reports -mindepth 1 ! -name .gitkeep -exec rm -rf {} +

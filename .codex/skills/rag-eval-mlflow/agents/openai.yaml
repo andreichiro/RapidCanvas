@@ -1,0 +1,4 @@
+interface:
+  display_name: "RAG Eval MLflow"
+  short_description: "Evaluate retrieval, citations, guardrails, and MLflow."
+  default_prompt: "Use $rag-eval-mlflow to run cached evals and log reports."

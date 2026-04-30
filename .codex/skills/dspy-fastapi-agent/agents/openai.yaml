@@ -1,0 +1,4 @@
+interface:
+  display_name: "DSPy FastAPI Agent"
+  short_description: "Serve DSPy explainer modules through FastAPI."
+  default_prompt: "Use $dspy-fastapi-agent to wire a DSPy explainer into FastAPI."
