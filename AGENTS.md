@@ -60,6 +60,7 @@ npm --prefix frontend audit --audit-level=moderate
 npm --prefix frontend run build
 cd backend && uv sync --dev --all-extras --dry-run
 requirements matrix review for Gate 1 coverage
+project skill validation
 maintainability review for simplicity/handoff/changeability
 uvicorn smoke test for GET /api/health
 Vite smoke test for the user-facing scaffold shell
@@ -73,6 +74,7 @@ make setup-backend-full
 make lint
 make test
 make requirements-review
+make skills-review
 make check-secrets
 make maintainability-review
 make user-smoke

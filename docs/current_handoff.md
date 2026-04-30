@@ -1,6 +1,6 @@
 # Current Handoff
 
-Updated: 2026-04-29  
+Updated: 2026-04-30
 Repository: `andreichiro/RapidCanvas`  
 Current branch: `codex/dev-d-gate4-eval-docs` in the isolated Dev D clone;
 shared checkout `/Users/akatsurada/Documents/New project` remains read-only on
@@ -43,14 +43,18 @@ API mode smoke with deterministic judge
 DSPy/Ragas/composite judge smoke with optional extras
 ```
 
-The current passing gate covers linting, typing, backend tests, frontend tests, secret scan, config validation, frontend audit/build, optional backend dependency dry-run, requirement matrix validation, generated artifact cleanup, maintainability review, and user smoke checks.
+The current passing gate covers linting, typing, backend tests, frontend tests,
+secret scan, config validation, frontend audit/build, optional backend
+dependency dry-run, requirement matrix validation, skill validation, generated
+artifact cleanup, maintainability review, and user smoke checks.
 
 Latest Dev D validation in the isolated clone:
 
 ```text
 scripts/verify_dev_d_isolation.sh
 scripts/assert_dev_d_execution_context.sh
-skill quick_validate.py for all four local project skills
+make skills-review
+for skill in .codex/skills/*; do python3 "$skill/quick_validate.py" "$skill"; done
 make lint
 make test
 make deep-review

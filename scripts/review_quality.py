@@ -126,6 +126,7 @@ def check_make_targets() -> list[Issue]:
         "frontend-smoke:",
         "check-secrets:",
         "requirements-review:",
+        "skills-review:",
     ]
     issues = [
         Issue(ROOT / "Makefile", f"missing required target {target}")
@@ -134,7 +135,8 @@ def check_make_targets() -> list[Issue]:
     ]
     expected_chain = (
         "deep-review: lint test check-secrets config-check frontend-audit frontend-build "
-        "extras-dry-run requirements-review clean-generated maintainability-review user-smoke"
+        "extras-dry-run requirements-review skills-review clean-generated "
+        "maintainability-review user-smoke"
     )
     if expected_chain not in text:
         issues.append(Issue(ROOT / "Makefile", "deep-review does not include the full quality/user-smoke chain"))

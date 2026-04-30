@@ -3,7 +3,7 @@ SHELL := /bin/bash
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 
-.PHONY: help setup setup-backend setup-backend-full setup-frontend lint backend-lint frontend-lint test backend-test frontend-test dev dev-backend dev-frontend eval optimize mlflow-log mlflow-ui clean clean-generated check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review maintainability-review api-smoke frontend-smoke user-smoke deep-review
+.PHONY: help setup setup-backend setup-backend-full setup-frontend lint backend-lint frontend-lint test backend-test frontend-test dev dev-backend dev-frontend eval optimize mlflow-log mlflow-ui clean clean-generated check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review skills-review maintainability-review api-smoke frontend-smoke user-smoke deep-review
 
 help:
 	@echo "Bluesky Contextual Post Explainer"
@@ -15,6 +15,7 @@ help:
 	@echo "  make test               Run backend and frontend tests"
 	@echo "  make deep-review        Run the full local review gate"
 	@echo "  make requirements-review Validate Gate 1 requirement mappings"
+	@echo "  make skills-review      Validate local project skills"
 	@echo "  make user-smoke         Exercise the scaffold as a user would"
 	@echo "  make dev-backend        Start FastAPI scaffold"
 	@echo "  make dev-frontend       Start Vite scaffold"
@@ -73,6 +74,9 @@ maintainability-review:
 requirements-review:
 	python3 scripts/check_requirements_matrix.py
 
+skills-review:
+	python3 scripts/quick_validate.py .codex/skills/*
+
 api-smoke:
 	@bash -lc 'set -euo pipefail; \
 		cd "$(BACKEND_DIR)"; \
@@ -111,7 +115,7 @@ frontend-smoke:
 
 user-smoke: api-smoke frontend-smoke
 
-deep-review: lint test check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review clean-generated maintainability-review user-smoke
+deep-review: lint test check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review skills-review clean-generated maintainability-review user-smoke
 
 dev:
 	@echo "Run backend and frontend in separate terminals:"

@@ -25,6 +25,7 @@ adds the requirement matrix and validates assignment coverage in the review gate
 make setup
 make deep-review
 make requirements-review
+make skills-review
 make lint
 make test
 make eval
@@ -138,6 +139,7 @@ make setup-backend-full # install optional backend deps for later phases
 make lint               # backend ruff/mypy + frontend TypeScript check
 make test               # backend pytest + frontend Vitest
 make requirements-review # validate Gate 1 requirement mappings
+make skills-review      # validate local project skills
 make check-secrets      # verify no tracked env files or obvious API keys
 make user-smoke         # exercise backend/frontend as a user-facing scaffold
 make eval               # run cached offline eval fixtures and reports
@@ -161,8 +163,9 @@ make deep-review
 
 It runs linting, tests, secret scanning, config validation, frontend audit,
 frontend build, optional backend dependency dry-run, requirements matrix
-validation, maintainability review, and backend/frontend user smoke tests. The
-same gate is registered in GitHub Actions at `.github/workflows/deep-review.yml`.
+validation, skill validation, maintainability review, and backend/frontend user
+smoke tests. The same gate is registered in GitHub Actions at
+`.github/workflows/deep-review.yml`.
 
 See `docs/deep_review_workflow.md` for the detailed review checklist.
 
@@ -190,5 +193,7 @@ all rows have moved from planned or reserved to implemented where required.
 
 Research docs live under `docs/research/`, task packets live at
 `docs/task_packets.md`, and local project skills live under `.codex/skills/`.
+Run `make skills-review` or each skill's local `quick_validate.py` before
+handoff.
 The next implementation replacement should remove the Gate 3 Search/RAG and
 DSPy adapters only when real modules and tests are ready.
