@@ -245,6 +245,22 @@ def check_frontend_user_text_matches_plan() -> list[Issue]:
     return issues
 
 
+def check_no_viewport_scaled_font_size() -> list[Issue]:
+    font_scale_pattern = re.compile(
+        r"font-size\s*:[^;]*(?:clamp\(|\b\d*\.?\d+(?:vw|vh|vmin|vmax)\b)",
+        re.IGNORECASE,
+    )
+    issues: list[Issue] = []
+    for path in tracked_like_files():
+        if path.suffix.lower() != ".css":
+            continue
+        text = path.read_text(encoding="utf-8")
+        for match in font_scale_pattern.finditer(text):
+            line_no = text[: match.start()].count("\n") + 1
+            issues.append(Issue(path, f"viewport-scaled font-size near line {line_no}: {match.group(0)}"))
+    return issues
+
+
 def check_generated_artifacts_absent() -> list[Issue]:
     generated_names = {"dist", "mlruns", "qdrant_storage"}
     generated_suffixes = {".tsbuildinfo"}
@@ -270,6 +286,7 @@ def main() -> int:
         check_python_function_complexity,
         check_no_placeholder_implementation_markers,
         check_frontend_user_text_matches_plan,
+        check_no_viewport_scaled_font_size,
         check_generated_artifacts_absent,
     ]
     issues = [issue for check in checks for issue in check()]

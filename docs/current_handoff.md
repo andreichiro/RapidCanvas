@@ -21,6 +21,11 @@ Active Dev E isolated clone: `/Users/akatsurada/Documents/New-project-dev-e-gate
   - visible loading, error, cited bullets, sources, trust/fallback states, guardrail flags, and trace panel;
   - frontend tests now cover provider selection, successful submit, cited bullets, source cards, trace toggle, partial fallback, abstain fallback, and API errors.
 - Dev E added a narrow maintainability-review update so the review gate checks the componentized Gate 4 UI surface instead of stale Gate 3 App-only strings.
+- Final Dev E review fixed the viewport-scaled H1 font-size finding by replacing
+  `clamp(..., 4vw, ...)` with rem-only sizes and discrete media-query steps.
+- `scripts/review_quality.py` now fails `make deep-review` if CSS `font-size`
+  uses `clamp()` or viewport units, preventing the Dev E heading regression from
+  returning silently.
 
 ## Verified Commands
 
@@ -54,11 +59,16 @@ POST /api/explain with https://bsky.app/profile/bsky.app/post/3mk6ipt5iv22y
 browser-use verification at http://127.0.0.1:5173/
 ```
 
-The Dev E browser-use pass verified the heading/provider/form, live explain result,
-4 citation chips, 2 source cards, `safe_summary`, guardrail flags, open trace, and
-zero console errors. A later review attempt to reconnect to the in-app browser
-backend timed out, but `make deep-review`, Vite smoke, backend smoke, `curl`
-against the frontend shell, `/api/providers`, and `/api/explain` all passed.
+The final Dev E browser-use pass verified the heading/provider/form, live explain
+result, 4 citation chips, 2 source cards, `safe_summary`, guardrail flags, trace
+availability, and zero console errors at `http://127.0.0.1:5173/`.
+
+Final Dev E review also verified:
+
+```text
+no frontend CSS font-size uses clamp(), vw, vh, vmin, or vmax
+negative temp-copy probe catches the old H1 clamp(..., 4vw, ...) regression
+```
 
 Review follow-up:
 
@@ -77,8 +87,9 @@ R008 no longer references a missing scripts/user_smoke_check.py file.
 - Dev E changes were made in a standalone isolated clone; the shared repo at
   `/Users/akatsurada/Documents/New project` stayed on `main` and inspection-only.
 - Dev E touched `scripts/review_quality.py` only to keep the review gate aligned
-  with the componentized frontend surface; this cross-lane workflow change is
-  logged in `TRANSLATION_LOG.md`.
+  with the componentized frontend surface and to prevent viewport-scaled
+  `font-size` regressions; these cross-lane workflow changes are logged in
+  `TRANSLATION_LOG.md`.
 
 ## Next Work
 
