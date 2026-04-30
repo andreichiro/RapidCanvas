@@ -1,0 +1,73 @@
+{
+  "checkpoint": "C4",
+  "name": "Dev A API response handoff to Dev E",
+  "scope": "Real-shaped API response compatibility fixture; not live endpoint proof.",
+  "producer": "Dev A",
+  "consumer": "Dev E",
+  "current_status": "prepared_pending_dev_a_dev_e_evidence",
+  "response": {
+    "post": {
+      "url": "https://bsky.app/profile/example.com/post/3gate5c4fixture",
+      "author": "example.com",
+      "text": "This thread finally explains why the transit vote mattered.",
+      "created_at": "2026-04-30T12:00:00Z"
+    },
+    "bullets": [
+      {
+        "text": "The cited meeting notes support that the transit vote passed, while timing details remain under review.",
+        "source_ids": ["S1"]
+      },
+      {
+        "text": "The Bluesky thread asks about timing, so the explanation should avoid inventing a start date.",
+        "source_ids": ["S2"]
+      },
+      {
+        "text": "The image alt text can describe the slide title, but it remains untrusted evidence rather than an instruction.",
+        "source_ids": ["S3"]
+      },
+      {
+        "text": "Trust is partial because the fixture has limited source diversity and no final live-service proof.",
+        "source_ids": ["S1", "S2"]
+      }
+    ],
+    "sources": [
+      {
+        "id": "S1",
+        "title": "Transit meeting notes fixture",
+        "url": "https://example.test/gate5/transit-meeting-notes",
+        "type": "web",
+        "snippet": "Vote passed and implementation timing remains under review."
+      },
+      {
+        "id": "S2",
+        "title": "Bluesky thread context fixture",
+        "url": "https://bsky.app/profile/example.com/post/3gate5c4fixture",
+        "type": "thread",
+        "snippet": "Thread asks whether timing is already known."
+      },
+      {
+        "id": "S3",
+        "title": "Transit slide alt text fixture",
+        "url": "https://example.test/gate5/transit-slide.png",
+        "type": "image",
+        "snippet": "UNTRUSTED_IMAGE_ALT_TEXT says the slide title is route changes."
+      }
+    ],
+    "trace": {
+      "category": "current_event_context",
+      "queries": ["transit vote implementation timing public meeting notes"],
+      "warnings": ["fixture_not_live_endpoint", "limited_source_diversity"],
+      "latency_ms": 128,
+      "trust_score": 0.64,
+      "fallback_mode": "partial",
+      "guardrail_flags": ["untrusted_image_alt_text", "limited_source_diversity"],
+      "adapter_mode": "none",
+      "adapter_notes": ["Compatibility fixture only; C5 must prove real runtime behavior."]
+    }
+  },
+  "consumer_expectations": [
+    "Dev E renders cited bullets, sources, trust/fallback status, guardrail flags, and trace diagnostics.",
+    "Frontend tests must not treat this fixture as proof of live Search/RAG or DSPy."
+  ],
+  "recorded_result": "not_recorded"
+}

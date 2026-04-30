@@ -1,0 +1,45 @@
+{
+  "query": "transit vote implementation timing public meeting notes",
+  "context_documents": [
+    {
+      "id": "D1",
+      "source_type": "web",
+      "title": "Transit meeting notes fixture",
+      "url": "https://example.test/gate5/transit-meeting-notes",
+      "text": "Meeting notes say the vote passed and implementation timing remains under review.",
+      "metadata": {"retrieval_channel": "linked_page", "sanitized": true}
+    },
+    {
+      "id": "D2",
+      "source_type": "thread",
+      "title": "Bluesky thread context fixture",
+      "url": "https://bsky.app/profile/example.com/post/3gate5c1fixture",
+      "text": "Thread context asks whether timing is already known and points back to the meeting notes.",
+      "metadata": {"retrieval_channel": "thread_context", "sanitized": true}
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E1",
+      "document_id": "D1",
+      "text": "Meeting notes say the vote passed and implementation timing remains under review.",
+      "score": 0.91,
+      "source_id": "S1"
+    },
+    {
+      "id": "E2",
+      "document_id": "D2",
+      "text": "Thread context asks whether timing is already known.",
+      "score": 0.77,
+      "source_id": "S2"
+    }
+  ],
+  "diagnostics": {
+    "retrieval_mode": "fixture",
+    "source_ids": ["S1", "S2"],
+    "warnings": ["fixture_not_live_retrieval"],
+    "guardrail_flags": [],
+    "private_url_blocks": [],
+    "prompt_injection_flags": []
+  }
+}

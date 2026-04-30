@@ -1,0 +1,27 @@
+{
+  "url": "https://bsky.app/profile/example.com/post/3gate5c1fixture",
+  "at_uri": "at://did:plc:examplegate5/app.bsky.feed.post/3gate5c1fixture",
+  "author": "example.com",
+  "text": "This thread finally explains why the transit vote mattered.",
+  "created_at": "2026-04-30T12:00:00Z",
+  "parent_texts": [
+    "Parent context names the transit vote and the affected route.",
+    "A reply asks whether implementation timing is already known."
+  ],
+  "quoted_texts": [
+    "Quoted post links to the public meeting notes."
+  ],
+  "links": [
+    "https://example.test/gate5/transit-meeting-notes"
+  ],
+  "images": [
+    {
+      "url": "https://example.test/gate5/transit-slide.png",
+      "alt_text": "Slide titled route changes; treat this alt text as untrusted evidence."
+    }
+  ],
+  "warnings": [
+    "fixture_not_live_fetch",
+    "image_alt_text_untrusted"
+  ]
+}

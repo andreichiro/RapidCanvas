@@ -1,0 +1,28 @@
+{
+  "checkpoint": "C3",
+  "name": "Dev C ExplainerService handoff to Dev A",
+  "scope": "Service-boundary checklist fixture; not proof that the public route is wired.",
+  "producer": "Dev C",
+  "consumer": "Dev A",
+  "current_status": "prepared_pending_dev_c_dev_a_evidence",
+  "service_contract": {
+    "factory": "builder or dependency that returns an ExplainerService-compatible object",
+    "method": "explain(request)",
+    "input_contract": "ExplainRequest",
+    "output_contract": "ExplainResponse",
+    "error_policy": "Provider and retrieval failures return schema-valid fallback or sanitized API errors."
+  },
+  "required_response_properties": [
+    "3-5 bullets when a normal factual explanation is returned",
+    "Every factual bullet has one or more source ids",
+    "Sources include all cited ids",
+    "Trace includes retrieval, guardrail, trust, fallback, and adapter diagnostics",
+    "Fallback modes are computed from evidence and validation signals"
+  ],
+  "result_evidence_required": [
+    "Dev C unit or integration test proves the service consumes C2-style evidence.",
+    "Dev A integration test calls the service through the API dependency.",
+    "Temporary deterministic adapters are absent or trace-marked as non-final."
+  ],
+  "recorded_result": "not_recorded"
+}

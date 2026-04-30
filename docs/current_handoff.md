@@ -225,42 +225,72 @@ Dev D `make eval`, fake-agent/API eval modes, and optional DSPy/Ragas/composite 
 - Generated artifacts under `reports/`, `mlruns/`, Qdrant cache, and local secret files must stay ignored.
 - Shared repo `/Users/akatsurada/Documents/New project` remains inspection-only for isolated lane work.
 
-## Gate 5 Parallelization Plan
+## Gate 5 Dev D Status
 
-Gate 5 should run on parallel developer branches, then converge through one
-serial end-to-end integration review. Gate 6 starts only after Gate 5 lands and
-may then be parallelized internally. Gate 7 starts only after Gate 6 lands and
-may then be parallelized internally.
+Dev D Gate 5 is a truth-layer lane. It prepares shared checkpoint fixtures,
+review scaffolding, matrix status, handoff notes, and translation logging, but
+does not implement Dev A API wiring, Dev B retrieval, Dev C DSPy/guardrails, or
+Dev E frontend changes.
 
-The detailed Gate 5 ownership, must-not-edit boundaries, merge order, and final
-review criteria live in `docs/gate5_parallelization_plan.md`.
+Prepared checkpoint artifacts:
 
-## Gate 6 Parallelization Plan
+- C0 API contract freeze: `eval/fixtures/gate5/c0_api_contract_freeze.json`.
+- C1 Dev A `PostContext` handoff: `eval/fixtures/gate5/c1_post_context_handoff.json` and `backend/app/tests/fixtures/gate5/post_context_handoff.json`.
+- C2 Dev B `Evidence[]` handoff: `eval/fixtures/gate5/c2_evidence_handoff.json` and `backend/app/tests/fixtures/gate5/retrieval_handoff.json`.
+- C3 Dev C `ExplainerService` handoff: `eval/fixtures/gate5/c3_explainer_service_handoff.json`.
+- C4 Dev A API response handoff: `eval/fixtures/gate5/c4_api_response_handoff.json` and `backend/app/tests/fixtures/gate5/api_response_handoff.json`.
+- C5 final serial spine: `eval/fixtures/gate5/c5_serial_spine_acceptance.json` and `docs/reviews/gate5_final_review.md`.
+- Status tracker: `docs/gate5_checkpoint_status.md`.
 
-Gate 6 should run on parallel developer branches only after Gate 5 lands a real
-integrated pipeline. Its detailed ownership, must-not-edit boundaries, quality
-spine, merge order, and final review criteria live in
-`docs/gate6_parallelization_plan.md`.
+Actually recorded checkpoint results:
 
-## Next Work
+- None yet. Dev D prepared C0-C5 artifacts, but no producing lane evidence has
+  been supplied in this branch, so no successful or failed checkpoint result is
+  recorded.
 
-Recommended next step: start Gate 5 on parallel branches using
-`docs/gate5_parallelization_plan.md`. Gate 5 integration should wire Dev B
-`RagService` and retrieval diagnostics into Dev C `AgentExplainerService`, carry
-Dev A `PostContext.warnings` into trace warnings, keep Dev E's frontend API
-contract stable, and run Dev D API/model-backed eval against the integrated
-path. Use `docs/gate6_parallelization_plan.md` only after Gate 5 lands.
+Each lane still owes:
 
-During the integration window:
+- Dev A: schema/OpenAPI/client freeze evidence, final route/dependency wiring,
+  warning propagation, C3/C4 integration tests, and sanitized API errors.
+- Dev B: real retrieval service over `PostContext`, source-safety diagnostics,
+  Evidence handoff proof, and live-service limitation notes.
+- Dev C: real DSPy service that consumes Dev B evidence, validates cited
+  bullets, computes trust/fallback, and exposes guarded provider behavior.
+- Dev E: real-response UI verification after Dev A/B/C integration lands.
+- Dev D: record checkpoint outcomes only after lane evidence exists, rerun eval
+  and deep review, and update matrix rows only after C5 proof.
 
-- Replace the temporary `ThreadContextEvidenceRetriever` in `backend/app/agent/service.py` or `backend/app/deps.py` with Dev B retrieval while preserving trace visibility.
-- Map Dev B `RagService.last_diagnostics` prompt-injection/private-url/source-safety warnings into Dev C trust/trace fields.
-- Keep DSPy provider failures guarded with `dspy_provider_error`.
-- Run `make deep-review`, `make eval`, `make optimize`, and `make mlflow-log`.
+Known live-service limitations:
+
+- Bluesky post/thread reads are required, but provider/network failures can still
+  occur and must remain typed and sanitized.
+- Bluesky search may require authentication or provider availability; failures
+  should be diagnostics, not final retrieval success.
+- OpenAI/model/provider smokes require runtime-only credentials and must not
+  commit keys or generated `mlruns/`, reports, Qdrant cache, or live output.
+- Synthetic cached eval fixtures remain useful for deterministic review, but do
+  not satisfy the final public Bluesky-post eval requirement.
+
+Next merge and review order:
+
+1. Dev B retrieval service branch.
+2. Dev C real DSPy/guardrail service branch.
+3. Dev A route/dependency wiring branch.
+4. Dev D fixtures/matrix/review branch.
+5. Dev E frontend verification branch.
+6. Final integration branch runs C5 through `make deep-review`, `make eval`, and
+   targeted real-service smokes with runtime-only keys.
+
+Use `docs/gate5_parallelization_plan.md` for Gate 5 boundaries. Use
+`docs/gate6_parallelization_plan.md` only after Gate 5 lands a real integrated
+pipeline.
 
 ## Review Records
 
 - `docs/reviews/gate1_final_review.md`
 - `docs/reviews/gate2_final_review.md`
 - `docs/reviews/gate3_final_review.md`
-- Dev C Gate 4 verification is recorded in this handoff and `TRANSLATION_LOG.md`.
+- `docs/reviews/gate5_final_review.md` is prepared as a C5 template, with no
+  final acceptance result recorded yet.
+- `docs/gate5_checkpoint_status.md` records prepared C0-C5 artifacts and pending
+  evidence.

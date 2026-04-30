@@ -1,0 +1,39 @@
+{
+  "checkpoint": "C5",
+  "name": "Final end-to-end serial spine",
+  "scope": "Acceptance evidence template for the integrated real pipeline.",
+  "producer": "Integration branch",
+  "consumers": ["Dev A", "Dev B", "Dev C", "Dev D", "Dev E"],
+  "current_status": "prepared_pending_integration_evidence",
+  "serial_spine": [
+    "real Bluesky fetch",
+    "real search/context documents",
+    "embed/retrieve/rerank",
+    "DSPy explain/validate",
+    "trust/fallback",
+    "API response"
+  ],
+  "required_proof": [
+    "Real Bluesky post fetch is active in POST /api/explain.",
+    "Real Search/RAG returns cited Evidence objects and retrieval diagnostics.",
+    "Real DSPy workflow produces and validates the explanation.",
+    "Trust and fallback behavior is computed from evidence, validation, and guardrail signals.",
+    "Every factual bullet has source ids that exist in sources.",
+    "Trace includes retrieval, guardrail, trust, fallback, and adapter diagnostics.",
+    "Temporary dev adapters are absent or explicitly trace-marked as non-final.",
+    "make deep-review completes successfully.",
+    "Targeted real-service smokes complete with runtime-only keys."
+  ],
+  "commands_to_record": [
+    "make setup",
+    "make lint",
+    "make test",
+    "make requirements-review",
+    "make skills-review",
+    "make check-secrets",
+    "make eval",
+    "make deep-review",
+    "cd backend && uv run python -m app.eval.runner --mode api --judge deterministic"
+  ],
+  "recorded_result": "not_recorded"
+}

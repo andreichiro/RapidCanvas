@@ -1,0 +1,72 @@
+{
+  "checkpoint": "C2",
+  "name": "Dev B Evidence handoff to Dev C",
+  "scope": "Cached Evidence compatibility fixture; not proof that real retrieval ran.",
+  "producer": "Dev B",
+  "consumer": "Dev C",
+  "current_status": "prepared_pending_dev_b_dev_c_evidence",
+  "query": "transit vote implementation timing public meeting notes",
+  "context_documents": [
+    {
+      "id": "D1",
+      "source_type": "web",
+      "title": "Transit meeting notes fixture",
+      "url": "https://example.test/gate5/transit-meeting-notes",
+      "text": "Meeting notes say the vote passed and implementation timing remains under review.",
+      "metadata": {"retrieval_channel": "linked_page", "sanitized": true}
+    },
+    {
+      "id": "D2",
+      "source_type": "thread",
+      "title": "Bluesky thread context fixture",
+      "url": "https://bsky.app/profile/example.com/post/3gate5c1fixture",
+      "text": "Thread context asks whether timing is already known and points back to the meeting notes.",
+      "metadata": {"retrieval_channel": "thread_context", "sanitized": true}
+    },
+    {
+      "id": "D3",
+      "source_type": "image",
+      "title": "Transit slide alt text fixture",
+      "url": "https://example.test/gate5/transit-slide.png",
+      "text": "UNTRUSTED_IMAGE_ALT_TEXT: Slide titled route changes.",
+      "metadata": {"retrieval_channel": "image_alt_text", "sanitized": true}
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E1",
+      "document_id": "D1",
+      "text": "Meeting notes say the vote passed and implementation timing remains under review.",
+      "score": 0.91,
+      "source_id": "S1"
+    },
+    {
+      "id": "E2",
+      "document_id": "D2",
+      "text": "Thread context asks whether timing is already known.",
+      "score": 0.77,
+      "source_id": "S2"
+    },
+    {
+      "id": "E3",
+      "document_id": "D3",
+      "text": "UNTRUSTED_IMAGE_ALT_TEXT says the slide title is route changes.",
+      "score": 0.62,
+      "source_id": "S3"
+    }
+  ],
+  "diagnostics": {
+    "retrieval_mode": "fixture",
+    "source_ids": ["S1", "S2", "S3"],
+    "warnings": ["fixture_not_live_retrieval", "image_alt_text_untrusted"],
+    "guardrail_flags": ["untrusted_image_alt_text"],
+    "private_url_blocks": [],
+    "prompt_injection_flags": []
+  },
+  "consumer_expectations": [
+    "Dev C consumes Evidence source ids without remapping.",
+    "Diagnostics can feed trace warnings, guardrail flags, trust scoring, and fallback decisions.",
+    "Evidence text is treated as untrusted data."
+  ],
+  "recorded_result": "not_recorded"
+}

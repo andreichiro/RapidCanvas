@@ -1,0 +1,45 @@
+{
+  "gate": "Gate 5",
+  "owner": "Dev D",
+  "artifact_scope": "Prepared checkpoint fixtures and review scaffolding only.",
+  "acceptance_rule": "C1-C4 compatibility fixtures do not close final product requirements; only C5 can support real-pipeline requirement closure.",
+  "status_policy": "Record a checkpoint result only after the producing lane supplies evidence.",
+  "checkpoints": [
+    {
+      "id": "C0",
+      "name": "API contract freeze",
+      "prepared_artifact": "eval/fixtures/gate5/c0_api_contract_freeze.json",
+      "current_status": "prepared_pending_dev_a_evidence"
+    },
+    {
+      "id": "C1",
+      "name": "Dev A PostContext handoff to Dev B",
+      "prepared_artifact": "eval/fixtures/gate5/c1_post_context_handoff.json",
+      "current_status": "prepared_pending_dev_a_dev_b_evidence"
+    },
+    {
+      "id": "C2",
+      "name": "Dev B Evidence handoff to Dev C",
+      "prepared_artifact": "eval/fixtures/gate5/c2_evidence_handoff.json",
+      "current_status": "prepared_pending_dev_b_dev_c_evidence"
+    },
+    {
+      "id": "C3",
+      "name": "Dev C ExplainerService handoff to Dev A",
+      "prepared_artifact": "eval/fixtures/gate5/c3_explainer_service_handoff.json",
+      "current_status": "prepared_pending_dev_c_dev_a_evidence"
+    },
+    {
+      "id": "C4",
+      "name": "Dev A API response handoff to Dev E",
+      "prepared_artifact": "eval/fixtures/gate5/c4_api_response_handoff.json",
+      "current_status": "prepared_pending_dev_a_dev_e_evidence"
+    },
+    {
+      "id": "C5",
+      "name": "Final end-to-end serial spine",
+      "prepared_artifact": "eval/fixtures/gate5/c5_serial_spine_acceptance.json",
+      "current_status": "prepared_pending_integration_evidence"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "checkpoint": "C0",
+  "name": "API contract freeze",
+  "scope": "Compatibility artifact for all lanes; not a final product acceptance record.",
+  "producer": "Dev A",
+  "consumers": ["Dev B", "Dev C", "Dev D", "Dev E"],
+  "current_status": "prepared_pending_dev_a_evidence",
+  "required_public_routes": [
+    "GET /api/health",
+    "GET /api/providers",
+    "POST /api/explain"
+  ],
+  "request_contract": {
+    "ExplainRequest": ["post_url", "provider", "include_trace"]
+  },
+  "response_contract": {
+    "ExplainResponse": ["post", "bullets", "sources", "trace"],
+    "PostSummary": ["url", "author", "text", "created_at"],
+    "Bullet": ["text", "source_ids"],
+    "Source": ["id", "title", "url", "type", "snippet"],
+    "Trace": ["category", "queries", "warnings", "latency_ms", "trust_score", "fallback_mode", "guardrail_flags", "adapter_mode", "adapter_notes"]
+  },
+  "result_evidence_required": [
+    "Dev A confirms schema files and OpenAPI are frozen for Gate 5 integration.",
+    "Frontend client shape remains aligned with the public API contract.",
+    "Contract tests and requirements review complete successfully on the producing branch."
+  ],
+  "recorded_result": "not_recorded"
+}
