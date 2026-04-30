@@ -72,7 +72,10 @@ class PromptInjectionScanResult:
 DEFAULT_PATTERNS: Final[tuple[PromptInjectionPattern, ...]] = (
     PromptInjectionPattern(
         flag="ignore_previous_instructions",
-        pattern=re.compile(r"\bignore\s+(all\s+)?(previous|prior|above)\s+instructions\b", re.I),
+        pattern=re.compile(
+            r"\bignore\s+(?:all\s+)?(?:(previous|prior|above)\s+)?instructions\b",
+            re.I,
+        ),
         reason="content asks the model to ignore higher-priority instructions",
         weight=0.35,
     ),

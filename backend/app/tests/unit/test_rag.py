@@ -187,6 +187,27 @@ def test_cross_encoder_reranker_accepts_injected_model() -> None:
     assert ranked[0].item == "second"
 
 
+def test_cross_encoder_reranker_preserves_negative_logit_ordering() -> None:
+    class NegativeLogitModel:
+        def predict(self, pairs: list[tuple[str, str]]) -> list[float]:
+            assert pairs[0][1] == "first"
+            assert pairs[1][1] == "second"
+            return [-1.0, -0.2]
+
+    cross_encoder = rerankers.CrossEncoderReranker[str](model=NegativeLogitModel())
+    ranked = cross_encoder.rerank(
+        "query",
+        [
+            RerankCandidate(item="first", score=0.9),
+            RerankCandidate(item="second", score=0.1),
+        ],
+        limit=2,
+    )
+
+    assert [candidate.item for candidate in ranked] == ["second", "first"]
+    assert [candidate.score for candidate in ranked] == [-0.2, -1.0]
+
+
 def test_qdrant_vector_store_recreate_and_query_when_dependency_available(
     tmp_path: Path,
 ) -> None:

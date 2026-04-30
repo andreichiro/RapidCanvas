@@ -43,6 +43,26 @@ class FakeBlueskySearchClient:
         ]
 
 
+class FakeNormalizedBlueskySearchClient:
+    def search_posts(self, query: str, limit: int) -> list[ContextDocument]:
+        assert query == "mars rover"
+        assert limit == 1
+        return [
+            ContextDocument(
+                id="BS1",
+                source_type="bluesky",
+                title="Bluesky post by space.example",
+                url="https://bsky.app/profile/space.example/post/3abc",
+                text="Mars rover context with preserved normalized metadata.",
+                metadata={
+                    "author": "space.example",
+                    "at_uri": "at://did:plc:example/app.bsky.feed.post/3abc",
+                    "created_at": "2026-04-29T00:00:00+00:00",
+                },
+            )
+        ]
+
+
 class FakeDDGS:
     def __init__(self, hits: list[dict[str, str]]) -> None:
         self._hits = hits
@@ -63,6 +83,23 @@ async def test_bluesky_search_provider_normalizes_and_flags_results() -> None:
     assert documents[0].url == "https://bsky.app/profile/space.example/post/3abc"
     assert documents[0].metadata["search_query"] == "mars rover"
     assert any("prompt_injection_risk" in warning for warning in provider.last_warnings)
+
+
+@pytest.mark.asyncio
+async def test_bluesky_search_provider_preserves_normalized_context_documents() -> None:
+    provider = BlueskySearchProvider(client=FakeNormalizedBlueskySearchClient())
+
+    documents = await provider.search("mars rover", limit=1)
+
+    assert len(documents) == 1
+    assert documents[0].id == "BS1"
+    assert documents[0].title == "Bluesky post by space.example"
+    assert documents[0].url == "https://bsky.app/profile/space.example/post/3abc"
+    assert documents[0].metadata["author"] == "space.example"
+    assert documents[0].metadata["at_uri"] == "at://did:plc:example/app.bsky.feed.post/3abc"
+    assert documents[0].metadata["rank"] == 1
+    assert documents[0].metadata["search_query"] == "mars rover"
+    assert documents[0].metadata["sanitized"] is True
 
 
 @pytest.mark.asyncio

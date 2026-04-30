@@ -1,6 +1,6 @@
 # Current Handoff
 
-Updated: 2026-04-29
+Updated: 2026-04-30
 Repository: `andreichiro/RapidCanvas`
 Current branch: `main`
 Merged Gate 4 lanes: `codex/dev-a-gate4`, `codex/dev-b-gate4-retrieval-safety`, `codex/dev-e-gate4-frontend-ux`
@@ -189,6 +189,39 @@ Review follow-up:
 
 ```text
 R008 no longer references a missing scripts/user_smoke_check.py file.
+Dev B `BlueskySearchProvider` now preserves Dev A normalized `ContextDocument`
+search results instead of reinterpreting them as raw ATProto posts.
+Dev B prompt-injection scanning now flags the exact `ignore all instructions`
+attack wording from the plan, and the optional cross-encoder reranker preserves
+negative-logit ordering before public evidence scores are clamped downstream.
+```
+
+Additional real-service checks performed with the provided OpenAI test key:
+
+```text
+OpenAI provider catalog reports `openai.configured=true` when the key is passed
+only through the process environment.
+OpenAIEmbeddingProvider returned two real 1536-dimensional embedding vectors.
+RagService with real OpenAI embeddings and InMemoryVectorStore retrieved the
+expected Mars-source document first.
+RagService with real OpenAI embeddings and Qdrant local mode retrieved the
+expected Mars-source document first.
+BlueskyClient.fetch_context() fetched a real public bsky.app post/thread,
+including non-empty text, an at:// URI, author metadata, and image metadata.
+POST /api/explain against the same real public Bluesky post returned status 200,
+3 cited bullets, `fallback_mode=safe_summary`, `adapter_mode=deterministic_dev`,
+and explicit real-fetch/dev-adapter trace flags.
+make check-secrets passed after the real-key smoke checks; the key was not
+written to tracked files or `.env`.
+```
+
+Known live-service limitation observed during the real-service checks:
+
+```text
+Unauthenticated live `app.bsky.feed.searchPosts` returned upstream 403 from the
+CDN in this environment. Direct real Bluesky post/thread fetch works. Later
+search integration must keep typed fallback/auth/provider handling around live
+Bluesky search instead of assuming unauthenticated search always succeeds.
 ```
 
 ## Important Boundaries

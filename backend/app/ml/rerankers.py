@@ -71,7 +71,7 @@ class CrossEncoderReranker(Generic[T]):
         model: Any = self._model
         scores = [float(score) for score in model.predict(pairs)]
         rescored = [
-            RerankCandidate(item=candidate.item, score=max(0.0, score))
+            RerankCandidate(item=candidate.item, score=score)
             for candidate, score in zip(candidates, scores, strict=True)
         ]
         return sorted(rescored, key=lambda candidate: candidate.score, reverse=True)[:limit]

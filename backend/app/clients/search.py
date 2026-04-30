@@ -49,24 +49,9 @@ class BlueskySearchProvider:
 
         documents: list[ContextDocument] = []
         for index, post in enumerate(posts[:limit], start=1):
-            text = _post_text(post)
-            if not text:
+            document = _document_from_bluesky_search_item(post, query=query, index=index)
+            if document is None:
                 continue
-            uri = str(_get(post, "uri", "") or "")
-            author = _author_handle(post)
-            document = ContextDocument(
-                id=f"BSKY-{_stable_hash(uri or text)[:12]}",
-                source_type="bluesky",
-                title=f"Bluesky search result by {author}",
-                url=_post_url(post, fallback_uri=uri),
-                text=text,
-                metadata={
-                    "rank": index,
-                    "at_uri": uri,
-                    "author": author,
-                    "search_query": query,
-                },
-            )
             sanitized, scan = sanitize_context_document(document)
             if scan.is_risky:
                 self.last_warnings.append(f"prompt_injection_risk:{sanitized.id}")
@@ -216,6 +201,40 @@ def _merge_search_hit_metadata(
         "search_snippet": str(hit.get("body") or hit.get("snippet") or ""),
     }
     return document.model_copy(update={"title": title, "metadata": metadata})
+
+
+def _document_from_bluesky_search_item(
+    post: Any,
+    *,
+    query: str,
+    index: int,
+) -> ContextDocument | None:
+    if isinstance(post, ContextDocument):
+        metadata = {
+            **post.metadata,
+            "rank": index,
+            "search_query": query,
+        }
+        return post.model_copy(update={"metadata": metadata})
+
+    text = _post_text(post)
+    if not text:
+        return None
+    uri = str(_get(post, "uri", "") or "")
+    author = _author_handle(post)
+    return ContextDocument(
+        id=f"BSKY-{_stable_hash(uri or text)[:12]}",
+        source_type="bluesky",
+        title=f"Bluesky search result by {author}",
+        url=_post_url(post, fallback_uri=uri),
+        text=text,
+        metadata={
+            "rank": index,
+            "at_uri": uri,
+            "author": author,
+            "search_query": query,
+        },
+    )
 
 
 def _items(value: Any) -> Iterable[Any]:
