@@ -4,6 +4,8 @@ set -euo pipefail
 contract_path="${1:?usage: scripts/verify_lane_isolation.sh <contract-json>}"
 
 python - "$contract_path" <<'PY'
+from __future__ import annotations
+
 import json
 import os
 import subprocess
@@ -33,6 +35,9 @@ for root in contract["execution_roots"]:
     branch = run(["git", "branch", "--show-current"], cwd=path)
     if branch != required_branch:
         fail(f"execution root {path} is on {branch!r}, expected {required_branch!r}")
+    worktree_root = run(["git", "rev-parse", "--show-toplevel"], cwd=path)
+    if os.path.realpath(worktree_root) != os.path.realpath(path):
+        fail(f"{path} resolves to unexpected git root {worktree_root}")
 
 for root in contract.get("shared_read_only_roots", []):
     path = root["path"]

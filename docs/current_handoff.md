@@ -1,10 +1,9 @@
 # Current Handoff
 
-Updated: 2026-04-29  
-Repository: `andreichiro/RapidCanvas`  
-Shared branch: `main`
-Active Dev E isolated branch: `codex/dev-e-gate4-frontend-ux`
-Active Dev E isolated clone: `/Users/akatsurada/Documents/New-project-dev-e-gate4`
+Updated: 2026-04-29
+Repository: `andreichiro/RapidCanvas`
+Current branch: `main`
+Merged Gate 4 lanes: `codex/dev-a-gate4`, `codex/dev-b-gate4-retrieval-safety`, `codex/dev-e-gate4-frontend-ux`
 
 ## Current State
 
@@ -12,20 +11,99 @@ Active Dev E isolated clone: `/Users/akatsurada/Documents/New-project-dev-e-gate
 - Gate 1 is implemented: `docs/requirements_matrix.md` maps every assignment and Plan Final E requirement, and `make requirements-review` enforces 45 rows.
 - Gate 2 is implemented: FastAPI/domain contracts are frozen in `backend/app/schemas/`, `backend/app/api/routes.py`, and `backend/app/deps.py`.
 - Gate 3 is implemented: `/api/explain` performs real Bluesky post/thread fetching and returns a schema-valid cited safe summary.
-- Search/RAG and DSPy are still deterministic dev adapters and every Gate 3 response marks this in `trace`.
+- Gate 4 Dev A is merged into `main`: Backend/API/Bluesky normalization covers URL parsing, DID/handle AT URI construction, real thread fetch, parent context, quote text, external links, image alt text/fullsize/thumb URLs, unavailable/blocked warnings, concise upstream error wrapping, and a read-only Bluesky `search_posts()` wrapper returning `ContextDocument` objects.
+- Gate 4 Dev B is merged into `main`: Search/RAG/source-safety modules cover web and Bluesky search adapters, safe linked-page fetching, prompt-injection scanning, sanitization, embeddings, Qdrant/in-memory retrieval, retrieval diagnostics, and reranking.
+- Gate 4 Dev E is merged into `main`: the React frontend is componentized, typed against the API contract, and renders URL/provider input, loading/error states, cited bullets, sources, trust/fallback states, guardrail flags, and a trace panel.
+- The live `/api/explain` route still uses the Gate 3 trace-marked adapter until Dev A/C integration replaces the route builder and wires Dev B retrieval plus Dev C DSPy/guardrails.
+- DSPy is still a deterministic dev adapter and every Gate 3 response marks this in `trace`.
 - `R045` is partially exercised by Gate 3 adapter tracing but remains planned for final real-pipeline enforcement.
 - Post-review Gate 3 matrix fix is applied: `R008` now points to actual smoke/browser verification files and commands.
-- Dev E Gate 4 frontend scope is implemented in the isolated clone:
-  - componentized React UI for `UrlForm`, `ProviderSelect`, `ResultView`, `CitationChip`, `SourceList`, `TracePanel`, `ErrorBanner`, `TrustBadge`, and `GuardrailFlags`;
-  - typed API client error handling for FastAPI detail payloads;
-  - visible loading, error, cited bullets, sources, trust/fallback states, guardrail flags, and trace panel;
-  - frontend tests now cover provider selection, successful submit, cited bullets, source cards, trace toggle, partial fallback, abstain fallback, and API errors.
-- Dev E added a narrow maintainability-review update so the review gate checks the componentized Gate 4 UI surface instead of stale Gate 3 App-only strings.
-- Final Dev E review fixed the viewport-scaled H1 font-size finding by replacing
-  `clamp(..., 4vw, ...)` with rem-only sizes and discrete media-query steps.
-- `scripts/review_quality.py` now fails `make deep-review` if CSS `font-size`
-  uses `clamp()` or viewport units, preventing the Dev E heading regression from
-  returning silently.
+- Gate 4 as a whole is not complete until Dev C/D work and final real-pipeline integration land. DSPy, eval/docs/skills, GEPA, MLflow, final guardrail orchestration, and requirement-matrix closure remain owned by their lanes.
+
+## Dev A Gate 4 Lane
+
+Source branch:
+
+```text
+codex/dev-a-gate4
+```
+
+Added Dev A-owned behavior:
+
+- Expanded `backend/app/clients/bsky.py` for robust public Bluesky URL parsing, DID/handle AT URI construction, and read-only SDK access.
+- Normalized target posts, parent context, quote text, external links, image alt text/fullsize/thumb URLs, and unavailable/blocked/deleted warnings.
+- Added concise upstream error wrapping so raw provider response bodies do not leak into API details.
+- Added a read-only `BlueskyClient.search_posts()` wrapper returning `ContextDocument` objects for retrieval lanes.
+- Updated `PostContext.warnings` in domain contracts.
+- Added unit/integration coverage for parent, quote, link, image, unavailable, search, and sanitized error behavior.
+
+Important Dev A notes:
+
+- Live unauthenticated `app.bsky.feed.searchPosts` returned `403` in this environment. The wrapper keeps failures typed and sanitized rather than treating unauthenticated live search as final retrieval completion.
+- `PostContext.warnings` is normalized by Dev A, but the current Gate 3 adapter does not expose those warnings in public API trace because `backend/app/agent/` is outside Dev A ownership.
+
+## Dev B Gate 4 Lane
+
+Source branch:
+
+```text
+codex/dev-b-gate4-retrieval-safety
+```
+
+Added Dev B-owned behavior:
+
+- Search provider protocols and adapters in `backend/app/clients/search.py`.
+- DDGS-backed web search and read-only Bluesky search normalization.
+- Safe linked-page fetcher in `backend/app/clients/fetcher.py`.
+- HTML/text extraction helper in `backend/app/clients/extraction.py`.
+- SSRF/private-IP/localhost/link-local/file-scheme blocking before fetch and before redirects.
+- Prompt-injection scanning and source sanitization in `backend/app/guardrails/prompt_injection.py`.
+- OpenAI embedding wrapper with diskcache plus deterministic test embeddings in `backend/app/ml/embeddings.py`.
+- Chunking variants, in-memory vector store, Qdrant local-mode store, and `RagService.retrieve()` in `backend/app/ml/vector_store.py`.
+- Retrieval diagnostics in `backend/app/ml/diagnostics.py`, including prompt-injection flags/warnings surfaced through `RagService.last_diagnostics`.
+- Similarity, optional HF cross-encoder, and optional DSPy rerankers in `backend/app/ml/rerankers.py`; optional HF setup now falls back if model loading fails.
+- Unit tests for search, safe fetch, prompt-injection scanning, RAG retrieval, Qdrant optional behavior, and reranker fallback.
+
+Important Dev B notes:
+
+- `RagService.retrieve(query, documents) -> Evidence[]` is ready for integration and exposes prompt-injection diagnostics through `last_diagnostics`.
+- Optional Qdrant and web extraction paths were verified with extras, not only the base dev environment.
+- Dev B's `BlueskySearchProvider` can consume or wrap Dev A's read-only `BlueskyClient.search_posts()` during the integration window.
+
+## Dev E Gate 4 Lane
+
+Source branch:
+
+```text
+codex/dev-e-gate4-frontend-ux
+```
+
+Added Dev E-owned behavior:
+
+- Componentized React UI for `UrlForm`, `ProviderSelect`, `ResultView`, `CitationChip`, `SourceList`, `TracePanel`, `ErrorBanner`, `TrustBadge`, and `GuardrailFlags`.
+- Typed API client in `frontend/src/api/client.ts` with FastAPI detail payload handling and fallback error messages.
+- User-facing loading, error, partial-success, abstain, and safe-summary states.
+- Cited bullet rendering with citation chips that link to the source list.
+- Source list rendering for title, URL, type, and snippet.
+- Trace panel toggle for category, queries, warnings, latency, trust score, fallback mode, and guardrail flags.
+- Frontend tests for provider selection, successful submit, cited bullets, source cards, trace toggle, partial fallback, abstain fallback, and API errors.
+- Browser verification at `http://127.0.0.1:5173/` against the local backend.
+
+Important Dev E notes:
+
+- The final Dev E review fixed the viewport-scaled H1 finding by replacing `clamp(..., 4vw, ...)` with rem-only sizes and discrete media-query steps.
+- `scripts/review_quality.py` now fails `make deep-review` if CSS `font-size` uses `clamp()` or viewport units, preventing the heading regression from returning silently.
+- Dev E intentionally did not change backend schemas or route contracts; the frontend consumes the existing public API shape and preserves visible adapter/trust/fallback fields until real pipeline lanes replace the deterministic adapter.
+
+## Merge Notes
+
+- Dev A and Dev B backend implementation ownership was disjoint: Dev A changed API/Bluesky/schema/test files, while Dev B added retrieval/source-safety modules.
+- Dev E frontend implementation was disjoint from Dev A/B backend work, with only handoff/log/review-script overlap.
+- Merge overlap existed in `docs/current_handoff.md`, `TRANSLATION_LOG.md`, `scripts/verify_lane_isolation.sh`, and `scripts/assert_lane_execution_context.sh`; those files were resolved additively.
+- The generic lane verifier keeps strict standalone-clone and shared-worktree checks, and the context guard accepts execution from approved execution roots or subdirectories.
+- Preserve Dev A's `BlueskyClient.search_posts()` and `PostContext.warnings` while wiring Dev B retrieval.
+- Preserve Dev B's retrieval diagnostics and optional dependency fallback behavior while integrating with Dev C trace/guardrails.
+- Preserve Dev E's public API client contract and visible adapter/trust/fallback trace fields until the real pipeline replaces the deterministic adapter honestly.
 
 ## Verified Commands
 
@@ -46,7 +124,35 @@ browser-use verification at http://127.0.0.1:5174/
 
 Both checks confirmed real Bluesky fetch, 3 cited bullets, `fallback_mode=safe_summary`, `adapter_mode=deterministic_dev`, and visible adapter guardrail flags.
 
-Additional Dev E Gate 4 checks performed in the isolated clone:
+Additional Dev A Gate 4 checks performed before handoff:
+
+```text
+bash scripts/verify_lane_isolation.sh assets/dev_A_gate4_WORKSPACE_CONTRACT.json
+bash scripts/assert_lane_execution_context.sh assets/dev_A_gate4_WORKSPACE_CONTRACT.json
+make deep-review
+make check-secrets
+git diff --check
+live Bluesky fetch_context smoke with https://bsky.app/profile/bsky.app/post/3mk6ipt5iv22y
+live /api/explain smoke with https://bsky.app/profile/bsky.app/post/3mk6ipt5iv22y
+live SDK normalization probes for external, image, quote, and record-with-media embeds
+```
+
+Additional Dev B Gate 4 checks performed before handoff:
+
+```text
+scripts/verify_dev_B_gate4_isolation.sh
+scripts/assert_dev_B_gate4_execution_context.sh
+uv run ruff check app && uv run mypy app
+uv run pytest app/tests/unit/test_search.py app/tests/unit/test_rag.py
+uv run --extra bluesky pytest app/tests/unit/test_fetcher.py app/tests/unit/test_search.py
+uv run --extra ai pytest app/tests/unit/test_rag.py::test_qdrant_vector_store_recreate_and_query_when_dependency_available
+make deep-review
+git fetch github --prune
+git diff --name-status github/main..github/codex/dev-a-gate4
+git diff --name-status github/main..codex/dev-b-gate4-retrieval-safety
+```
+
+Additional Dev E Gate 4 checks performed before handoff:
 
 ```text
 scripts/verify_dev_E_gate4_isolation.sh
@@ -59,15 +165,24 @@ POST /api/explain with https://bsky.app/profile/bsky.app/post/3mk6ipt5iv22y
 browser-use verification at http://127.0.0.1:5173/
 ```
 
-The final Dev E browser-use pass verified the heading/provider/form, live explain
-result, 4 citation chips, 2 source cards, `safe_summary`, guardrail flags, trace
-availability, and zero console errors at `http://127.0.0.1:5173/`.
+The final Dev E browser-use pass verified the heading/provider/form, live explain result, 4 citation chips, 2 source cards, `safe_summary`, guardrail flags, trace availability, and zero console errors at `http://127.0.0.1:5173/`.
 
 Final Dev E review also verified:
 
 ```text
 no frontend CSS font-size uses clamp(), vw, vh, vmin, or vmax
 negative temp-copy probe catches the old H1 clamp(..., 4vw, ...) regression
+```
+
+Additional merged-main checks performed while shipping Dev E after Dev A/B:
+
+```text
+scripts/verify_dev_E_gate4_isolation.sh
+scripts/assert_dev_E_gate4_execution_context.sh
+git diff --check
+make deep-review
+uv run --extra bluesky pytest app/tests/unit/test_fetcher.py app/tests/unit/test_search.py
+uv run --extra ai pytest app/tests/unit/test_rag.py::test_qdrant_vector_store_recreate_and_query_when_dependency_available
 ```
 
 Review follow-up:
@@ -79,24 +194,17 @@ R008 no longer references a missing scripts/user_smoke_check.py file.
 ## Important Boundaries
 
 - Do not replace the trace-marked Gate 3 adapter with unmarked fake explanation bullets.
-- Do not claim Search/RAG, DSPy, eval, guardrails, image understanding, provider comparison, GEPA, or MLflow are complete until their real files, tests, eval artifacts, and matrix rows are updated.
+- Do not claim integrated `/api/explain` Search/RAG, DSPy, eval, full guardrails, image understanding, provider comparison, GEPA, or MLflow are complete until their real files, tests, eval artifacts, and matrix rows are updated.
 - Real Bluesky post fetch is required for future integration gates.
 - Temporary deterministic dev adapters may be used only while real Search/RAG or DSPy modules are incomplete.
 - Any dev adapter use must be visible in `trace`.
 - Dev adapters cannot satisfy final acceptance or requirement-matrix rows.
-- Dev E changes were made in a standalone isolated clone; the shared repo at
-  `/Users/akatsurada/Documents/New project` stayed on `main` and inspection-only.
-- Dev E touched `scripts/review_quality.py` only to keep the review gate aligned
-  with the componentized frontend surface and to prevent viewport-scaled
-  `font-size` regressions; these cross-lane workflow changes are logged in
-  `TRANSLATION_LOG.md`.
+- Dev E changes were made in a standalone isolated clone; the shared repo at `/Users/akatsurada/Documents/New project` stayed on `main` and inspection-only.
+- Dev E touched `scripts/review_quality.py` only to keep the review gate aligned with the componentized frontend surface and to prevent viewport-scaled `font-size` regressions; these cross-lane workflow changes are logged in `TRANSLATION_LOG.md`.
 
 ## Next Work
 
-Recommended next step: integrate other Gate 4 lanes without losing the Dev E UI
-contract. T1 handoff spine/research deliverables, real Search/RAG, real DSPy,
-eval, guardrails, image, provider comparison, GEPA, and MLflow remain owned by
-their respective lanes until their files/tests/matrix rows exist.
+Recommended next step: integrate Dev B Search/RAG with Dev A/C service wiring, keep Dev C DSPy/guardrails moving, and keep T1 handoff spine/research deliverables moving through Dev D. Dev E's frontend contract is ready for the real pipeline response as long as the public API shape stays stable.
 
 Expected non-Dev-E additions:
 
@@ -104,13 +212,10 @@ Expected non-Dev-E additions:
 - `.codex/skills/*`
 - `docs/task_packets.md`
 - updated `AGENTS.md`, `README.md`, `TRANSLATION_LOG.md`, and `docs/requirements_matrix.md`
-- backend Search/RAG, DSPy, eval, guardrail, image, provider, GEPA, and MLflow modules/tests
+- backend DSPy, eval, guardrail orchestration, image, provider, GEPA, and MLflow modules/tests
+- final route integration that replaces deterministic adapters with real Search/RAG and DSPy modules
 
-After T1, replace deterministic adapters with real Search/RAG and DSPy modules while preserving the no-fake-product-behavior rule.
-
-When merging Dev E, preserve the public API client contract and keep the visible
-adapter/trust/fallback trace fields until real pipeline lanes replace the
-deterministic adapters honestly.
+During the integration window, replace deterministic adapters with real Search/RAG and DSPy modules while preserving the no-fake-product-behavior rule.
 
 ## Review Records
 
