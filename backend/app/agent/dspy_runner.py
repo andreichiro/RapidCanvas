@@ -11,7 +11,14 @@ from app.agent.runner import AdapterMode, ClassificationResult
 from app.agent.signatures import build_dspy_signature_classes
 from app.guardrails.output import BulletDraft, ExplanationDraft, ValidationResult
 from app.guardrails.policies import compact_text
-from app.schemas.domain import Evidence, FallbackMode, PostContext, TrustAssessment
+from app.schemas.domain import (
+    ContextDocument,
+    Evidence,
+    FallbackMode,
+    PostContext,
+    SourceType,
+    TrustAssessment,
+)
 
 
 class DspySignatureRunner:
@@ -23,6 +30,7 @@ class DspySignatureRunner:
     def __init__(self) -> None:
         dspy = import_module("dspy")
         signatures = build_dspy_signature_classes()
+        self._document_source_types: dict[str, SourceType] = {}
         self._classify = dspy.Predict(signatures["ClassifyPostContext"])
         self._queries = dspy.Predict(signatures["GenerateSearchQueries"])
         self._detect = dspy.Predict(signatures["DetectPromptInjectionRisk"])
@@ -31,6 +39,11 @@ class DspySignatureRunner:
         self._explain = dspy.Predict(signatures["ExplainPost"])
         self._validate = dspy.Predict(signatures["ValidateExplanation"])
         self._judge = dspy.Predict(signatures["JudgeEvaluationCase"])
+
+    def set_context_documents(self, documents: Sequence[ContextDocument]) -> None:
+        """Record evidence document types so prompts can use precise untrusted labels."""
+
+        self._document_source_types = {document.id: document.source_type for document in documents}
 
     def classify(self, post: PostContext) -> ClassificationResult:
         prediction = self._classify(
@@ -44,14 +57,14 @@ class DspySignatureRunner:
 
     def generate_queries(self, post: PostContext, category: str) -> list[str]:
         prediction = self._queries(
-            post_text=post.text,
+            post_text=_label("UNTRUSTED_POST_TEXT", post.text),
             category=category,
-            known_context=_thread_context(post),
+            known_context=_label("UNTRUSTED_THREAD_CONTEXT", _thread_context(post)),
         )
         return _json_list(str(getattr(prediction, "queries_json", "[]")))[:4]
 
     def detect_prompt_injection(self, content: str) -> list[str]:
-        prediction = self._detect(content=content)
+        prediction = self._detect(content=_label_once("UNTRUSTED_WEB_CONTEXT", content))
         risk = str(getattr(prediction, "risk", "none")).lower()
         reasons = _json_list(str(getattr(prediction, "reasons_json", "[]")))
         if risk in {"medium", "high"} or reasons:
@@ -59,7 +72,10 @@ class DspySignatureRunner:
         return []
 
     def rerank_evidence(self, post: PostContext, evidence: Sequence[Evidence]) -> list[Evidence]:
-        prediction = self._rerank(post_text=post.text, candidate_evidence=_evidence_json(evidence))
+        prediction = self._rerank(
+            post_text=_label("UNTRUSTED_POST_TEXT", post.text),
+            candidate_evidence=_evidence_json(evidence, self._document_source_types),
+        )
         ranked_ids = _json_list(str(getattr(prediction, "ranked_evidence_json", "[]")))
         by_id = {item.id: item for item in evidence}
         ranked = [by_id[item_id] for item_id in ranked_ids if item_id in by_id]
@@ -72,7 +88,10 @@ class DspySignatureRunner:
         post: PostContext,
         evidence: Sequence[Evidence],
     ) -> TrustAssessment:
-        prediction = self._assess(post_text=post.text, evidence=_evidence_json(evidence))
+        prediction = self._assess(
+            post_text=_label("UNTRUSTED_POST_TEXT", post.text),
+            evidence=_evidence_json(evidence, self._document_source_types),
+        )
         score = _float_or_default(str(getattr(prediction, "trust_score", "0.0")), 0.0)
         fallback = _fallback_mode(str(getattr(prediction, "fallback_mode", "abstain")))
         return TrustAssessment(
@@ -85,7 +104,7 @@ class DspySignatureRunner:
     def explain(self, post: PostContext, evidence: Sequence[Evidence]) -> ExplanationDraft:
         prediction = self._explain(
             post_text=_label("UNTRUSTED_POST_TEXT", post.text),
-            evidence=_evidence_json(evidence),
+            evidence=_evidence_json(evidence, self._document_source_types),
         )
         return _draft_from_json(str(getattr(prediction, "bullets_json", "[]")))
 
@@ -96,9 +115,9 @@ class DspySignatureRunner:
         evidence: Sequence[Evidence],
     ) -> ValidationResult:
         prediction = self._validate(
-            post_text=post.text,
+            post_text=_label("UNTRUSTED_POST_TEXT", post.text),
             bullets_json=draft.model_dump_json(),
-            evidence=_evidence_json(evidence),
+            evidence=_evidence_json(evidence, self._document_source_types),
         )
         return ValidationResult(
             is_valid=str(getattr(prediction, "is_valid", "false")).lower() == "true",
@@ -128,7 +147,7 @@ class DspySignatureRunner:
         judged = self._judge(
             expected=expected,
             prediction=prediction,
-            evidence=_evidence_json(evidence),
+            evidence=_evidence_json(evidence, self._document_source_types),
         )
         scores = _json_mapping(str(getattr(judged, "scores_json", "{}")))
         labels = _json_list(str(getattr(judged, "error_labels_json", "[]")))
@@ -145,17 +164,40 @@ def _label(label: str, text: str) -> str:
     return f"{label}:\n{text}"
 
 
-def _evidence_json(evidence: Sequence[Evidence]) -> str:
+def _label_once(label: str, text: str) -> str:
+    stripped = text.lstrip()
+    if stripped.startswith("UNTRUSTED_"):
+        return text
+    return _label(label, text)
+
+
+def _evidence_json(
+    evidence: Sequence[Evidence],
+    document_source_types: dict[str, SourceType] | None = None,
+) -> str:
+    source_types = document_source_types or {}
     payload = [
         {
             "id": item.id,
             "source_id": item.source_id,
             "score": item.score,
-            "text": _label("UNTRUSTED_WEB_CONTEXT", compact_text(item.text, limit=800)),
+            "text": _label_once(
+                _evidence_label(item, source_types),
+                compact_text(item.text, limit=800),
+            ),
         }
         for item in evidence
     ]
     return json.dumps(payload)
+
+
+def _evidence_label(item: Evidence, source_types: dict[str, SourceType]) -> str:
+    source_type = source_types.get(item.document_id)
+    if source_type == "image":
+        return "UNTRUSTED_IMAGE_ALT_TEXT"
+    if source_type in {"thread", "bluesky"}:
+        return "UNTRUSTED_THREAD_CONTEXT"
+    return "UNTRUSTED_WEB_CONTEXT"
 
 
 def _draft_from_json(value: str) -> ExplanationDraft:

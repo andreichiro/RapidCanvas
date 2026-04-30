@@ -6,6 +6,7 @@ from pydantic import SecretStr
 
 from app.agent.loader import load_program
 from app.config import Settings
+from app.eval import optimize as optimize_module
 from app.eval.optimize import GepaMetricParts, combined_gepa_metric, run_gepa_optimization
 from app.ops import mlflow as mlflow_ops
 from app.ops.mlflow import build_default_mlflow_params, dataset_hash, log_local_run
@@ -76,7 +77,7 @@ def test_optimizer_real_mode_calls_gepa_compile_with_train_and_val_sets(tmp_path
     result = run_gepa_optimization(
         dry_run=False,
         output_path=output_path,
-        settings=Settings(openai_api_key=SecretStr("test-key")),
+        settings=Settings(openai_api_key=SecretStr("sk-test-key")),
         optimizer_factory=lambda metric: optimizer,
         student=FakeStudent(),
         configure_provider=False,
@@ -95,6 +96,42 @@ def test_optimizer_real_mode_requires_provider_credentials(tmp_path) -> None:  #
 
     with raises(RuntimeError, match="OPENAI_API_KEY"):
         run_gepa_optimization(dry_run=False, output_path=tmp_path / "program.json")
+
+
+def test_optimizer_real_mode_rejects_placeholder_credentials(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from pytest import raises
+
+    with raises(RuntimeError, match="real OpenAI API key"):
+        run_gepa_optimization(
+            dry_run=False,
+            output_path=tmp_path / "program.json",
+            settings=Settings(openai_api_key=SecretStr("test-key")),
+        )
+
+
+def test_default_gepa_factory_supplies_reflection_lm(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    class FakeLM:
+        def __init__(self, model: str, **kwargs) -> None:  # type: ignore[no-untyped-def]
+            self.model = model
+            self.kwargs = kwargs
+
+    class FakeGEPA:
+        def __init__(self, **kwargs) -> None:  # type: ignore[no-untyped-def]
+            self.kwargs = kwargs
+
+    class FakeDspy:
+        LM = FakeLM
+        GEPA = FakeGEPA
+
+    monkeypatch.setattr(optimize_module, "_dspy", lambda: FakeDspy)
+
+    optimizer = optimize_module._default_optimizer_factory(
+        lambda *_args: {"score": 1.0, "feedback": "ok"},
+        Settings(openai_api_key=SecretStr("sk-test-key"), dspy_judge_model="openai/test-judge"),
+    )
+
+    assert optimizer.kwargs["reflection_lm"].model == "openai/test-judge"
+    assert optimizer.kwargs["reflection_lm"].kwargs["temperature"] == 1.0
 
 
 def test_mlflow_param_payload_includes_required_dev_c_fields() -> None:

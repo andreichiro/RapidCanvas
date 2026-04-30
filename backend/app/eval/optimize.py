@@ -136,6 +136,12 @@ def _run_real_gepa_compile(
 ) -> dict[str, Any]:
     if settings.openai_api_key is None:
         raise RuntimeError("OPENAI_API_KEY is required for real GEPA optimization.")
+    api_key = settings.openai_api_key.get_secret_value()
+    if not api_key.startswith("sk-"):
+        raise RuntimeError(
+            "A real OpenAI API key beginning with 'sk-' is required for GEPA --real. "
+            "Use --dry-run for offline verification."
+        )
     if configure_provider:
         _configure_dspy(settings)
 
@@ -144,7 +150,7 @@ def _run_real_gepa_compile(
     optimizer = (
         optimizer_factory(_gepa_feedback_metric)
         if optimizer_factory
-        else _default_optimizer_factory(_gepa_feedback_metric)
+        else _default_optimizer_factory(_gepa_feedback_metric, settings)
     )
     compiled = optimizer.compile(active_student, trainset=trainset, valset=valset)
     predictor_count = len(compiled.predictors()) if hasattr(compiled, "predictors") else 0
@@ -166,13 +172,19 @@ def _configure_dspy(settings: Settings) -> None:
     dspy.configure(lm=dspy.LM(settings.dspy_model), async_max_workers=4)
 
 
-def _default_optimizer_factory(metric: Any) -> Any:
+def _default_optimizer_factory(metric: Any, settings: Settings) -> Any:
     dspy = _dspy()
+    reflection_lm = dspy.LM(
+        settings.dspy_judge_model,
+        temperature=1.0,
+        max_tokens=32000,
+    )
     return dspy.GEPA(
         metric=metric,
         max_metric_calls=2,
         reflection_minibatch_size=1,
         candidate_selection_strategy="current_best",
+        reflection_lm=reflection_lm,
         track_stats=True,
         use_mlflow=False,
     )

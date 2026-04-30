@@ -80,6 +80,7 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         del request
         started = perf_counter()
         self.last_trace_events = []
+        self._set_runner_documents(documents)
         injection_flags = self._scan_for_injection(post, evidence)
         classification = self._classify(post)
         queries = self._queries(post, classification.category)
@@ -240,6 +241,11 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
                 adapter_notes=self._runner.adapter_notes,
             ),
         )
+
+    def _set_runner_documents(self, documents: Sequence[ContextDocument]) -> None:
+        setter = getattr(self._runner, "set_context_documents", None)
+        if callable(setter):
+            setter(documents)
 
     def _trace_warnings(
         self,

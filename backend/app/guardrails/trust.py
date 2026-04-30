@@ -48,24 +48,50 @@ class TrustScorer:
         score: float,
         flags: list[str],
     ) -> FallbackMode:
+        dspy_mode = _dspy_requested_fallback(flags)
+        if dspy_mode is not None:
+            return dspy_mode
         if _must_abstain(post, score, flags):
             return "abstain"
-        if "invalid_output_shape" in flags:
-            return "partial"
-        if "prompt_injection_risk" in flags and score < self._policy.min_normal_trust:
-            return "safe_summary"
-        if "conflicting_sources" in flags:
-            return "partial"
-        if score < self._policy.min_partial_trust:
-            return "safe_summary"
-        if score < self._policy.min_normal_trust:
-            return "partial"
-        return "none"
+        return _policy_fallback_mode(
+            score=score,
+            flags=flags,
+            min_partial_trust=self._policy.min_partial_trust,
+            min_normal_trust=self._policy.min_normal_trust,
+        )
 
 
 def _base_score(count: int, diversity_score: float, retrieval_score: float) -> float:
     evidence_score = _evidence_count_score(count)
     return 0.36 * evidence_score + 0.28 * diversity_score + 0.36 * retrieval_score
+
+
+def _dspy_requested_fallback(flags: list[str]) -> FallbackMode | None:
+    ordered_modes: tuple[FallbackMode, ...] = ("abstain", "safe_summary", "partial")
+    for mode in ordered_modes:
+        if f"dspy_trust_{mode}" in flags:
+            return mode
+    return None
+
+
+def _policy_fallback_mode(
+    *,
+    score: float,
+    flags: list[str],
+    min_partial_trust: float,
+    min_normal_trust: float,
+) -> FallbackMode:
+    if "invalid_output_shape" in flags:
+        return "partial"
+    if "prompt_injection_risk" in flags and score < min_normal_trust:
+        return "safe_summary"
+    if "conflicting_sources" in flags:
+        return "partial"
+    if score < min_partial_trust:
+        return "safe_summary"
+    if score < min_normal_trust:
+        return "partial"
+    return "none"
 
 
 def _evidence_findings(
@@ -104,6 +130,14 @@ def _guardrail_delta(
 
 
 def _guardrail_penalty(flag: str, reasons: list[str]) -> float:
+    if flag.startswith("dspy_trust_"):
+        mode = flag.removeprefix("dspy_trust_")
+        reasons.append(f"DSPy trust assessment requested {mode} fallback.")
+        return {
+            "abstain": -1.0,
+            "safe_summary": -0.5,
+            "partial": -0.25,
+        }.get(mode, -0.1)
     if flag == "prompt_injection_risk":
         reasons.append("Prompt-injection markers were detected in untrusted content.")
         return -0.18
