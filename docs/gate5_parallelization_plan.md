@@ -19,6 +19,56 @@ real Bluesky fetch
 
 The work inside Gate 5 should be split as follows to minimize conflicts.
 
+## Contract Checkpoints During Parallel Work
+
+These checkpoints replace vague "mini spine" language. They are not shared
+implementation sessions and they are not final acceptance. They are small
+handoff tests that let each isolated lane prove its output can be consumed by
+the next lane without editing the next lane's code.
+
+Rules:
+
+- Each developer stays inside their owned files.
+- Dev D owns canonical Gate 5 fixture/review files when a shared artifact is
+  needed.
+- Producers publish typed fixtures or protocol functions; consumers write tests
+  against those fixtures/protocols.
+- A checkpoint can pass with controlled fixtures, but final Gate 5 acceptance
+  still requires the full real serial spine.
+
+Checkpoint order:
+
+```text
+C0 API contract freeze
+C1 A -> B PostContext handoff
+C2 B -> C Evidence handoff
+C3 C -> A ExplainerService handoff
+C4 A -> E API response handoff
+C5 final end-to-end serial spine
+```
+
+Checkpoint details:
+
+| checkpoint | producer | consumer | artifact or test | pass condition |
+|---|---|---|---|---|
+| C0 API contract freeze | Dev A | B/C/D/E | `backend/app/schemas/*`, OpenAPI, `frontend/src/api/client.ts` | request/response shape is stable enough for all lanes |
+| C1 `PostContext` handoff | Dev A, with Dev D fixture help | Dev B | real/cached `PostContext` fixture plus Dev B retrieval test | Dev B retrieval accepts the object without schema adapters |
+| C2 `Evidence[]` handoff | Dev B, with Dev D fixture help | Dev C | retrieval result fixture plus Dev C explainer test | Dev C consumes evidence, diagnostics, source ids, and warnings |
+| C3 explainer service handoff | Dev C | Dev A | `ExplainerService` protocol/builder plus API integration test | Dev A can call the service and receive `ExplainResponse` |
+| C4 API response handoff | Dev A | Dev E | real-shaped API response fixture plus frontend test | UI renders bullets, citations, sources, trust/fallback, and trace |
+| C5 final serial spine | Integration branch, reviewed by Dev D | all lanes | `docs/reviews/gate5_final_review.md` | real pipeline passes end-to-end through `/api/explain` |
+
+Practical effect:
+
+- Dev B does not need Dev C's code to start; B only needs C1.
+- Dev C does not need live retrieval to start; C can build against C2 fixtures,
+  then replace them with Dev B's real service during final integration.
+- Dev E does not need the final backend to start; E builds against C4 response
+  fixtures, then browser-verifies the real endpoint after C5.
+- Dev D does not mark requirement rows implemented from checkpoints alone.
+  Only C5 can close real Search/RAG, real DSPy, real citation, and real
+  trust/fallback rows.
+
 ## Dev A - API And Bluesky Integration
 
 Owns:
