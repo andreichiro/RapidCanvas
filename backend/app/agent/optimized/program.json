@@ -15,11 +15,10 @@
   "metric_score": 0.75,
   "mode": "dry_run",
   "notes": [
-    "Gate 4 Dev C saves a loadable program config.",
-    "Full GEPA requires Gate 9 cached eval cases before final tuning."
+    "Gate 4 Dev C saves a loadable program config."
   ],
   "optimizer": "GEPA",
   "policy_version": "gate4-dev-c-v1",
-  "saved_at": "2026-04-30T00:42:42.361997+00:00",
+  "saved_at": "2026-04-30T01:15:59.811885+00:00",
   "schema_version": 1
 }

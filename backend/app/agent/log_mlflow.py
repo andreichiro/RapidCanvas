@@ -25,7 +25,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     settings = _settings_from_args(args.tracking_uri, args.reports_dir)
-    program_result = load_program(settings, prefer_dspy=False)
+    program_result = load_program(settings, prefer_dspy=True, allow_dspy_without_key=True)
     manifest_path = _write_manifest(settings, program_result)
     run = log_local_run(
         settings,

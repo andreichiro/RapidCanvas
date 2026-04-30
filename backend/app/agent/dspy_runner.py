@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from importlib import import_module
-from typing import cast
+from typing import Any, cast
 
 from app.agent.runner import AdapterMode, ClassificationResult
 from app.agent.signatures import build_dspy_signature_classes
@@ -28,10 +28,11 @@ class DspySignatureRunner:
     adapter_mode: AdapterMode = "none"
     adapter_notes: list[str] = ["DSPy Predict modules generated this workflow output."]
 
-    def __init__(self) -> None:
+    def __init__(self, optimized_explain_program: Any | None = None) -> None:
         dspy = import_module("dspy")
         signatures = build_dspy_signature_classes()
         self._document_source_types: dict[str, SourceType] = {}
+        self._optimized_explain_program = optimized_explain_program
         self._classify = dspy.Predict(signatures["ClassifyPostContext"])
         self._queries = dspy.Predict(signatures["GenerateSearchQueries"])
         self._detect = dspy.Predict(signatures["DetectPromptInjectionRisk"])
@@ -69,7 +70,7 @@ class DspySignatureRunner:
         content: str,
         label: str = "UNTRUSTED_WEB_CONTEXT",
     ) -> list[str]:
-        prediction = self._detect(content=_label_once(label, content))
+        prediction = self._detect(content=_label(label, content))
         risk = str(getattr(prediction, "risk", "none")).lower()
         reasons = _json_list(str(getattr(prediction, "reasons_json", "[]")))
         if risk in {"medium", "high"} or reasons:
@@ -107,10 +108,14 @@ class DspySignatureRunner:
         )
 
     def explain(self, post: PostContext, evidence: Sequence[Evidence]) -> ExplanationDraft:
-        prediction = self._explain(
-            post_text=_label("UNTRUSTED_POST_TEXT", post.text),
-            evidence=_evidence_json(evidence, self._document_source_types),
-        )
+        inputs = {
+            "post_text": _label("UNTRUSTED_POST_TEXT", post.text),
+            "evidence": _evidence_json(evidence, self._document_source_types),
+        }
+        if self._optimized_explain_program is not None:
+            prediction = self._optimized_explain_program(**inputs, expected_points=[])
+        else:
+            prediction = self._explain(**inputs)
         return _draft_from_json(str(getattr(prediction, "bullets_json", "[]")))
 
     def validate(
@@ -169,13 +174,6 @@ def _label(label: str, text: str) -> str:
     return f"{label}:\n{text}"
 
 
-def _label_once(label: str, text: str) -> str:
-    stripped = text.lstrip()
-    if stripped.startswith("UNTRUSTED_"):
-        return text
-    return _label(label, text)
-
-
 def _evidence_json(
     evidence: Sequence[Evidence],
     document_source_types: dict[str, SourceType] | None = None,
@@ -186,7 +184,7 @@ def _evidence_json(
             "id": item.id,
             "source_id": item.source_id,
             "score": item.score,
-            "text": _label_once(
+            "text": _label(
                 evidence_untrusted_label(item, source_types),
                 compact_text(item.text, limit=800),
             ),

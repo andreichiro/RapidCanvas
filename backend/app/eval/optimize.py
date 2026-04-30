@@ -15,6 +15,7 @@ from typing import Any
 from app.agent.loader import OPTIMIZED_PROGRAM_PATH
 from app.agent.signatures import build_dspy_signature_classes
 from app.config import Settings, get_settings
+from app.eval.gepa_persistence import save_compiled_program
 from app.eval.gepa_validation import gepa_success_stats
 from app.guardrails.policies import DEFAULT_POLICY
 
@@ -85,6 +86,7 @@ def run_gepa_optimization(
     if not dry_run:
         compile_summary = _run_real_gepa_compile(
             settings=active_settings,
+            output_path=output_path,
             optimizer_factory=optimizer_factory,
             student=student,
             configure_provider=configure_provider,
@@ -103,10 +105,7 @@ def run_gepa_optimization(
             ["expected contextual point absent"],
             ["claim without source support"],
         ),
-        "notes": [
-            "Gate 4 Dev C saves a loadable program config.",
-            "Full GEPA requires Gate 9 cached eval cases before final tuning.",
-        ],
+        "notes": ["Gate 4 Dev C saves a loadable program config."],
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(saved_program, indent=2, sort_keys=True))
@@ -131,6 +130,7 @@ def _metric_parts(dry_run: bool) -> GepaMetricParts:
 def _run_real_gepa_compile(
     *,
     settings: Settings,
+    output_path: Path,
     optimizer_factory: Callable[[Any], Any] | None,
     student: Any | None,
     configure_provider: bool,
@@ -156,6 +156,7 @@ def _run_real_gepa_compile(
     compiled = optimizer.compile(active_student, trainset=trainset, valset=valset)
     predictor_count = len(compiled.predictors()) if hasattr(compiled, "predictors") else 0
     success_stats = gepa_success_stats(compiled, optimizer)
+    compiled_path = save_compiled_program(compiled, output_path)
     return {
         "executed": True,
         "optimizer_class": optimizer.__class__.__name__,
@@ -163,9 +164,10 @@ def _run_real_gepa_compile(
         "trainset_size": len(trainset),
         "valset_size": len(valset),
         "predictor_count": predictor_count,
+        "compiled_program_path": compiled_path.name,
+        "compiled_program_format": "dspy_save_program",
         **success_stats,
     }
-
 
 def _configure_dspy(settings: Settings) -> None:
     dspy = _dspy()
@@ -202,7 +204,12 @@ def _build_optimization_student() -> Any:
             super().__init__()
             self.explain = dspy.Predict(signatures["ExplainPost"])
 
-        def forward(self, post_text: str, evidence: str, expected_points: list[str]) -> Any:
+        def forward(
+            self,
+            post_text: str,
+            evidence: str,
+            expected_points: list[str] | None = None,
+        ) -> Any:
             del expected_points
             return self.explain(post_text=post_text, evidence=evidence)
 

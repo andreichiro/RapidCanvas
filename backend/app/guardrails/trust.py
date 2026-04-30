@@ -81,7 +81,10 @@ def _policy_fallback_mode(
     min_partial_trust: float,
     min_normal_trust: float,
 ) -> FallbackMode:
-    if "invalid_output_shape" in flags:
+    if any(
+        flag in flags
+        for flag in ("invalid_output_shape", "unknown_citation", "uncited_output")
+    ):
         return "partial"
     if "prompt_injection_risk" in flags and score < min_normal_trust:
         return "safe_summary"

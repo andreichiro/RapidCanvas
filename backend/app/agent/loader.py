@@ -32,6 +32,7 @@ def load_program(
     *,
     optimized_path: Path = OPTIMIZED_PROGRAM_PATH,
     prefer_dspy: bool = True,
+    allow_dspy_without_key: bool = False,
 ) -> ProgramLoadResult:
     """Load optimized config when present and select a DSPy-capable runner."""
 
@@ -40,9 +41,11 @@ def load_program(
     optimized_config = _load_optimized_config(optimized_path, warnings)
 
     runner: DspySignatureRunner | HeuristicSignatureRunner
-    if prefer_dspy and active_settings.openai_api_key is not None and dspy_is_available():
+    can_use_dspy = active_settings.openai_api_key is not None or allow_dspy_without_key
+    if prefer_dspy and can_use_dspy and dspy_is_available():
         warnings.extend(configure_dspy(active_settings))
-        runner = DspySignatureRunner()
+        optimized_dspy = _load_compiled_dspy_program(optimized_config, optimized_path, warnings)
+        runner = DspySignatureRunner(optimized_explain_program=optimized_dspy)
     else:
         runner = HeuristicSignatureRunner()
         warnings.append("dspy_runner_unavailable_using_deterministic_dev")
@@ -99,3 +102,30 @@ def _load_optimized_config(path: Path, warnings: list[str]) -> dict[str, Any]:
         warnings.append("optimized_program_invalid_shape")
         return {}
     return payload
+
+
+def _load_compiled_dspy_program(
+    config: dict[str, Any],
+    metadata_path: Path,
+    warnings: list[str],
+) -> Any | None:
+    compile_config = config.get("gepa_compile", {})
+    if not isinstance(compile_config, dict):
+        return None
+    raw_path = compile_config.get("compiled_program_path")
+    if not isinstance(raw_path, str) or not raw_path:
+        return None
+    compiled_path = Path(raw_path)
+    if not compiled_path.is_absolute():
+        compiled_path = metadata_path.parent / compiled_path
+    if not compiled_path.exists():
+        warnings.append("optimized_dspy_program_missing")
+        return None
+    try:
+        dspy = import_module("dspy")
+        program = dspy.load(str(compiled_path), allow_pickle=True)
+    except Exception as exc:  # pragma: no cover - depends on saved DSPy runtime shape.
+        warnings.append(f"optimized_dspy_program_load_failed:{exc.__class__.__name__}")
+        return None
+    warnings.append("optimized_dspy_program_loaded")
+    return program

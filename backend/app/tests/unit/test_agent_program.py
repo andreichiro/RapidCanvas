@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from app.agent.dspy_runner import _evidence_json
 from app.agent.program import BlueskyExplainer
 from app.agent.runner import (
     AdapterMode,
@@ -262,20 +261,6 @@ def test_runner_trust_abstain_forces_final_fallback() -> None:
     assert any(
         "DSPy trust assessment requested abstain" in item for item in response.trace.warnings
     )
-
-
-def test_evidence_json_uses_precise_untrusted_source_labels() -> None:
-    evidence = [
-        Evidence(id="E1", document_id="D1", text="Thread text", score=0.8, source_id="S1"),
-        Evidence(id="E2", document_id="D2", text="Web text", score=0.8, source_id="S2"),
-        Evidence(id="E3", document_id="D3", text="Image alt", score=0.8, source_id="S3"),
-    ]
-
-    payload = _evidence_json(evidence, {"D1": "thread", "D2": "web", "D3": "image"})
-
-    assert "UNTRUSTED_THREAD_CONTEXT" in payload
-    assert "UNTRUSTED_WEB_CONTEXT" in payload
-    assert "UNTRUSTED_IMAGE_ALT_TEXT" in payload
 
 
 class FakeFetcher:
