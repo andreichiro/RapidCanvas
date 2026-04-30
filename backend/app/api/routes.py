@@ -6,7 +6,7 @@ from typing import Protocol
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.clients.bsky import BlueskyClientError
+from app.clients.bsky import BlueskyClientError, InvalidBlueskyPostUrlError
 from app.config import Settings
 from app.deps import build_gate3_explainer, get_provider_catalog
 from app.schemas.api import ExplainRequest, ExplainResponse, HealthResponse, ProviderListResponse
@@ -42,6 +42,11 @@ def create_api_router(settings: Settings, explainer: ExplainerService | None = N
     def explain(request: ExplainRequest) -> ExplainResponse:
         try:
             return explain_service.explain(request)
+        except InvalidBlueskyPostUrlError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "invalid_bluesky_url", "message": str(exc)},
+            ) from exc
         except BlueskyClientError as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,

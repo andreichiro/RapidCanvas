@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from pytest import raises
 
-from app.clients.bsky import BlueskyClientError
+from app.clients.bsky import BlueskyClientError, InvalidBlueskyPostUrlError
 from app.main import create_app
 from app.schemas.api import (
     Bullet,
@@ -86,6 +86,11 @@ class FailingExplainer:
         raise BlueskyClientError("upstream unavailable")
 
 
+class InvalidUrlExplainer:
+    def explain(self, request: ExplainRequest) -> ExplainResponse:
+        raise InvalidBlueskyPostUrlError("unsupported post URL")
+
+
 def test_explain_route_returns_schema_valid_gate3_response() -> None:
     route_client = TestClient(create_app(explainer=FakeExplainer()))
     response = route_client.post(
@@ -118,6 +123,21 @@ def test_explain_route_maps_bluesky_fetch_failure() -> None:
 
     assert response.status_code == 502
     assert response.json()["detail"]["code"] == "bluesky_fetch_failed"
+
+
+def test_explain_route_maps_late_invalid_url_failure() -> None:
+    route_client = TestClient(create_app(explainer=InvalidUrlExplainer()))
+    response = route_client.post(
+        "/api/explain",
+        json={
+            "post_url": "https://bsky.app/profile/example.com/post/3abcxyz",
+            "provider": "openai",
+            "include_trace": True,
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "invalid_bluesky_url"
 
 
 def test_openapi_exposes_frozen_explain_contract() -> None:

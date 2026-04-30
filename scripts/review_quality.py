@@ -228,21 +228,38 @@ def check_no_placeholder_implementation_markers() -> list[Issue]:
 
 
 def check_frontend_user_text_matches_plan() -> list[Issue]:
-    text = read("frontend/src/App.tsx")
-    required = [
-        "Bluesky Contextual Post Explainer",
-        "T0 scaffold",
-        "URL input",
-        "provider selector",
-        "citations",
-        "trust display",
-        "trace panel",
-    ]
-    return [
-        Issue(ROOT / "frontend/src/App.tsx", f"user-visible scaffold text missing: {snippet}")
-        for snippet in required
-        if snippet not in text
-    ]
+    required = {
+        "frontend/src/App.tsx": ["Bluesky Contextual Post Explainer"],
+        "frontend/src/components/UrlForm.tsx": ["Bluesky post URL", "Provider"],
+        "frontend/src/components/CitationChip.tsx": ["Citation"],
+        "frontend/src/components/SourceList.tsx": ["Sources"],
+        "frontend/src/components/TrustBadge.tsx": ["Safe summary", "Abstain", "Partial"],
+        "frontend/src/components/GuardrailFlags.tsx": ["guardrail flags"],
+        "frontend/src/components/TracePanel.tsx": ["trace panel", "Category", "Warnings"],
+    }
+    issues: list[Issue] = []
+    for file_name, snippets in required.items():
+        text = read(file_name)
+        for snippet in snippets:
+            if snippet not in text:
+                issues.append(Issue(ROOT / file_name, f"user-visible frontend surface missing: {snippet}"))
+    return issues
+
+
+def check_no_viewport_scaled_font_size() -> list[Issue]:
+    font_scale_pattern = re.compile(
+        r"font-size\s*:[^;]*(?:clamp\(|\b\d*\.?\d+(?:vw|vh|vmin|vmax)\b)",
+        re.IGNORECASE,
+    )
+    issues: list[Issue] = []
+    for path in tracked_like_files():
+        if path.suffix.lower() != ".css":
+            continue
+        text = path.read_text(encoding="utf-8")
+        for match in font_scale_pattern.finditer(text):
+            line_no = text[: match.start()].count("\n") + 1
+            issues.append(Issue(path, f"viewport-scaled font-size near line {line_no}: {match.group(0)}"))
+    return issues
 
 
 def check_generated_artifacts_absent() -> list[Issue]:
@@ -270,6 +287,7 @@ def main() -> int:
         check_python_function_complexity,
         check_no_placeholder_implementation_markers,
         check_frontend_user_text_matches_plan,
+        check_no_viewport_scaled_font_size,
         check_generated_artifacts_absent,
     ]
     issues = [issue for check in checks for issue in check()]

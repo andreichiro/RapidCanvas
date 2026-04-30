@@ -1,83 +1,61 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 1 ]]; then
-  echo "usage: $0 <contract-json>" >&2
-  exit 2
-fi
+contract_path="${1:?usage: scripts/verify_lane_isolation.sh <contract-json>}"
 
-CONTRACT="$1"
+python - "$contract_path" <<'PY'
+from __future__ import annotations
 
-python - "$CONTRACT" <<'PY'
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
-contract_path = Path(sys.argv[1]).resolve()
-contract = json.loads(contract_path.read_text())
+
+def run(args: list[str], cwd: str) -> str:
+    return subprocess.check_output(args, cwd=cwd, text=True, stderr=subprocess.STDOUT).strip()
+
+
+def fail(message: str) -> None:
+    print(f"isolation check failed: {message}", file=sys.stderr)
+    raise SystemExit(1)
+
+
+contract = json.loads(Path(sys.argv[1]).read_text())
 required_branch = contract["required_branch"]
 
-
-def run_git(path: str, *args: str) -> str:
-    result = subprocess.run(
-        ["git", "-C", path, *args],
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    return result.stdout.strip()
-
-
-def shared_paths() -> list[str]:
-    paths: list[str] = []
-    for entry in contract.get("shared_read_only_roots", []):
-        if isinstance(entry, dict):
-            paths.append(entry["path"])
-        else:
-            paths.append(entry)
-    return paths
-
-
-errors: list[str] = []
-
-for entry in contract["execution_roots"]:
-    path = Path(entry["path"])
-    if not path.exists():
-        errors.append(f"execution root does not exist: {path}")
-        continue
-
-    git_dir = path / ".git"
-    if not git_dir.is_dir():
-        errors.append(f"execution root is not a standalone clone with real .git directory: {path}")
-
-    branch = run_git(str(path), "branch", "--show-current")
+for root in contract["execution_roots"]:
+    path = root["path"]
+    if not os.path.isdir(path):
+        fail(f"execution root missing: {path}")
+    git_dir = run(["git", "rev-parse", "--git-dir"], cwd=path)
+    if git_dir != ".git":
+        fail(f"execution root is not a standalone clone: {path} has git dir {git_dir!r}")
+    branch = run(["git", "branch", "--show-current"], cwd=path)
     if branch != required_branch:
-        errors.append(f"execution root {path} is on {branch!r}, expected {required_branch!r}")
+        fail(f"execution root {path} is on {branch!r}, expected {required_branch!r}")
+    worktree_root = run(["git", "rev-parse", "--show-toplevel"], cwd=path)
+    if os.path.realpath(worktree_root) != os.path.realpath(path):
+        fail(f"{path} resolves to unexpected git root {worktree_root}")
 
-for path_text in shared_paths():
-    path = Path(path_text)
-    if not path.exists():
+for root in contract.get("shared_read_only_roots", []):
+    path = root["path"]
+    if not os.path.isdir(path):
         continue
-
-    branch = run_git(str(path), "branch", "--show-current")
+    git_dir = run(["git", "rev-parse", "--git-dir"], cwd=path)
+    if git_dir != ".git":
+        fail(f"shared root is not a standalone clone: {path} has git dir {git_dir!r}")
+    branch = run(["git", "branch", "--show-current"], cwd=path)
     if branch == required_branch:
-        errors.append(f"shared read-only root is on live lane branch: {path}")
+        fail(f"shared root {path} is checked out on live lane branch {required_branch!r}")
+    worktree_output = run(["git", "worktree", "list", "--porcelain"], cwd=path)
+    current_worktree = None
+    for line in worktree_output.splitlines():
+        if line.startswith("worktree "):
+            current_worktree = line.removeprefix("worktree ")
+        elif line == f"branch refs/heads/{required_branch}":
+            fail(f"shared root reports lane branch owned by worktree {current_worktree}")
 
-    try:
-        worktrees = run_git(str(path), "worktree", "list", "--porcelain")
-    except subprocess.CalledProcessError as exc:
-        errors.append(f"failed to inspect worktrees for shared root {path}: {exc.stderr.strip()}")
-        continue
-
-    if f"branch refs/heads/{required_branch}" in worktrees:
-        errors.append(f"shared root reports linked worktree ownership of {required_branch}: {path}")
-
-if errors:
-    for error in errors:
-        print(f"FAIL: {error}", file=sys.stderr)
-    sys.exit(1)
-
-print(f"lane isolation verified: {contract['lane']} on {required_branch}")
+print(f"isolation check passed for {contract['lane']} on {required_branch}")
 PY

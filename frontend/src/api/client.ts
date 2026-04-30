@@ -48,11 +48,18 @@ export type ExplainRequest = {
   include_trace: boolean;
 };
 
+type ApiErrorPayload = {
+  detail?: string | { message?: string } | Array<{ msg?: string; message?: string }>;
+};
+
 async function readError(response: Response): Promise<string> {
   try {
-    const payload = (await response.json()) as { detail?: { message?: string } | string };
+    const payload = (await response.json()) as ApiErrorPayload;
     if (typeof payload.detail === "string") {
       return payload.detail;
+    }
+    if (Array.isArray(payload.detail)) {
+      return payload.detail.map((item) => item.message ?? item.msg).filter(Boolean).join("; ") || response.statusText;
     }
     return payload.detail?.message ?? response.statusText;
   } catch {

@@ -1,51 +1,45 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 1 ]]; then
-  echo "usage: $0 <contract-json>" >&2
-  exit 2
-fi
+contract_path="${1:?usage: scripts/assert_lane_execution_context.sh <contract-json>}"
 
-CONTRACT="$1"
+python - "$contract_path" <<'PY'
+from __future__ import annotations
 
-python - "$CONTRACT" <<'PY'
 import json
-import subprocess
+import os
 import sys
 from pathlib import Path
 
-contract = json.loads(Path(sys.argv[1]).resolve().read_text())
+
+def is_within(path: str, root: str) -> bool:
+    real_path = os.path.realpath(path)
+    real_root = os.path.realpath(root)
+    return real_path == real_root or os.path.commonpath([real_path, real_root]) == real_root
 
 
-def top_level(path: str) -> str:
-    result = subprocess.run(
-        ["git", "-C", path, "rev-parse", "--show-toplevel"],
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+contract = json.loads(Path(sys.argv[1]).read_text())
+cwd = os.getcwd()
+execution_roots = [root["path"] for root in contract["execution_roots"]]
+shared_roots = [root["path"] for root in contract.get("shared_read_only_roots", [])]
+
+if any(is_within(cwd, root) for root in execution_roots):
+    print(f"execution context check passed for {contract['lane']}: {cwd}")
+    raise SystemExit(0)
+
+if any(is_within(cwd, root) for root in shared_roots):
+    print(
+        f"execution context check failed: {cwd} is inside shared read-only root "
+        f"for {contract['lane']}",
+        file=sys.stderr,
     )
-    return str(Path(result.stdout.strip()).resolve())
+    raise SystemExit(1)
 
-
-cwd_top = top_level(".")
-execution_roots = {str(Path(entry["path"]).resolve()) for entry in contract["execution_roots"]}
-shared_roots = set()
-for entry in contract.get("shared_read_only_roots", []):
-    path = entry["path"] if isinstance(entry, dict) else entry
-    shared_roots.add(str(Path(path).resolve()))
-
-if cwd_top in execution_roots:
-    print(f"execution context verified: {cwd_top}")
-    sys.exit(0)
-
-if cwd_top in shared_roots:
-    print(f"FAIL: current root is shared read-only, not an execution root: {cwd_top}", file=sys.stderr)
-    sys.exit(1)
-
-print(f"FAIL: current root is not approved for this lane: {cwd_top}", file=sys.stderr)
-print("approved execution roots:", file=sys.stderr)
-for root in sorted(execution_roots):
-    print(f"  {root}", file=sys.stderr)
-sys.exit(1)
+allowed = ", ".join(execution_roots)
+print(
+    f"execution context check failed: {cwd} is not an approved execution root "
+    f"for {contract['lane']}; allowed: {allowed}",
+    file=sys.stderr,
+)
+raise SystemExit(1)
 PY
