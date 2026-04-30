@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
@@ -23,6 +23,7 @@ class MlflowRunSummary:
     tracking_uri: str
     used_mlflow: bool
     artifacts: list[Path]
+    model_package: dict[str, Any] | None = None
 
 
 def build_default_mlflow_params(settings: Settings) -> dict[str, str | bool]:
@@ -54,6 +55,7 @@ def log_local_run(
     metrics: dict[str, float],
     artifacts: list[Path],
     run_name: str,
+    model_logger: Callable[[], Any] | None = None,
 ) -> MlflowRunSummary:
     """Create a local MLflow run, falling back to a manifest when MLflow is absent."""
 
@@ -74,11 +76,13 @@ def log_local_run(
             if artifact.exists():
                 mlflow.log_artifact(str(artifact))
                 logged_artifacts.append(artifact)
+        model_package = model_logger() if model_logger else None
     return MlflowRunSummary(
         run_id=run_id,
         tracking_uri=settings.mlflow_tracking_uri,
         used_mlflow=True,
         artifacts=logged_artifacts,
+        model_package=_package_payload(model_package),
     )
 
 
@@ -88,7 +92,9 @@ def _write_fallback_run(
     metrics: dict[str, float],
     artifacts: list[Path],
     run_name: str,
+    model_logger: Callable[[], Any] | None = None,
 ) -> MlflowRunSummary:
+    del model_logger
     reports_dir = Path(settings.reports_dir)
     reports_dir.mkdir(parents=True, exist_ok=True)
     run_id = dataset_hash({"params": params, "metrics": metrics, "run_name": run_name})[:12]
@@ -109,3 +115,13 @@ def _write_fallback_run(
         used_mlflow=False,
         artifacts=[fallback_path],
     )
+
+
+def _package_payload(model_package: Any) -> dict[str, Any] | None:
+    if model_package is None:
+        return None
+    if hasattr(model_package, "__dict__"):
+        return dict(model_package.__dict__)
+    if isinstance(model_package, dict):
+        return model_package
+    return {"value": str(model_package)}

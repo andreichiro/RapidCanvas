@@ -8,8 +8,9 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
+from app.agent.dspy_runner import DspySignatureRunner
 from app.agent.program import BlueskyExplainer
-from app.agent.runner import DspySignatureRunner, HeuristicSignatureRunner
+from app.agent.runner import HeuristicSignatureRunner
 from app.agent.signatures import dspy_is_available
 from app.config import Settings, get_settings
 

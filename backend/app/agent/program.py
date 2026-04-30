@@ -83,18 +83,19 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         injection_flags = self._scan_for_injection(post, evidence)
         classification = self._classify(post)
         queries = self._queries(post, classification.category)
-        sources = sources_for_response(post, evidence, documents)
+        ranked_evidence = self._rerank(post, evidence)
+        sources = sources_for_response(post, ranked_evidence, documents)
         allowed_source_ids = {source.id for source in sources}
         post_source_id = sources[0].id
-        pre_validation_trust = self._assess_initial_trust(post, evidence, injection_flags)
+        pre_validation_trust = self._assess_initial_trust(post, ranked_evidence, injection_flags)
         draft, validation_issues = self._generate_validated_draft(
             post,
-            evidence,
+            ranked_evidence,
             allowed_source_ids,
         )
         final_trust = self._assess_final_trust(
             post,
-            evidence,
+            ranked_evidence,
             pre_validation_trust.flags,
             validation_issues,
         )
@@ -129,6 +130,12 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         self._event("classify", "completed", tool="dspy")
         return classification
 
+    def _rerank(self, post: PostContext, evidence: Sequence[Evidence]) -> list[Evidence]:
+        self._event("rerank", "started", tool="dspy")
+        ranked = self._runner.rerank_evidence(post, evidence)
+        self._event("rerank", "completed", tool="dspy")
+        return ranked
+
     def _queries(self, post: PostContext, category: str) -> list[str]:
         self._event("query_generation", "started", tool="dspy")
         queries = self._runner.generate_queries(post, category)
@@ -142,10 +149,11 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         injection_flags: Sequence[str],
     ) -> TrustAssessment:
         self._event("trust_assessment", "started")
+        runner_assessment = self._runner.assess_evidence_trust(post, evidence)
         assessment = self._trust_scorer.assess(
             post,
             evidence,
-            guardrail_flags=injection_flags,
+            guardrail_flags=[*injection_flags, *runner_assessment.flags],
         )
         self._event("trust_assessment", "completed", warnings=assessment.flags)
         return assessment
@@ -259,6 +267,7 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         hits: list[str] = []
         for item in content:
             hits.extend(self._policy.prompt_injection_hits(item))
+            hits.extend(self._runner.detect_prompt_injection(item))
         return ["prompt_injection_risk"] if hits else []
 
     def _event(

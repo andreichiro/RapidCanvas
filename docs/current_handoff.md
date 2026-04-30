@@ -16,8 +16,9 @@ Current branch: `codex/dev-c-gate4` in isolated clone
   - Trust scoring, output validation, fallback modes, and prompt-injection signal integration exist in `backend/app/guardrails/`.
   - GEPA dry-run optimization exists in `backend/app/eval/optimize.py` and saves `backend/app/agent/optimized/program.json`.
   - MLflow smoke logging exists in `backend/app/ops/mlflow.py`, `backend/app/agent/mlflow_wrapper.py`, and `backend/app/agent/log_mlflow.py`.
+- Review follow-up is implemented: the public API builder now routes through Dev C `AgentExplainerService`, all DSPy signatures are instantiated and wired through runner methods, invalid-shape output forces a non-`none` fallback, `make mlflow-log` packages the DSPy model inside the active MLflow run, and GEPA `--real` calls `dspy.GEPA(...).compile(...)` when provider credentials are configured.
 - Search/RAG remains owned by Dev B and is not implemented by this lane.
-- The public `/api/explain` default route still uses the Gate 3 explainer until Dev A/B integration wires real retrieval into Dev C `AgentExplainerService`.
+- The public `/api/explain` default route uses the Dev C agent/guardrail program with real Bluesky fetch plus trace-marked thread-context evidence until Dev B Search/RAG is connected.
 - Deterministic Dev C runner is used when optional DSPy packages or provider credentials are absent; it marks `adapter_mode=deterministic_dev`.
 - `R045` is partially exercised by Gate 3 adapter tracing and Dev C guardrail tests, but remains planned for final real-pipeline enforcement.
 - Post-review Gate 3 matrix fix is applied: `R008` now points to actual smoke/browser verification files and commands.
@@ -48,7 +49,8 @@ Command notes:
 
 ```text
 make optimize saved backend/app/agent/optimized/program.json with GEPA dry-run metadata.
-make mlflow-log created a local MLflow run, then generated stores were cleaned by make deep-review.
+make mlflow-log created a local MLflow run and packaged the DSPy model under that run.
+GEPA --real now requires OPENAI_API_KEY and calls dspy.GEPA.compile instead of writing fake real metadata.
 make eval remains reserved for Dev D/T9.
 ```
 
@@ -57,7 +59,7 @@ make eval remains reserved for Dev D/T9.
 - Do not replace the trace-marked Gate 3 adapter with unmarked fake explanation bullets.
 - Do not claim all of Gate 4 is complete from this lane alone; Dev A, Dev B, Dev D, and Dev E still own their slices.
 - Do not claim Search/RAG, eval, image understanding, provider comparison, or final requirement-matrix closure are complete until their real files, tests, eval artifacts, and matrix rows are updated.
-- Dev C now has real files and tests for DSPy program structure, trust/output guardrails, GEPA dry-run, and MLflow smoke logging, but live provider behavior still depends on optional extras and credentials.
+- Dev C now has real files and tests for DSPy program structure, trust/output guardrails, GEPA dry-run/real compile path, and MLflow model packaging, but live provider behavior still depends on optional extras and credentials.
 - Real Bluesky post fetch is required for future integration gates.
 - Temporary deterministic dev adapters may be used only while real Search/RAG or DSPy modules are incomplete.
 - Any dev adapter use must be visible in `trace`.
@@ -70,7 +72,7 @@ make eval remains reserved for Dev D/T9.
 Recommended next integration steps:
 
 - Dev B provides real Search/RAG evidence and prompt-injection sanitization services.
-- Dev A wires the default API service from Gate 3 explainer to Dev C `AgentExplainerService` once retrieval inputs are available.
+- Dev A/B replace the temporary thread-context retriever with real Search/RAG inputs once Dev B services are available.
 - Dev D updates requirement matrix/docs/eval artifacts for Dev C files and implements `make eval`.
 - Dev C can then switch from deterministic runner to live DSPy by installing AI extras and configuring provider credentials.
 

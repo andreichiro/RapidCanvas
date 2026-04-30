@@ -129,7 +129,7 @@ optimize:
 	cd $(BACKEND_DIR) && uv run python -m app.eval.optimize --dry-run
 
 mlflow-log:
-	cd $(BACKEND_DIR) && uv run --extra eval python -m app.agent.log_mlflow --reports-dir ../reports --skip-model-package
+	cd $(BACKEND_DIR) && uv run --extra eval --extra ai python -m app.agent.log_mlflow --reports-dir ../reports
 
 mlflow-ui:
 	cd $(BACKEND_DIR) && uv run --extra eval mlflow ui --backend-store-uri "$${MLFLOW_TRACKING_URI:-file:./mlruns}"

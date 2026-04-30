@@ -8,7 +8,6 @@ from pathlib import Path
 
 from app.agent.loader import ProgramLoadResult, load_program
 from app.agent.mlflow_wrapper import (
-    DspyModelPackageResult,
     log_dspy_model,
     mlflow_model_signature,
 )
@@ -39,13 +38,12 @@ def main(argv: list[str] | None = None) -> int:
         },
         artifacts=[manifest_path],
         run_name="gate4-dev-c-smoke",
+        model_logger=None
+        if args.skip_model_package
+        else lambda: log_dspy_model(program_result.program),
     )
 
-    package_result = None
-    if not args.skip_model_package and run.used_mlflow:
-        package_result = log_dspy_model(program_result.program)
-
-    print(json.dumps(_summary_payload(run, package_result), indent=2, sort_keys=True))
+    print(json.dumps(_summary_payload(run), indent=2, sort_keys=True))
     return 0
 
 
@@ -76,16 +74,13 @@ def _write_manifest(settings: Settings, program_result: ProgramLoadResult) -> Pa
     return manifest_path
 
 
-def _summary_payload(
-    run: MlflowRunSummary,
-    package_result: DspyModelPackageResult | None,
-) -> dict[str, object]:
+def _summary_payload(run: MlflowRunSummary) -> dict[str, object]:
     return {
         "run_id": run.run_id,
         "tracking_uri": run.tracking_uri,
         "used_mlflow": run.used_mlflow,
         "artifacts": [str(path) for path in run.artifacts],
-        "package": package_result.__dict__ if package_result else None,
+        "package": run.model_package,
     }
 
 

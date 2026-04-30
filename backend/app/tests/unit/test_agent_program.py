@@ -15,7 +15,7 @@ from app.agent.service import (
 )
 from app.guardrails.output import BulletDraft, ExplanationDraft, ValidationResult
 from app.schemas.api import ExplainRequest
-from app.schemas.domain import ContextDocument, Evidence, PostContext
+from app.schemas.domain import ContextDocument, Evidence, PostContext, TrustAssessment
 
 
 def _post(text: str = "Why is this old quote suddenly everywhere?") -> PostContext:
@@ -71,6 +71,7 @@ def test_bluesky_explainer_returns_three_to_five_cited_bullets_with_trace() -> N
         "prompt_injection_scan",
         "classify",
         "query_generation",
+        "rerank",
         "trust_assessment",
         "explain",
         "validate",
@@ -108,6 +109,23 @@ class RevisingRunner:
         del post, category
         return ["test query"]
 
+    def detect_prompt_injection(self, content: str) -> list[str]:
+        del content
+        return []
+
+    def rerank_evidence(self, post: PostContext, evidence: Sequence[Evidence]) -> list[Evidence]:
+        del post
+        return list(evidence)
+
+    def assess_evidence_trust(
+        self,
+        post: PostContext,
+        evidence: Sequence[Evidence],
+    ) -> TrustAssessment:
+        from app.guardrails.trust import TrustScorer
+
+        return TrustScorer().assess(post, evidence)
+
     def explain(self, post: PostContext, evidence: Sequence[Evidence]) -> ExplanationDraft:
         del post, evidence
         return ExplanationDraft(
@@ -117,6 +135,15 @@ class RevisingRunner:
                 BulletDraft(text="Good point three.", source_ids=["S3"]),
             ]
         )
+
+    def judge_evaluation_case(
+        self,
+        expected: str,
+        prediction: str,
+        evidence: Sequence[Evidence],
+    ) -> dict[str, float | list[str]]:
+        del expected, prediction, evidence
+        return {"score": 1.0, "error_labels": []}
 
     def validate(
         self,
@@ -165,6 +192,42 @@ def test_low_trust_path_returns_schema_valid_fallback() -> None:
     assert response.trace.fallback_mode == "abstain"
     assert "low_evidence" in response.trace.guardrail_flags
     assert all(bullet.source_ids == ["S1"] for bullet in response.bullets)
+
+
+class SixBulletRunner(RevisingRunner):
+    def explain(self, post: PostContext, evidence: Sequence[Evidence]) -> ExplanationDraft:
+        del post, evidence
+        return ExplanationDraft(
+            bullets=[
+                BulletDraft(
+                    text=f"Extra cited point {index}.",
+                    source_ids=[f"S{((index - 1) % 3) + 1}"],
+                )
+                for index in range(1, 7)
+            ]
+        )
+
+    def validate(
+        self,
+        post: PostContext,
+        draft: ExplanationDraft,
+        evidence: Sequence[Evidence],
+    ) -> ValidationResult:
+        del post, evidence
+        return ValidationResult(is_valid=True, revised_bullets=draft.bullets)
+
+
+def test_invalid_normal_shape_forces_partial_trace_not_none() -> None:
+    response = BlueskyExplainer(runner=SixBulletRunner()).explain_context(
+        post=_post(),
+        evidence=_evidence(),
+        documents=_documents(),
+    )
+
+    assert response.trace.fallback_mode == "partial"
+    assert "invalid_output_shape" in response.trace.guardrail_flags
+    assert len(response.bullets) == 5
+    assert all("Safe summary." not in bullet.text for bullet in response.bullets)
 
 
 class FakeFetcher:

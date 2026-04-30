@@ -1,5 +1,8 @@
 {
   "feedback_template": "Missing expected points: expected contextual point absent\nUnsupported claims: claim without source support",
+  "gepa_compile": {
+    "executed": false
+  },
   "metric_parts": {
     "citation_coverage": 1.0,
     "expected_point_recall": 0.0,
@@ -17,6 +20,6 @@
   ],
   "optimizer": "GEPA",
   "policy_version": "gate4-dev-c-v1",
-  "saved_at": "2026-04-29T23:19:00.564157+00:00",
+  "saved_at": "2026-04-29T23:59:43.357190+00:00",
   "schema_version": 1
 }

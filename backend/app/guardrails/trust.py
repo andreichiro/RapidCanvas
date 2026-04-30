@@ -50,6 +50,8 @@ class TrustScorer:
     ) -> FallbackMode:
         if _must_abstain(post, score, flags):
             return "abstain"
+        if "invalid_output_shape" in flags:
+            return "partial"
         if "prompt_injection_risk" in flags and score < self._policy.min_normal_trust:
             return "safe_summary"
         if "conflicting_sources" in flags:
@@ -134,6 +136,11 @@ def _validation_penalty(issue: str, flags: list[str], reasons: list[str]) -> flo
             "invalid_output_shape",
             -0.12,
             "The generated explanation had the wrong bullet count.",
+        ),
+        "unknown_citation": (
+            "unknown_citation",
+            -0.2,
+            "A generated bullet cited an unknown source.",
         ),
     }
     if issue not in penalties:
