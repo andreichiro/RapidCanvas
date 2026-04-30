@@ -17,4 +17,3 @@ Core signatures:
 - `AssessEvidenceTrust`
 
 FastAPI should call a service method and map known upstream errors. The route should not contain prompt construction or broad conditional agent logic.
-

@@ -21,4 +21,3 @@ description: Build and serve the RapidCanvas DSPy explainer through FastAPI. Use
 
 ## Reference
 Load `references/dspy_fastapi_agent.md` for syntax and route integration notes.
-

@@ -1,2 +1,1 @@
-"""Cached evaluation harness for the Bluesky explainer."""
-
+"""Evaluation, reporting, judging, and GEPA optimization helpers."""

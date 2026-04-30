@@ -1,0 +1,37 @@
+{
+  "lane": "dev_C_gate4",
+  "developer": "Dev C",
+  "plan": "Plan Final E Consolidated - Gate 4 DSPy/guardrails/GEPA/MLflow",
+  "required_branch": "codex/dev-c-gate4",
+  "execution_roots": [
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/rapidcanvas_dev_c_gate4",
+      "checkout_kind": "standalone_clone",
+      "role": "implementation"
+    }
+  ],
+  "shared_read_only_roots": [
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/New project",
+      "role": "shared_read_only"
+    }
+  ],
+  "forbidden_operations": [
+    "implement_from_shared_root",
+    "switch_shared_repo_to_lane_branch",
+    "linked_git_worktree_for_live_lane",
+    "stage_shared_repo_changes",
+    "clean_or_reset_shared_repo",
+    "modify_frontend",
+    "modify_backend_clients"
+  ],
+  "verification": [
+    "execution_root_exists",
+    "execution_root_is_standalone_clone",
+    "execution_root_on_required_branch",
+    "shared_repo_does_not_own_required_branch",
+    "current_root_is_execution_root"
+  ]
+}

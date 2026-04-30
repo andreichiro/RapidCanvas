@@ -32,4 +32,3 @@ import "@testing-library/jest-dom/vitest";
 
 ## Implementation consequence
 Dev E can consume the frozen `ExplainResponse` while Dev D eval reports verify citation/source/trace fields that the UI must display.
-

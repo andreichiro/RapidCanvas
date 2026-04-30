@@ -16,4 +16,3 @@ Normalize embeds:
 - external links -> `ContextDocument(source_type="web")` candidates.
 - image alt text and image URLs -> `ImageRef` and later `image` sources.
 - quote posts -> `quoted_texts` plus citation source.
-

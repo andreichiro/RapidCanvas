@@ -41,4 +41,3 @@ mlflow.dspy.log_model(program, name="bluesky-explainer", task="llm/v1/chat")
 
 ## Implementation consequence
 Dev D eval reports already expose DSPy-judge-shaped scores and JSONL artifacts. Dev C can replace deterministic judge proxies with DSPy modules and log the same artifacts without changing the report contract.
-

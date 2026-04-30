@@ -21,4 +21,3 @@ description: Parse, fetch, and normalize public Bluesky post context with the AT
 
 ## Reference
 Load `references/bluesky_atproto.md` when you need endpoint names, URL shapes, or SDK snippets.
-

@@ -19,4 +19,3 @@ Report artifacts:
 - `summary.json`
 
 Cached eval must not call Bluesky, web search, OpenAI, DSPy, or MLflow.
-

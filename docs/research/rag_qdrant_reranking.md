@@ -37,4 +37,3 @@ scores = model.predict([(query, passage) for passage in passages])
 
 ## Implementation consequence
 Dev D metrics include retrieval recall at 6, Ragas-shaped faithfulness/context precision/context recall, citation coverage, and source leakage checks. Dev B can plug real retrieval outputs into the same eval runner.
-

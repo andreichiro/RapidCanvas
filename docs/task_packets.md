@@ -41,4 +41,3 @@
 3. Dev C replaces deterministic adapters with DSPy/guardrails and logs eval artifacts.
 4. Dev E aligns UI with the final trace/source fields.
 5. Run `make deep-review`, `make eval`, and the final secret scan before submission.
-

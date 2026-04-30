@@ -20,4 +20,3 @@ description: Evaluate RapidCanvas retrieval, citations, guardrails, provider run
 
 ## Reference
 Load `references/rag_eval_mlflow.md` for metrics and artifact names.
-

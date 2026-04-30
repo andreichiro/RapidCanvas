@@ -20,4 +20,3 @@ await fetch("/api/explain", {
 ```
 
 Tests should cover submit, success, citations, trace toggle, trust/fallback display, error state, and abstain state.
-

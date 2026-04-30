@@ -21,4 +21,3 @@ description: Build the React interface for the RapidCanvas Bluesky explainer. Us
 
 ## Reference
 Load `references/react_explainer_ui.md` for API types and expected components.
-

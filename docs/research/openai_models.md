@@ -42,4 +42,3 @@ response = client.responses.create(
 
 ## Implementation consequence
 Eval cases include image context and malicious alt text. Metrics track unsafe output, prompt-injection resistance, and citation coverage so OpenAI-based modules can be validated without committing live responses.
-

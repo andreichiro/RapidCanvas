@@ -35,4 +35,3 @@ at://{did}/app.bsky.feed.post/{rkey}
 
 ## Implementation consequence
 Dev A owns the real client. Dev D eval cases include reply, quote, image, unavailable/deleted, and malicious Bluesky-context fixtures so the client and final agent can be checked without network drift.
-

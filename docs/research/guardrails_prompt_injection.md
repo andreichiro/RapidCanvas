@@ -38,4 +38,3 @@ INJECTION_TERMS = (
 
 ## Implementation consequence
 Dev D eval includes web, Bluesky, image-alt, private URL, contradictory-source, unavailable, and low-evidence fixtures. Metrics report prompt-injection resistance, guardrail trigger accuracy, abstention precision/recall, unsafe output, and source quote leakage.
-

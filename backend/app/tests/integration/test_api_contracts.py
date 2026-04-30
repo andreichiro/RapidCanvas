@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from pytest import raises
 
 from app.clients.bsky import BlueskyClientError, InvalidBlueskyPostUrlError
+from app.deps import build_gate3_explainer
 from app.main import create_app
 from app.schemas.api import (
     Bullet,
@@ -16,6 +17,7 @@ from app.schemas.api import (
     Source,
     Trace,
 )
+from app.schemas.domain import PostContext
 
 client = TestClient(create_app())
 
@@ -86,6 +88,21 @@ class FailingExplainer:
         raise BlueskyClientError("upstream unavailable")
 
 
+class FakeBlueskyClient:
+    def fetch_context(self, url: str) -> PostContext:
+        return PostContext(
+            url=url,
+            at_uri="at://did:plc:example/app.bsky.feed.post/3abcxyz",
+            author="example.com",
+            text="A fetched post routed through the Dev C agent.",
+            created_at=datetime(2026, 4, 29, tzinfo=UTC),
+            parent_texts=[
+                "Parent context explains the reference.",
+                "Another parent adds source-backed context.",
+            ],
+        )
+
+
 class InvalidUrlExplainer:
     def explain(self, request: ExplainRequest) -> ExplainResponse:
         raise InvalidBlueskyPostUrlError("unsupported post URL")
@@ -108,6 +125,28 @@ def test_explain_route_returns_schema_valid_gate3_response() -> None:
     assert payload["trace"]["fallback_mode"] == "safe_summary"
     assert payload["trace"]["adapter_mode"] == "deterministic_dev"
     assert "dev_adapter_dspy" in payload["trace"]["guardrail_flags"]
+
+
+def test_default_explainer_uses_dev_c_agent_program() -> None:
+    route_client = TestClient(
+        create_app(explainer=build_gate3_explainer(bluesky_client=FakeBlueskyClient()))
+    )
+
+    response = route_client.post(
+        "/api/explain",
+        json={
+            "post_url": "https://bsky.app/profile/example.com/post/3abcxyz",
+            "provider": "openai",
+            "include_trace": True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["bullets"]) == 3
+    assert payload["trace"]["category"] != "gate3_vertical_slice"
+    assert payload["trace"]["adapter_mode"] == "deterministic_dev"
+    assert "dev_c_api_path_uses_agent_guardrails" in payload["trace"]["warnings"]
 
 
 def test_explain_route_maps_bluesky_fetch_failure() -> None:

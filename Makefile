@@ -132,12 +132,10 @@ eval:
 	cd $(BACKEND_DIR) && uv run python -m app.eval.runner --cases eval/posts.yaml --out reports/eval
 
 optimize:
-	@echo "T10 is not implemented yet. This command is reserved for GEPA optimization."
-	@exit 2
+	cd $(BACKEND_DIR) && uv run python -m app.eval.optimize --dry-run
 
 mlflow-log:
-	@echo "T11 is not implemented yet. This command is reserved for MLflow logging."
-	@exit 2
+	cd $(BACKEND_DIR) && uv run --extra eval --extra ai python -m app.agent.log_mlflow --reports-dir ../reports
 
 mlflow-ui:
 	cd $(BACKEND_DIR) && uv run --extra eval mlflow ui --backend-store-uri "$${MLFLOW_TRACKING_URI:-file:./mlruns}"
