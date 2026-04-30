@@ -17,7 +17,7 @@ through eval.
 - Gate 3 vertical slice: implemented with real Bluesky fetch and trace-marked deterministic dev adapters.
 - Gate 4 Dev A Backend/API/Bluesky lane: implemented and merged into the integration baseline.
 - Gate 4 Dev B Search/RAG/source-safety lane: implemented and merged into the integration baseline.
-- Gate 4 Dev C DSPy/guardrails/GEPA/MLflow lane: implemented in this branch and ready to merge.
+- Gate 4 Dev C DSPy/guardrails/GEPA/MLflow lane: implemented and merged into the integration baseline.
 - Gate 4 Dev D eval/docs lane: implemented with research docs, task packets, local project skills, cached eval fixtures, deterministic metrics, and report generation.
 - Gate 4 Dev E frontend lane: implemented and merged into the integration baseline.
 - Gate 5 integration remains: connect Dev B retrieval into Dev C `AgentExplainerService`, keep Dev A warnings/search behavior, preserve Dev E's public API contract, and run Dev D eval against the integrated path.
@@ -139,6 +139,10 @@ summary.json
 
 The cached predictions are evaluation fixtures only. They do not replace final
 Search/RAG, DSPy, guardrail, or citation behavior.
+The current committed cases are synthetic cached fixtures for deterministic
+attack and workflow coverage; they are not counted as the final 10+ real public
+Bluesky-post eval set. Gate 6 must add or refresh real/fixture-backed public
+Bluesky post cases before closing that assignment requirement.
 
 Each report records its prediction mode, judge backend, cached/live row counts,
 and whether API or model calls were allowed, so explicit integration runs are
@@ -208,8 +212,8 @@ and DSPy workflow, real citations, real trust/fallback behavior, and real eval.
 ## Commands
 
 ```bash
-make setup              # install backend dev deps and frontend deps
-make setup-backend-full # install optional backend deps for later phases
+make setup              # install full backend review deps and frontend deps
+make setup-backend-full # alias for full backend review deps
 make lint               # backend ruff/mypy + frontend TypeScript check
 make test               # backend pytest + frontend Vitest
 make requirements-review # validate Gate 1 requirement mappings

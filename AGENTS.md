@@ -23,11 +23,20 @@ Gate 3 is implemented. `/api/explain` performs real Bluesky post/thread fetching
 and returns a schema-valid cited safe summary. Search/RAG and DSPy remain
 deterministic dev adapters, and every response marks that in `trace`.
 
+Gate 4 Dev A, Dev B, Dev C, Dev D, and Dev E are merged into `main`. The repo
+now includes real Bluesky normalization, Search/RAG/source-safety modules,
+DSPy/guardrail/GEPA/MLflow plumbing, offline eval/reporting, local project
+skills, and the componentized React UI.
+
 Gate 4 Dev D eval/docs lane is implemented. It provides research docs, task
 packets, local project skills, cached eval cases and fixtures, deterministic
 metrics, report writers, and `make eval`. The cached eval uses fixture-backed
 predictions only for evaluation and does not replace real Search/RAG or DSPy
 product behavior.
+
+The committed eval cases are synthetic cached fixtures for deterministic review.
+They do not close the final requirement for 10+ real or fixture-backed public
+Bluesky post cases; Gate 6 owns that closure.
 
 Do not claim T1-T15 are complete until their files, tests, and requirement
 matrix rows exist.
@@ -86,6 +95,9 @@ make optimize
 make mlflow-log
 make mlflow-ui
 ```
+
+`make setup` installs the full backend review dependency set plus frontend
+dependencies so a clean checkout can immediately run `make deep-review`.
 
 ## Ownership Boundaries
 

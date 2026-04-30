@@ -26,6 +26,9 @@ write_reports(rows, summary, output_dir)
 ## Selected default
 - Cached eval is the default and requires no network.
 - `eval/posts.yaml` is JSON-compatible YAML to avoid an extra parser dependency in the default test path.
+- The current committed cases are synthetic cached fixtures for deterministic
+  attack and workflow coverage. They are not treated as the final 10+ real
+  public Bluesky-post eval set; Gate 6 owns that real/public-case closure.
 - Reports include JSONL rows, Markdown summary, confusion matrix CSV, SVG metric graph, and summary JSON.
 - Reports record prediction mode, judge backend, cached/live row counts, and
   whether API or model judge calls were allowed, so API/provider-backed runs are

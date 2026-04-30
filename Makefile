@@ -9,8 +9,8 @@ help:
 	@echo "Bluesky Contextual Post Explainer"
 	@echo ""
 	@echo "Primary commands:"
-	@echo "  make setup              Install backend dev deps and frontend deps"
-	@echo "  make setup-backend-full Install backend optional deps for later phases"
+	@echo "  make setup              Install full backend review deps and frontend deps"
+	@echo "  make setup-backend-full Alias for full backend review deps"
 	@echo "  make lint               Run backend and frontend lint/type checks"
 	@echo "  make test               Run backend and frontend tests"
 	@echo "  make deep-review        Run the full local review gate"
@@ -23,17 +23,16 @@ help:
 	@echo ""
 	@echo "Evaluation and later-phase commands:"
 	@echo "  make eval        Run cached eval fixtures and write ignored reports"
-	@echo "  make optimize    Reserved for GEPA optimization"
-	@echo "  make mlflow-log  Reserved for MLflow artifact logging"
+	@echo "  make optimize    Run GEPA dry-run metadata save"
+	@echo "  make mlflow-log  Create a local MLflow run"
 	@echo "  make mlflow-ui   Start the local MLflow UI"
 
 setup: setup-backend setup-frontend
 
 setup-backend:
-	cd $(BACKEND_DIR) && uv sync --dev
-
-setup-backend-full:
 	cd $(BACKEND_DIR) && uv sync --dev --all-extras
+
+setup-backend-full: setup-backend
 
 setup-frontend:
 	npm --prefix $(FRONTEND_DIR) install

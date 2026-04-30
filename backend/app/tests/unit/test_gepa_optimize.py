@@ -27,6 +27,18 @@ def test_optimizer_dry_run_saves_loadable_program(tmp_path) -> None:  # type: ig
     assert loaded.program.optimized_config["schema_version"] == 1
 
 
+def test_optimizer_dry_run_is_deterministic_and_idempotent(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    output_path = tmp_path / "program.json"
+
+    run_gepa_optimization(dry_run=True, output_path=output_path)
+    first_payload = output_path.read_text()
+    run_gepa_optimization(dry_run=True, output_path=output_path)
+    second_payload = output_path.read_text()
+
+    assert first_payload == second_payload
+    assert json.loads(second_payload)["saved_at"] == "1970-01-01T00:00:00+00:00"
+
+
 def test_combined_gepa_metric_penalizes_unsupported_claims() -> None:
     strong = combined_gepa_metric(
         GepaMetricParts(

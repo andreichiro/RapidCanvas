@@ -131,7 +131,8 @@ Use this checklist for advanced human or agent review:
 - Verify later-phase commands fail clearly if not implemented.
 - Verify no background `uvicorn`, `vite`, or `mlflow` process remains after smoke tests.
 - Verify generated TypeScript metadata and build outputs are ignored.
-- Verify optional heavy dependencies resolve without being installed during normal T0 setup.
+- Verify full review dependencies install through `make setup`, and keep any
+  additional generated dependency artifacts ignored.
 - Verify code is easy to understand, easy to maintain, easy to change, easy to explain, and free of unnecessary complexity.
 - Verify user-facing behavior with browser-use when local UI work changes.
 

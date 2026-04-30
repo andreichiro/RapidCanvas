@@ -2,9 +2,8 @@
 
 Updated: 2026-04-30
 Repository: `andreichiro/RapidCanvas`
-Current integration branch: `codex/dev-c-gate4` in isolated clone
-`/Users/akatsurada/Documents/rapidcanvas_dev_c_gate4`
-Merged baseline before this Dev C ship: GitHub `main` with `codex/dev-a-gate4`, `codex/dev-b-gate4-retrieval-safety`, `codex/dev-e-gate4-frontend-ux`, and `codex/dev-d-gate4-eval-docs`.
+Current baseline: GitHub `main`
+Merged Gate 4 lanes: Dev A, Dev B, Dev C, Dev D, and Dev E.
 
 ## Current State
 
@@ -15,8 +14,8 @@ Merged baseline before this Dev C ship: GitHub `main` with `codex/dev-a-gate4`, 
 - Gate 4 Dev A is merged into the baseline: Backend/API/Bluesky normalization covers URL parsing, DID/handle AT URI construction, real thread fetch, parent context, quote text, external links, image alt text/fullsize/thumb URLs, unavailable/blocked warnings, concise upstream error wrapping, and a read-only Bluesky `search_posts()` wrapper returning `ContextDocument` objects.
 - Gate 4 Dev B is merged into the baseline: Search/RAG/source-safety modules cover web and Bluesky search adapters, safe linked-page fetching, prompt-injection scanning, sanitization, embeddings, Qdrant/in-memory retrieval, retrieval diagnostics, and reranking.
 - Gate 4 Dev E is merged into the baseline: the React frontend is componentized, typed against the API contract, and renders URL/provider input, loading/error states, cited bullets, sources, trust/fallback states, guardrail flags, and a trace panel.
-- Gate 4 Dev D is merged into the baseline: eval/docs/skills cover research docs, task packets, local project skills and validators, 18 cached eval cases, prompt-injection fixtures, deterministic metrics, selectable DSPy/Ragas/composite judges, fake/API eval modes, JSONL/Markdown/confusion/SVG/summary reports, and requirement-matrix coverage.
-- Gate 4 Dev C is implemented in this integration branch and ready to merge:
+- Gate 4 Dev D is merged into the baseline: eval/docs/skills cover research docs, task packets, local project skills and validators, 18 synthetic cached eval cases, prompt-injection fixtures, deterministic metrics, selectable DSPy/Ragas/composite judges, fake/API eval modes, JSONL/Markdown/confusion/SVG/summary reports, and requirement-matrix coverage.
+- Gate 4 Dev C is merged into the baseline:
   - DSPy signature definitions and runner plumbing exist in `backend/app/agent/signatures.py`, `backend/app/agent/runner.py`, `backend/app/agent/dspy_runner.py`, `backend/app/agent/program.py`, `backend/app/agent/loader.py`, and `backend/app/agent/service.py`.
   - Trust scoring, output validation, fallback modes, prompt-injection source labels, and provider-error degradation exist in `backend/app/guardrails/` and `backend/app/agent/`.
   - GEPA dry-run/real compile plumbing exists in `backend/app/eval/optimize.py`, `backend/app/eval/gepa_persistence.py`, and `backend/app/eval/gepa_validation.py`; dry-run saves `backend/app/agent/optimized/program.json`, and real mode saves a loadable compiled DSPy program directory when valid provider credentials produce successful rollouts.
@@ -155,7 +154,7 @@ Added Dev D-owned behavior:
 - `docs/task_packets.md`, `AGENTS.md`, `TRANSLATION_LOG.md`, and requirement-matrix/handoff updates for the five-lane Gate 4 flow.
 - Four local project skills under `.codex/skills/`, each with `SKILL.md`, `agents/openai.yaml`, references, and skill-local `quick_validate.py`.
 - `scripts/quick_validate.py` plus `make skills-review`, wired into `make deep-review`.
-- `eval/posts.yaml` with 18 cached eval cases and fixtures under `eval/fixtures/`, including prompt-injection, private URL, contradiction, low-evidence, image, link, quote, reply, non-English, and unavailable/deleted scenarios.
+- `eval/posts.yaml` with 18 synthetic cached eval cases and fixtures under `eval/fixtures/`, including prompt-injection, private URL, contradiction, low-evidence, image, link, quote, reply, non-English, and unavailable/deleted scenarios.
 - `backend/app/eval/` runner, agents, metrics, judges, report writers, and dataset loaders.
 - Eval runner modes for cached fixtures, fake-agent protocol checks, and current FastAPI `/api/explain` API mode.
 - Deterministic, DSPy, Ragas, and composite judge backends. DSPy/Ragas use provider-backed judging when `OPENAI_API_KEY` is configured and no-network local review paths otherwise.
@@ -166,6 +165,7 @@ Added Dev D-owned behavior:
 Important Dev D notes:
 
 - Default `make eval` remains deterministic/offline and performs no network or model calls.
+- These committed synthetic fixture URLs are not counted as the final 10+ real public Bluesky-post eval set. Gate 6 must add or refresh real/fixture-backed public Bluesky post cases before marking that assignment requirement implemented.
 - Optional provider-backed judge runs are explicit and generated artifacts remain ignored under `reports/`.
 - Provider-backed full cached eval was verified with an ignored local `.env` key before final shipping: 18-case DSPy and Ragas runs completed, with Ragas rows recording `ragas_mode=ragas_llm`.
 - Dev D did not claim final runtime Search/RAG/DSPy pipeline completion; the eval harness can score API mode and is ready to score the real pipeline when Gate 5 integration lands.
@@ -225,9 +225,31 @@ Dev D `make eval`, fake-agent/API eval modes, and optional DSPy/Ragas/composite 
 - Generated artifacts under `reports/`, `mlruns/`, Qdrant cache, and local secret files must stay ignored.
 - Shared repo `/Users/akatsurada/Documents/New project` remains inspection-only for isolated lane work.
 
+## Gate 5 Parallelization Plan
+
+Gate 5 should run on parallel developer branches, then converge through one
+serial end-to-end integration review. Gate 6 starts only after Gate 5 lands and
+may then be parallelized internally. Gate 7 starts only after Gate 6 lands and
+may then be parallelized internally.
+
+The detailed Gate 5 ownership, must-not-edit boundaries, merge order, and final
+review criteria live in `docs/gate5_parallelization_plan.md`.
+
+## Gate 6 Parallelization Plan
+
+Gate 6 should run on parallel developer branches only after Gate 5 lands a real
+integrated pipeline. Its detailed ownership, must-not-edit boundaries, quality
+spine, merge order, and final review criteria live in
+`docs/gate6_parallelization_plan.md`.
+
 ## Next Work
 
-Recommended next step: Gate 5 integration should wire Dev B `RagService`/diagnostics into Dev C `AgentExplainerService`, carry Dev A `PostContext.warnings` into trace warnings, keep Dev E's frontend API contract stable, and run Dev D API/model-backed eval against the integrated path.
+Recommended next step: start Gate 5 on parallel branches using
+`docs/gate5_parallelization_plan.md`. Gate 5 integration should wire Dev B
+`RagService` and retrieval diagnostics into Dev C `AgentExplainerService`, carry
+Dev A `PostContext.warnings` into trace warnings, keep Dev E's frontend API
+contract stable, and run Dev D API/model-backed eval against the integrated
+path. Use `docs/gate6_parallelization_plan.md` only after Gate 5 lands.
 
 During the integration window:
 
