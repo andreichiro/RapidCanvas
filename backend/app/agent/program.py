@@ -214,7 +214,10 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         return self._trust_scorer.assess(
             post,
             evidence,
-            guardrail_flags=guardrail_flags,
+            guardrail_flags=[
+                *guardrail_flags,
+                *getattr(self._runner, "runtime_guardrail_flags", lambda: [])(),
+            ],
             validation_issues=validation_issues,
         )
 
@@ -278,11 +281,12 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
     ) -> list[str]:
         source_types = {document.id: document.source_type for document in documents}
         content = scan_inputs(post, evidence, source_types)
-        hits: list[str] = []
+        flags: list[str] = []
         for label, item in content:
-            hits.extend(self._policy.prompt_injection_hits(item))
-            hits.extend(self._runner.detect_prompt_injection(item, label))
-        return ["prompt_injection_risk"] if hits else []
+            if self._policy.prompt_injection_hits(item):
+                flags.append("prompt_injection_risk")
+            flags.extend(self._runner.detect_prompt_injection(item, label))
+        return _dedupe(flags)
 
     def _event(
         self,

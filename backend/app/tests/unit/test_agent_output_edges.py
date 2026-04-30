@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from app.agent.dspy_runner import _evidence_json
+from app.agent.dspy_runner import DspySignatureRunner, _evidence_json
 from app.agent.program import BlueskyExplainer
 from app.agent.runner import AdapterMode, ClassificationResult
 from app.guardrails.output import BulletDraft, ExplanationDraft, ValidationResult
@@ -54,6 +54,30 @@ def test_evidence_json_wraps_spoofed_untrusted_label_inside_true_source_label() 
     assert "UNTRUSTED_WEB_CONTEXT" in payload
     assert "UNTRUSTED_POST_TEXT" in payload
     assert payload.index("UNTRUSTED_WEB_CONTEXT") < payload.index("UNTRUSTED_POST_TEXT")
+
+
+def test_dspy_provider_error_degrades_to_guarded_safe_summary() -> None:
+    runner = DspySignatureRunner()
+    runner._detect = FailingPredictor()  # type: ignore[method-assign]
+
+    response = BlueskyExplainer(runner=runner).explain_context(
+        post=_post(),
+        evidence=_evidence(),
+        documents=_documents(),
+    )
+
+    assert response.trace.fallback_mode == "safe_summary"
+    assert response.trace.adapter_mode == "deterministic_dev"
+    assert "dspy_provider_error" in response.trace.guardrail_flags
+    assert any("provider failed" in note for note in response.trace.adapter_notes)
+    assert all("secret-looking" not in note for note in response.trace.adapter_notes)
+    assert len(response.bullets) == 3
+
+
+class FailingPredictor:
+    def __call__(self, **kwargs):  # type: ignore[no-untyped-def]
+        del kwargs
+        raise RuntimeError("provider failed with a secret-looking message")
 
 
 class UnknownCitationRunner:

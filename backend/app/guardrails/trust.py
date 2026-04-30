@@ -86,6 +86,8 @@ def _policy_fallback_mode(
         for flag in ("invalid_output_shape", "unknown_citation", "uncited_output")
     ):
         return "partial"
+    if "dspy_provider_error" in flags:
+        return "safe_summary"
     if "prompt_injection_risk" in flags and score < min_normal_trust:
         return "safe_summary"
     if "conflicting_sources" in flags:
@@ -125,7 +127,7 @@ def _guardrail_delta(
     reasons: list[str],
 ) -> float:
     delta = 0.0
-    for flag in guardrail_flags:
+    for flag in _dedupe(guardrail_flags):
         if flag not in flags:
             flags.append(flag)
         delta += _guardrail_penalty(flag, reasons)
@@ -144,6 +146,9 @@ def _guardrail_penalty(flag: str, reasons: list[str]) -> float:
     if flag == "prompt_injection_risk":
         reasons.append("Prompt-injection markers were detected in untrusted content.")
         return -0.18
+    if flag == "dspy_provider_error":
+        reasons.append("DSPy provider failed; guarded deterministic fallback was used.")
+        return -0.5
     if flag == "conflicting_sources":
         reasons.append("Evidence contains contradiction markers.")
         return -0.22

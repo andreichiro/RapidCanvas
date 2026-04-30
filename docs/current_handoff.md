@@ -20,6 +20,7 @@ Current branch: `codex/dev-c-gate4` in isolated clone
 - Second review follow-up is implemented: DSPy trust fallback flags now bind final fallback decisions, DSPy evidence payloads use source-type-specific `UNTRUSTED_*` labels, placeholder GEPA API keys fail clearly, and Dev C rows in `docs/requirements_matrix.md` no longer remain planned/reserved where this lane has implementation and tests.
 - Third review follow-up is implemented: `configure_dspy()` exports `.env`-loaded `OPENAI_API_KEY` into the process before live DSPy calls, GEPA real mode rejects missing validation scores or all-failure-score rollouts before writing success metadata, and prompt-injection scans receive source-specific labels for post, thread, web, and image content.
 - Fourth review follow-up is implemented: GEPA real mode saves the compiled DSPy program directory next to `program.json` and the loader passes it into the live explanation runner, unknown citations force `partial` fallback trace semantics, untrusted text is always wrapped inside trusted source-specific labels even when it tries to spoof `UNTRUSTED_*`, and `make mlflow-log` packages the live DSPy runner path rather than the deterministic runner.
+- Fifth review follow-up is implemented: live DSPy provider/auth/runtime failures are caught at the runner boundary, recorded as `dspy_provider_error`, and degraded through deterministic guarded fallback output instead of escaping `/api/explain`.
 - Search/RAG remains owned by Dev B and is not implemented by this lane.
 - The public `/api/explain` default route uses the Dev C agent/guardrail program with real Bluesky fetch plus trace-marked thread-context evidence until Dev B Search/RAG is connected.
 - Deterministic Dev C runner is used when optional DSPy packages or provider credentials are absent; it marks `adapter_mode=deterministic_dev`.
@@ -57,6 +58,7 @@ GEPA --real now requires a valid `sk-...` OPENAI_API_KEY, configures DSPy, creat
 GEPA --real rejects runs with no successful validation rollouts, so placeholder or unauthorized provider credentials cannot create a success-marked saved program.
 GEPA --real saves a loadable compiled DSPy program directory, and `load_program()` loads that directory for FastAPI when the metadata points to it.
 `make mlflow-log` uses `load_program(..., prefer_dspy=True, allow_dspy_without_key=True)` so packaging exercises the live DSPy workflow shape without needing to execute provider calls during packaging.
+`OPENAI_API_KEY=sk-test-key` against the Dev C API path returns a schema-valid guarded response with `adapter_mode=deterministic_dev` and `dspy_provider_error`, rather than crashing the request.
 make eval remains reserved for Dev D/T9.
 ```
 
@@ -65,7 +67,7 @@ make eval remains reserved for Dev D/T9.
 - Do not replace the trace-marked Gate 3 adapter with unmarked fake explanation bullets.
 - Do not claim all of Gate 4 is complete from this lane alone; Dev A, Dev B, Dev D, and Dev E still own their slices.
 - Do not claim Search/RAG, eval, image understanding, provider comparison, or final requirement-matrix closure are complete until their real files, tests, eval artifacts, and matrix rows are updated.
-- Dev C now has real files and tests for DSPy program structure, trust/output guardrails, source-type-aware untrusted labeling in both evidence prompts and prompt-injection scans, GEPA dry-run/real compile path with persisted compiled-program loading and failed-rollout rejection, `.env` key export for live DSPy, and live-runner MLflow model packaging, but live provider behavior still depends on optional extras and valid credentials.
+- Dev C now has real files and tests for DSPy program structure, trust/output guardrails, source-type-aware untrusted labeling in both evidence prompts and prompt-injection scans, GEPA dry-run/real compile path with persisted compiled-program loading and failed-rollout rejection, `.env` key export for live DSPy, live DSPy provider-error fallback, and live-runner MLflow model packaging, but live provider quality still depends on optional extras and valid credentials.
 - Real Bluesky post fetch is required for future integration gates.
 - Temporary deterministic dev adapters may be used only while real Search/RAG or DSPy modules are incomplete.
 - Any dev adapter use must be visible in `trace`.
