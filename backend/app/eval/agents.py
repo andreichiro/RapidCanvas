@@ -63,13 +63,33 @@ class FastApiEvalAgent:
         self._provider = provider
 
     def predict(self, case: EvalCase) -> CachedFixture:
-        response = self._client.post(
-            "/api/explain",
-            json={"post_url": case.url, "provider": self._provider, "include_trace": True},
-        )
+        try:
+            response = self._client.post(
+                "/api/explain",
+                json={"post_url": case.url, "provider": self._provider, "include_trace": True},
+            )
+        except Exception as exc:  # noqa: BLE001 - one failed API case should not abort eval.
+            return _error_fixture(
+                case,
+                status_code=0,
+                message=f"API client exception: {type(exc).__name__}: {exc}",
+            )
         if response.status_code >= 400:
-            return _error_fixture(case, response)
-        prediction = response.json()
+            return _response_error_fixture(case, response)
+        try:
+            prediction = response.json()
+        except Exception as exc:  # noqa: BLE001 - preserve the failure as a scored eval row.
+            return _error_fixture(
+                case,
+                status_code=response.status_code,
+                message=f"API returned non-JSON success body: {type(exc).__name__}: {exc}",
+            )
+        if not isinstance(prediction, dict):
+            return _error_fixture(
+                case,
+                status_code=response.status_code,
+                message=f"API returned non-object JSON payload: {type(prediction).__name__}",
+            )
         return CachedFixture(
             prediction=prediction,
             retrieved_source_hints=_source_hints(prediction),
@@ -96,12 +116,24 @@ def build_eval_agent(mode: str) -> EvalAgent:
     raise ValueError(f"unsupported eval mode: {mode}")
 
 
-def _error_fixture(case: EvalCase, response: HttpResponse) -> CachedFixture:
-    payload = response.json()
+def _response_error_fixture(case: EvalCase, response: HttpResponse) -> CachedFixture:
+    try:
+        payload = response.json()
+    except Exception as exc:  # noqa: BLE001 - preserve non-JSON error bodies as eval rows.
+        return _error_fixture(
+            case,
+            status_code=response.status_code,
+            message=f"API returned HTTP {response.status_code} with non-JSON body: "
+            f"{type(exc).__name__}: {exc}",
+        )
     if not isinstance(payload, dict):
         payload = {"detail": payload}
     detail = payload.get("detail", payload)
-    message = str(detail)
+    return _error_fixture(case, status_code=response.status_code, message=str(detail))
+
+
+def _error_fixture(case: EvalCase, status_code: int, message: str) -> CachedFixture:
+    status_label = str(status_code) if status_code > 0 else "client_exception"
     return CachedFixture(
         prediction={
             "bullets": [],
@@ -123,7 +155,7 @@ def _error_fixture(case: EvalCase, response: HttpResponse) -> CachedFixture:
             "assess_trust",
             "validate",
         ],
-        unsupported_claims=[f"{case.id}: API returned {response.status_code}"],
+        unsupported_claims=[f"{case.id}: API eval failed with {status_label}"],
         notes=message,
     )
 

@@ -41,14 +41,28 @@ def run_eval(
         rows.append(row)
 
     summary: dict[str, Any] = aggregate_scores(rows)
-    summary["case_count"] = float(len(rows))
-    summary["cached_case_count"] = float(len(rows))
+    summary.update(_run_metadata(mode, judge_name, len(rows)))
     summary["fallback_modes"] = fallback_counts(rows)
     paths = write_reports(rows, summary, resolve_repo_path(output_dir))
     return {
         "rows": rows,
         "summary": summary,
         "paths": {key: str(value) for key, value in paths.items()},
+    }
+
+
+def _run_metadata(mode: str, judge_name: str, row_count: int) -> dict[str, float | str | bool]:
+    api_mode = mode == "api"
+    model_judge = judge_name in {"dspy", "ragas", "composite"}
+    cached_predictions = mode in {"cached", "fake-agent"}
+    return {
+        "prediction_mode": mode,
+        "judge_backend": judge_name,
+        "case_count": float(row_count),
+        "cached_case_count": float(row_count if cached_predictions else 0),
+        "live_case_count": float(row_count if api_mode else 0),
+        "api_network_calls_allowed": api_mode,
+        "model_judge_calls_allowed": model_judge,
     }
 
 

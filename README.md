@@ -107,6 +107,11 @@ summary.json
 The cached predictions are evaluation fixtures only. They do not replace final
 Search/RAG, DSPy, guardrail, or citation behavior.
 
+Each report records its prediction mode, judge backend, cached/live row counts,
+and whether API or model calls were allowed, so explicit integration runs are
+not mislabeled as offline cached runs. Numeric judge outputs, including DSPy
+judge scores, are aggregated into `summary.json` and the Markdown report.
+
 The runner has explicit integration modes for later gates:
 
 ```bash

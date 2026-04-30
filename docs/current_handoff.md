@@ -28,8 +28,13 @@ shared checkout `/Users/akatsurada/Documents/New project` remains read-only on
   with optional extras, use provider-backed judging when `OPENAI_API_KEY` is
   configured, and retain no-network local review paths when it is absent.
 - API eval mode records per-case HTTP failures as scored eval rows instead of
-  crashing, which lets synthetic cached cases and later live cases produce a
-  complete report even when the current app returns upstream fetch errors.
+  crashing, including status failures, route/client exceptions, and non-JSON
+  error bodies. This lets synthetic cached cases and later live cases produce a
+  complete report even when one post or route fails.
+- Eval reports now include prediction mode, judge backend, cached/live row
+  counts, and whether API/model calls were allowed. DSPy/Ragas judge scores are
+  aggregated into `summary.json` and surfaced in Markdown reports; DSPy support
+  metrics also appear in the SVG graph when present.
 
 ## Verified Commands
 
@@ -62,6 +67,7 @@ make eval
 cd backend && uv run --extra ai python -m app.eval.runner --mode cached --judge dspy
 cd backend && uv run --extra eval python -m app.eval.runner --mode cached --judge ragas
 cd backend && uv run --all-extras python -m app.eval.runner --mode cached --judge composite
+provider-backed one-case DSPy/Ragas smoke using ignored local `.env`
 ```
 
 `make eval` generated 18 cached-case report artifacts under ignored
@@ -70,7 +76,9 @@ private URL block rate 1.0, unsafe output rate 0.0, and unsupported claim rate
 0.0. `make deep-review` removes generated eval reports during cleanup, so rerun
 `make eval` after deep review when reports are needed for inspection.
 Optional judge smoke generated DSPy, Ragas, and composite reports successfully;
-the no-key Ragas path records `ragas_mode=ragas_non_llm_offline`.
+the no-key Ragas path records `ragas_mode=ragas_non_llm_offline`, and the
+provider-backed one-case smoke records `ragas_mode=ragas_llm` when a local
+ignored `OPENAI_API_KEY` is present.
 
 Additional Gate 3 user-style checks performed before handoff:
 

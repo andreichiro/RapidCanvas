@@ -45,6 +45,13 @@ TAXONOMY_METRICS = (
     "source_quote_leakage_rate",
     "private_url_block_rate",
 )
+SUMMARY_EXCLUDED_FIELDS = {
+    "case_id",
+    "category",
+    "predicted_category",
+    "fallback_mode",
+    "latency_ms",
+}
 
 
 def _normalize(text: str) -> str:
@@ -222,10 +229,11 @@ def aggregate_scores(rows: list[dict[str, float | int | str]]) -> dict[str, floa
     latencies: list[float] = []
     for row in rows:
         latencies.append(float(row.get("latency_ms", 0.0)))
-        for metric in TAXONOMY_METRICS:
-            value = row.get(metric)
+        for metric, value in row.items():
+            if metric in SUMMARY_EXCLUDED_FIELDS:
+                continue
             if isinstance(value, (int, float)):
-                numeric[metric].append(float(value))
+                numeric.setdefault(metric, []).append(float(value))
 
     summary = {
         metric: sum(values) / len(values) if values else 0.0

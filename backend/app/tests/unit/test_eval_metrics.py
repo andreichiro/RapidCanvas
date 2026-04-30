@@ -80,6 +80,29 @@ def test_aggregate_scores_include_required_eval_metrics() -> None:
     assert "latency_p95" in summary
 
 
+def test_aggregate_scores_include_dynamic_judge_metrics() -> None:
+    rows = [
+        {
+            **score_case(make_case(), make_fixture()),
+            "dspy_judge_expected_support": 0.25,
+            "dspy_judge_evidence_selection": 0.5,
+            "dspy_judge_safety": 1.0,
+        },
+        {
+            **score_case(make_case(), make_fixture()),
+            "dspy_judge_expected_support": 0.75,
+            "dspy_judge_evidence_selection": 1.0,
+            "dspy_judge_safety": 0.5,
+        },
+    ]
+
+    summary = aggregate_scores(rows)
+
+    assert summary["dspy_judge_expected_support"] == 0.5
+    assert summary["dspy_judge_evidence_selection"] == 0.75
+    assert summary["dspy_judge_safety"] == 0.75
+
+
 def test_metrics_penalize_uncited_bullets_and_wrong_bullet_count() -> None:
     fixture = make_fixture(
         bullets=[

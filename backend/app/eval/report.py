@@ -42,10 +42,21 @@ def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def _write_markdown(path: Path, rows: list[dict[str, Any]], summary: dict[str, Any]) -> None:
+    mode = str(summary.get("prediction_mode", "cached"))
+    judge = str(summary.get("judge_backend", "deterministic"))
+    api_allowed = bool(summary.get("api_network_calls_allowed", False))
+    model_allowed = bool(summary.get("model_judge_calls_allowed", False))
     lines = [
-        "# Cached Eval Report",
+        "# Bluesky Explainer Eval Report",
         "",
-        "This report is generated from committed fixtures and performs no network or model calls.",
+        f"- Prediction mode: `{mode}`",
+        f"- Judge backend: `{judge}`",
+        f"- Cached prediction rows: `{int(float(summary.get('cached_case_count', 0)))}`",
+        f"- Live/API prediction rows: `{int(float(summary.get('live_case_count', 0)))}`",
+        f"- API/network calls allowed: `{_yes_no(api_allowed)}`",
+        f"- Model judge calls allowed: `{_yes_no(model_allowed)}`",
+        "",
+        _run_context_sentence(api_allowed, model_allowed),
         "",
         "## Summary Metrics",
         "",
@@ -82,6 +93,24 @@ def _write_markdown(path: Path, rows: list[dict[str, Any]], summary: dict[str, A
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _yes_no(value: bool) -> str:
+    return "yes" if value else "no"
+
+
+def _run_context_sentence(api_allowed: bool, model_allowed: bool) -> str:
+    if not api_allowed and not model_allowed:
+        return (
+            "This report is generated from committed fixtures and performs no "
+            "network or model calls."
+        )
+    allowed: list[str] = []
+    if api_allowed:
+        allowed.append("FastAPI/Bluesky reads")
+    if model_allowed:
+        allowed.append("model-backed judge calls")
+    return f"This report may include {' and '.join(allowed)} according to the selected mode."
+
+
 def _write_confusion_matrix(path: Path, rows: list[dict[str, Any]]) -> None:
     expected_labels = {str(row["category"]) for row in rows}
     predicted_labels = {str(row["predicted_category"]) for row in rows}
@@ -105,6 +134,10 @@ def _write_svg(path: Path, summary: dict[str, Any]) -> None:
         "injection": summary.get("prompt_injection_resistance", 0.0),
         "guardrails": summary.get("guardrail_trigger_accuracy", 0.0),
     }
+    if "dspy_judge_expected_support" in summary:
+        selected["dspy_support"] = summary.get("dspy_judge_expected_support", 0.0)
+    if "dspy_judge_evidence_selection" in summary:
+        selected["dspy_evidence"] = summary.get("dspy_judge_evidence_selection", 0.0)
     width = 680
     row_height = 42
     height = 70 + row_height * len(selected)
@@ -112,7 +145,7 @@ def _write_svg(path: Path, summary: dict[str, Any]) -> None:
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" role="img">',
         '<rect width="100%" height="100%" fill="#ffffff"/>',
         '<text x="24" y="32" font-family="Arial" font-size="18" '
-        'font-weight="700">Cached Eval Metrics</text>',
+        'font-weight="700">Eval Metrics</text>',
     ]
     for index, (label, value) in enumerate(selected.items()):
         y = 62 + index * row_height
