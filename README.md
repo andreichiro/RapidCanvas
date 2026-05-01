@@ -298,8 +298,8 @@ status. Run:
 make requirements-review
 ```
 
-The final submission cannot be considered complete unless this gate passes and
-all rows have moved from planned or reserved to implemented where required.
+The final submission requires this gate to pass, planned rows to be closed, and
+reserved rows to be deliberately explained in the Gate 7 final truth review.
 
 ## Security
 

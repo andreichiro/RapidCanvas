@@ -70,6 +70,7 @@ def main() -> int:
     check_git_scope(root, errors)
     check_eval_truth(cases, root, errors)
     check_gepa_truth(root, errors)
+    check_runtime_truth(root, errors)
     check_final_review(final_review, errors)
     check_docs(readme, handoff, matrix, translation_log, errors)
     check_generated_artifact_hygiene(root, errors)
@@ -137,6 +138,24 @@ def check_gepa_truth(root: Path, errors: list[str]) -> None:
     need("compiled_program_path" not in compile_info, errors, "dry-run metadata points to compiled program")
 
 
+def check_runtime_truth(root: Path, errors: list[str]) -> None:
+    deps = read(root / "backend/app/deps.py")
+    service = read(root / "backend/app/agent/service.py")
+    gate5_marker = "gate5_service = _build_gate5_explainer"
+    fallback_marker = "retriever or ThreadContextEvidenceRetriever()"
+    need("RetrievalEvidenceRetriever" in deps, errors, "deps.py does not reference retrieval adapter")
+    need(gate5_marker in deps, errors, "deps.py does not attempt Gate 5 explainer")
+    need(fallback_marker in deps, errors, "deps.py missing thread-context fallback marker")
+    if gate5_marker in deps and fallback_marker in deps:
+        need(deps.index(gate5_marker) < deps.index(fallback_marker), errors, "thread fallback appears before Gate 5 path")
+    need("class ThreadContextEvidenceRetriever" in service, errors, "thread-context fallback missing")
+    need(
+        "search_rag_not_connected_using_thread_context_evidence" in service,
+        errors,
+        "thread-context fallback warning missing",
+    )
+
+
 def check_final_review(final_review: str, errors: list[str]) -> None:
     normalized_review = normalize_ws(final_review)
     for item, classification in EXPECTED_TRUTH.items():
@@ -181,13 +200,15 @@ def check_docs(
             "dry-run metadata",
             "Live vision was not run",
             "no live Anthropic/Gemini/Ollama benchmark ran",
+            "G7-C did not run a fresh browser-use pass",
         ],
         "docs/requirements_matrix.md": [
             "one-shot, non-adaptive runtime status",
             "dry-run GEPA metadata",
             "no real compiled program is included by default",
+            "no fresh Gate 7 browser-use pass",
             "live vision",
-            "no `reports/provider_comparison.md` live multi-provider benchmark",
+            "no live provider comparison report was generated",
         ],
         "TRANSLATION_LOG.md": [
             "Gate 7 Search/RAG and adaptive retrieval truth",
@@ -205,7 +226,7 @@ def check_docs(
         "TRANSLATION_LOG.md": translation_log,
     }
     for file_name, phrases in doc_requirements.items():
-        text = documents[file_name]
+        text = normalize_ws(documents[file_name])
         for phrase in phrases:
             need(phrase in text, errors, f"{file_name} missing: {phrase}")
 
@@ -218,6 +239,8 @@ def check_matrix_status(matrix: str, errors: list[str]) -> None:
     need(row_status(rows, "R032") == "reserved", errors, "R032 must remain reserved")
     need(row_status(rows, "R033") == "reserved", errors, "R033 must remain reserved")
     need(row_status(rows, "R026") == "implemented", errors, "R026 status drift")
+    need("no fresh Gate 7 browser-use pass" in row_text(rows, "R008"), errors, "R008 overclaims browser verification")
+    need("no live provider comparison report was generated" in row_text(rows, "R039"), errors, "R039 overclaims provider report")
 
 
 def check_no_overclaim_phrases(
@@ -253,6 +276,10 @@ def requirement_rows(matrix: str) -> dict[str, list[str]]:
 def row_status(rows: dict[str, list[str]], row_id: str) -> str | None:
     row = rows.get(row_id)
     return row[-1].strip().lower() if row else None
+
+
+def row_text(rows: dict[str, list[str]], row_id: str) -> str:
+    return " | ".join(rows.get(row_id, ()))
 
 
 def final_truth_only(translation_log: str) -> str:

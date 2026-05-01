@@ -172,6 +172,10 @@ Only `reports/.gitkeep` remains tracked.
   availability, embeddings, and optional provider behavior. Gate 6 cached scores
   are the reproducible quality proof, not a guarantee for drifting live posts.
 - Search/RAG is one-shot, not adaptive.
+- The backend `build_gate3_explainer()` docstring still contains older
+  integration-checkpoint wording about thread-context evidence. G7-C did not edit
+  backend code; the executable path and tests are the evidence for the runtime
+  classification.
 - GEPA final artifact is dry-run metadata. Reviewers should not treat it as a
   real optimized compiled program.
 - Image and provider bonus surfaces are honest but incomplete: alt-text and

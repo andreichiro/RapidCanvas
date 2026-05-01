@@ -135,14 +135,16 @@ Additional merged-main checks retained from previous lanes:
 ```text
 Dev A live Bluesky fetch_context and /api/explain smokes with a public bsky.app post.
 Dev B optional `--extra bluesky` fetch/search checks and `--extra ai` Qdrant retrieval check.
-Dev E browser-use verification at http://127.0.0.1:5173/.
+Prior Dev E browser-use verification at http://127.0.0.1:5173/; G7-C did not
+run a fresh browser-use pass.
 Dev D `make eval`, fake-agent/API eval modes, and optional DSPy/Ragas/composite judge smokes.
 ```
 
 ## Important Boundaries
 
 - Do not replace trace-marked temporary evidence/adapters with unmarked fake explanation bullets.
-- Do not claim image understanding, provider comparison, or final public eval until Gate 6+ implements and verifies those rows.
+- Do not claim live vision or a live provider benchmark. Gate 6 public eval is
+  fixture-backed and cached, not a live refetch benchmark.
 - Real Bluesky post fetch is required and implemented.
 - The C5 route attempts the integrated real Search/RAG plus DSPy path by default; fallback/dev adapter use is acceptable only when `trace` marks the retrieval/provider downgrade.
 - `R045` is satisfied by C5 enforcement artifacts, not by no-key fallback output; a local no-key abstain remains a recorded downgrade, not final public-eval proof.
