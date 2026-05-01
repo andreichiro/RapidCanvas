@@ -73,6 +73,37 @@ def test_trust_scorer_uses_source_safety_and_contradiction_flags() -> None:
     assert assessment.fallback_mode in {"partial", "safe_summary", "abstain"}
 
 
+def test_trust_scorer_does_not_treat_non_finite_scores_as_confident() -> None:
+    evidence = [
+        Evidence.model_construct(
+            id="E1",
+            document_id="D1",
+            text="Evidence chunk one.",
+            score=float("nan"),
+            source_id="S1",
+        ),
+        Evidence.model_construct(
+            id="E2",
+            document_id="D2",
+            text="Evidence chunk two.",
+            score=float("inf"),
+            source_id="S2",
+        ),
+        Evidence.model_construct(
+            id="E3",
+            document_id="D3",
+            text="Evidence chunk three.",
+            score=float("-inf"),
+            source_id="S3",
+        ),
+    ]
+
+    assessment = TrustScorer().assess(_post(), evidence)
+
+    assert "weak_retrieval_score" in assessment.flags
+    assert assessment.fallback_mode == "partial"
+
+
 def test_output_guardrail_rejects_uncited_and_prompt_leaking_bullets() -> None:
     guardrail = OutputGuardrail()
     draft = ExplanationDraft(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from math import isfinite
 
 from app.guardrails.policies import DEFAULT_POLICY, GuardrailPolicy
 from app.schemas.domain import Evidence, FallbackMode, PostContext, TrustAssessment
@@ -91,6 +92,8 @@ def _policy_fallback_mode(
     if "prompt_injection_risk" in flags and score < min_normal_trust:
         return "safe_summary"
     if "conflicting_sources" in flags:
+        return "partial"
+    if "weak_retrieval_score" in flags:
         return "partial"
     if score < min_partial_trust:
         return "safe_summary"
@@ -221,8 +224,15 @@ def _source_diversity_score(evidence: Sequence[Evidence]) -> float:
 def _retrieval_score(evidence: Sequence[Evidence]) -> float:
     if not evidence:
         return 0.0
-    average = sum(min(1.0, max(0.0, item.score)) for item in evidence) / len(evidence)
+    average = sum(_bounded_score(item.score) for item in evidence) / len(evidence)
     return min(1.0, average)
+
+
+def _bounded_score(value: float) -> float:
+    score = float(value)
+    if not isfinite(score):
+        return 0.0
+    return min(1.0, max(0.0, score))
 
 
 def _has_contradiction_markers(evidence: Sequence[Evidence]) -> bool:
