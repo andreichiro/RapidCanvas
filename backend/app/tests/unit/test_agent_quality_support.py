@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
+from app.agent.dspy_runner import _evidence_json
 from app.agent.eval_support import build_retrieval_quality
 from app.agent.judge_signatures import (
     build_judge_input_payload,
@@ -199,6 +201,33 @@ def test_retrieval_quality_normalizes_non_finite_scores_for_json_reports() -> No
     quality = build_retrieval_quality(evidence, [], [])
 
     assert quality.retrieval_scores == {"E1": 0.0, "E2": 0.0}
+
+
+def test_dspy_evidence_payload_normalizes_non_finite_scores_for_prompt_json() -> None:
+    payload = _evidence_json(
+        [
+            Evidence.model_construct(
+                id="E1",
+                document_id="D1",
+                text="Source text",
+                score=float("nan"),
+                source_id="S1",
+            ),
+            Evidence.model_construct(
+                id="E2",
+                document_id="D2",
+                text="Source text",
+                score=float("inf"),
+                source_id="S2",
+            ),
+        ]
+    )
+
+    parsed = json.loads(payload)
+    assert parsed[0]["score"] == 0.0
+    assert parsed[1]["score"] == 0.0
+    assert "NaN" not in payload
+    assert "Infinity" not in payload
 
 
 class NanJudgeRunner:

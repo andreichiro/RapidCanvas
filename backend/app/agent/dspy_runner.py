@@ -249,7 +249,7 @@ def _evidence_json(
         {
             "id": item.id,
             "source_id": item.source_id,
-            "score": item.score,
+            "score": round(_float_or_default(str(item.score), 0.0), 4),
             "text": _label(
                 evidence_untrusted_label(item, source_types),
                 compact_text(item.text, limit=800),
@@ -257,7 +257,7 @@ def _evidence_json(
         }
         for item in evidence
     ]
-    return json.dumps(payload)
+    return json.dumps(payload, allow_nan=False)
 
 
 def _draft_from_json(value: str) -> ExplanationDraft:
