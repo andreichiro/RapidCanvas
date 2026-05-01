@@ -68,6 +68,7 @@ def test_normalize_retrieval_output_consumes_diagnostics_and_source_safety() -> 
             "warnings": ["retrieval_warning"],
             "prompt_injection_flags": ["prompt_injection_risk"],
             "source_safety_diagnostics": ["private_url_blocked"],
+            "private_url_blocks": ["blocked_link:http://127.0.0.1/admin"],
         },
         "warnings": ["result_warning"],
     }
@@ -81,7 +82,10 @@ def test_normalize_retrieval_output_consumes_diagnostics_and_source_safety() -> 
         "prompt_injection_risk",
         "source_safety_private_url_blocked",
     )
-    assert bundle.source_safety_diagnostics == ("private_url_blocked",)
+    assert bundle.source_safety_diagnostics == (
+        "private_url_blocked",
+        "blocked_link:http://127.0.0.1/admin",
+    )
 
 
 def test_load_program_loads_compiled_dspy_program(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]

@@ -282,6 +282,9 @@ Dev B-shaped retrieval output is consumed through
 the legacy `(Evidence[], ContextDocument[])` tuple as well as objects or dicts
 with `evidence`, `documents` or `context_documents`, `warnings`, `diagnostics`,
 `prompt_injection_flags`, `guardrail_flags`, and `source_safety_diagnostics`.
+It also accepts JSON-stable document/evidence mappings and Dev B C2
+`private_url_blocks`, with the canonical fixture covered by
+`backend/app/tests/integration/test_gate5_explainer.py`.
 The service now scans visible post/thread/image text for prompt-injection risk
 before DSPy query planning. Clean inputs continue through DSPy classification
 and query generation; risky inputs use a trusted metadata-only query and record
