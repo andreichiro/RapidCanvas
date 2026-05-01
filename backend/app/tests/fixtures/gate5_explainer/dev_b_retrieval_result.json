@@ -1,0 +1,89 @@
+{
+  "post": {
+    "url": "https://bsky.app/profile/example.com/post/3abcxyz",
+    "at_uri": "at://did:plc:example/app.bsky.feed.post/3abcxyz",
+    "author": "example.com",
+    "text": "Why is the new Canvas launch being discussed today?",
+    "created_at": "2026-04-29T12:00:00Z",
+    "parent_texts": [
+      "A parent post asks whether the launch affects existing users."
+    ],
+    "quoted_texts": [],
+    "links": [
+      "https://example.com/canvas-launch"
+    ],
+    "images": [],
+    "warnings": [
+      "bsky_parent_context_loaded"
+    ]
+  },
+  "retrieval_result": {
+    "context_documents": [
+      {
+        "id": "D-web-launch",
+        "source_type": "web",
+        "title": "Canvas launch notes",
+        "url": "https://example.com/canvas-launch",
+        "text": "The launch notes say the Canvas release adds a collaborative workspace and keeps existing projects available.",
+        "metadata": {
+          "source_safety": "passed"
+        }
+      },
+      {
+        "id": "D-web-pricing",
+        "source_type": "web",
+        "title": "Canvas pricing update",
+        "url": "https://example.com/canvas-pricing",
+        "text": "The pricing update says existing users keep their current plan while the new workspace features roll out.",
+        "metadata": {
+          "source_safety": "passed"
+        }
+      },
+      {
+        "id": "D-bsky-discussion",
+        "source_type": "bluesky",
+        "title": "Bluesky discussion thread",
+        "url": "https://bsky.app/profile/context.example/post/3thread",
+        "text": "A public Bluesky thread discusses why the launch is circulating and links it to the workspace announcement.",
+        "metadata": {
+          "source_safety": "passed"
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "id": "E-launch",
+        "document_id": "D-web-launch",
+        "text": "The Canvas release adds a collaborative workspace and keeps existing projects available.",
+        "score": 0.93,
+        "source_id": "S-web-launch"
+      },
+      {
+        "id": "E-pricing",
+        "document_id": "D-web-pricing",
+        "text": "Existing users keep their current plan while the new workspace features roll out.",
+        "score": 0.88,
+        "source_id": "S-web-pricing"
+      },
+      {
+        "id": "E-discussion",
+        "document_id": "D-bsky-discussion",
+        "text": "The public discussion ties the post to the workspace announcement circulating on Bluesky.",
+        "score": 0.81,
+        "source_id": "S-bsky-discussion"
+      }
+    ],
+    "diagnostics": {
+      "warnings": [
+        "retrieval_top_k:3",
+        "source_safety_checked:D-web-launch",
+        "source_safety_checked:D-web-pricing",
+        "source_safety_checked:D-bsky-discussion"
+      ],
+      "prompt_injection_flags": []
+    },
+    "warnings": [
+      "dev_b_fixture_retrieval_result"
+    ]
+  }
+}

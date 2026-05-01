@@ -13,8 +13,8 @@ export default function GuardrailFlags({ flags }: GuardrailFlagsProps) {
 
   return (
     <ul className="guardrail-flags" aria-label="guardrail flags">
-      {flags.map((flag) => (
-        <li key={flag}>{readableFlag(flag)}</li>
+      {flags.map((flag, index) => (
+        <li key={`${flag}-${index}`}>{readableFlag(flag)}</li>
       ))}
     </ul>
   );

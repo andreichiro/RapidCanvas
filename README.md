@@ -2,12 +2,12 @@
 
 AI agent for explaining Bluesky posts by finding and synthesizing relevant context.
 
-This repository is being implemented from **Plan Final E**. Gates 0-4 now include
+This repository is being implemented from **Plan Final E**. Gates 0-5 now include
 the scaffold, API/domain contracts, real Bluesky fetch, Search/RAG modules,
-DSPy/guardrail orchestration, offline eval/reporting, local project skills, and a
-componentized React UI. The remaining product work is Gate 5+ integration: wiring
-the shipped lane modules into one final no-adapter runtime path and proving it
-through eval.
+DSPy/guardrail orchestration, offline eval/reporting, local project skills, a
+componentized React UI, and the C5 route integration that wires the lane modules
+into one trace-visible runtime path. Gate 6 remains responsible for final
+public-post eval expansion and quality review.
 
 ## Current Status
 
@@ -20,7 +20,7 @@ through eval.
 - Gate 4 Dev C DSPy/guardrails/GEPA/MLflow lane: implemented and merged into the integration baseline.
 - Gate 4 Dev D eval/docs lane: implemented with research docs, task packets, local project skills, cached eval fixtures, deterministic metrics, and report generation.
 - Gate 4 Dev E frontend lane: implemented and merged into the integration baseline.
-- Gate 5 integration remains: connect Dev B retrieval into Dev C `AgentExplainerService`, keep Dev A warnings/search behavior, preserve Dev E's public API contract, and run Dev D eval against the integrated path.
+- Gate 5 C5 integration: Dev B retrieval is connected into Dev C `AgentExplainerService` through Dev A dependency wiring, Dev E PR #7 polished the C5 response UI, and Dev D records the final review in `docs/reviews/gate5_final_review.md`.
 - Image understanding and provider-comparison bonus surfaces remain reserved for their final integration work.
 - The assignment API key must be placed only in local `.env`; do not commit it.
 - Because the key was shared in plain text during intake, rotate it before real use.
@@ -47,10 +47,10 @@ make dev-frontend
 
 The backend exposes `GET /api/health`, `GET /api/providers`, and `POST /api/explain`.
 `/api/explain` validates Bluesky post URLs, performs real Bluesky post/thread
-fetching, and routes through the Dev C agent/guardrail program. Until Gate 5
-wires Dev B external Search/RAG into the route, the service uses trace-marked
-thread-context evidence and guarded deterministic fallback whenever live DSPy
-dependencies, credentials, or provider calls are unavailable.
+fetching, and routes through the C5 integrated Dev B retrieval plus Dev C
+agent/guardrail program. When live search, retrieval, DSPy dependencies,
+credentials, or provider calls are unavailable, the response remains
+schema-valid and records the downgrade in `trace`.
 
 ## Frontend UI
 
@@ -119,9 +119,9 @@ The successful `ExplainResponse` schema already requires 3-5 cited bullets,
 sources, and trace fields for trust score, fallback mode, and guardrail flags.
 The route now exercises the Dev C agent program, including classification,
 query generation, prompt-injection scanning, reranking hooks, trust scoring,
-validation, and fallback repair. It is not the final contextual explainer until
-the temporary thread-context evidence source is replaced with Dev B Search/RAG
-retrieval in Gate 5.
+validation, fallback repair, and Dev B Search/RAG retrieval. No-key or provider
+failure runs can still downgrade to a cited safe summary or abstain result, and
+that downgrade must be visible in the trace.
 
 ## Evaluation
 
@@ -202,12 +202,11 @@ make mlflow-log
 
 ## Integration Adapter Rule
 
-Integration gates must use real Bluesky post fetching. Temporary evidence
-sources or deterministic fallbacks are allowed only while integration is in
-progress or a live provider fails, and any response that uses them must mark that
-clearly in `trace`. Those adapters are not accepted as final implementation and
-cannot satisfy `R045`. Final acceptance requires the integrated real Search/RAG
-and DSPy workflow, real citations, real trust/fallback behavior, and real eval.
+Integration gates must use real Bluesky post fetching. The C5 route attempts the
+integrated real Search/RAG and DSPy workflow by default; temporary evidence
+sources or deterministic fallbacks are allowed only when live providers,
+retrieval, or optional dependencies fail, and any response that uses them must
+mark that clearly in `trace`. Public eval completion remains Gate 6 work.
 
 ## Commands
 

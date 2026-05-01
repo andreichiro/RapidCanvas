@@ -10,8 +10,18 @@ function percent(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
-function joinItems(items: string[]): string {
-  return items.length ? items.join(", ") : "None";
+function TraceList({ items }: { items: string[] }) {
+  if (!items.length) {
+    return <span>None</span>;
+  }
+
+  return (
+    <ul className="trace-list">
+      {items.map((item, index) => (
+        <li key={`${item}-${index}`}>{item}</li>
+      ))}
+    </ul>
+  );
 }
 
 export default function TracePanel({ isOpen, onToggle, trace }: TracePanelProps) {
@@ -33,32 +43,40 @@ export default function TracePanel({ isOpen, onToggle, trace }: TracePanelProps)
               <dd>{trace.latency_ms} ms</dd>
             </div>
             <div>
-              <dt>Trust</dt>
+              <dt>Trust score</dt>
               <dd>{percent(trace.trust_score)}</dd>
             </div>
             <div>
-              <dt>Fallback</dt>
+              <dt>Fallback mode</dt>
               <dd>{trace.fallback_mode.replaceAll("_", " ")}</dd>
             </div>
             <div>
-              <dt>Adapter</dt>
+              <dt>Adapter mode</dt>
               <dd>{trace.adapter_mode.replaceAll("_", " ")}</dd>
             </div>
             <div>
               <dt>Queries</dt>
-              <dd>{joinItems(trace.queries)}</dd>
+              <dd>
+                <TraceList items={trace.queries} />
+              </dd>
             </div>
             <div>
               <dt>Warnings</dt>
-              <dd>{joinItems(trace.warnings)}</dd>
+              <dd>
+                <TraceList items={trace.warnings} />
+              </dd>
             </div>
             <div>
-              <dt>Flags</dt>
-              <dd>{joinItems(trace.guardrail_flags)}</dd>
+              <dt>Guardrail flags</dt>
+              <dd>
+                <TraceList items={trace.guardrail_flags} />
+              </dd>
             </div>
             <div>
-              <dt>Notes</dt>
-              <dd>{joinItems(trace.adapter_notes)}</dd>
+              <dt>Adapter notes</dt>
+              <dd>
+                <TraceList items={trace.adapter_notes} />
+              </dd>
             </div>
           </dl>
         </div>

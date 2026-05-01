@@ -8,6 +8,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Generic, Protocol, TypeVar
 
+from app.ml.boundary import boundary_text, safe_limit
+
 T = TypeVar("T")
 
 
@@ -43,7 +45,11 @@ class SimilarityReranker(Generic[T]):
         """Sort by score descending."""
 
         del query
-        return sorted(candidates, key=lambda candidate: candidate.score, reverse=True)[:limit]
+        limit_value = safe_limit(limit)
+        if limit_value == 0:
+            return []
+        ranked = sorted(candidates, key=lambda candidate: candidate.score, reverse=True)
+        return ranked[:limit_value]
 
 
 class CrossEncoderReranker(Generic[T]):
@@ -58,6 +64,7 @@ class CrossEncoderReranker(Generic[T]):
             sentence_transformers: Any = importlib.import_module("sentence_transformers")
             model = sentence_transformers.CrossEncoder(model_name)
         self._model = model
+        self._fallback: SimilarityReranker[T] = SimilarityReranker()
 
     def rerank(
         self,
@@ -67,14 +74,22 @@ class CrossEncoderReranker(Generic[T]):
     ) -> list[RerankCandidate[T]]:
         """Score query/text pairs with a cross-encoder."""
 
-        pairs = [(query, _candidate_text(candidate.item)) for candidate in candidates]
+        limit_value = safe_limit(limit)
+        if limit_value == 0 or not candidates:
+            return []
+        query_text = boundary_text(query, "rerank_query_text_failed")
+        pairs = [(query_text, _candidate_text(candidate.item)) for candidate in candidates]
         model: Any = self._model
-        scores = [float(score) for score in model.predict(pairs)]
-        rescored = [
-            RerankCandidate(item=candidate.item, score=score)
-            for candidate, score in zip(candidates, scores, strict=True)
-        ]
-        return sorted(rescored, key=lambda candidate: candidate.score, reverse=True)[:limit]
+        try:
+            scores = [float(score) for score in model.predict(pairs)]
+            rescored = [
+                RerankCandidate(item=candidate.item, score=score)
+                for candidate, score in zip(candidates, scores, strict=True)
+            ]
+        except Exception:
+            return self._fallback.rerank(query_text, candidates, limit_value)
+        ranked = sorted(rescored, key=lambda candidate: candidate.score, reverse=True)
+        return ranked[:limit_value]
 
 
 class DSPyReranker(Generic[T]):
@@ -92,6 +107,10 @@ class DSPyReranker(Generic[T]):
     ) -> list[RerankCandidate[T]]:
         """Ask DSPy for ranked candidate IDs and preserve a deterministic fallback."""
 
+        limit_value = safe_limit(limit)
+        if limit_value == 0 or not candidates:
+            return []
+        query_text = boundary_text(query, "rerank_query_text_failed")
         candidate_payload = [
             {
                 "id": _candidate_id(candidate.item),
@@ -102,21 +121,27 @@ class DSPyReranker(Generic[T]):
         ]
         try:
             prediction = self._predictor(
-                query=query,
+                query=query_text,
                 candidates=json.dumps(candidate_payload, ensure_ascii=True),
             )
-            ranked_ids = json.loads(str(getattr(prediction, "ranked_ids", "[]")))
+            ranked_ids_text = boundary_text(
+                getattr(prediction, "ranked_ids", "[]"),
+                "rerank_ranked_ids_text_failed",
+            )
+            ranked_ids = json.loads(ranked_ids_text)
         except Exception:
-            return self._fallback.rerank(query, candidates, limit)
+            return self._fallback.rerank(query_text, candidates, limit_value)
+        if not isinstance(ranked_ids, list):
+            return self._fallback.rerank(query_text, candidates, limit_value)
 
         by_id = {_candidate_id(candidate.item): candidate for candidate in candidates}
         ranked: list[RerankCandidate[T]] = []
         for candidate_id in ranked_ids:
-            candidate = by_id.get(str(candidate_id))
+            candidate = by_id.get(boundary_text(candidate_id, "rerank_ranked_id_failed"))
             if candidate is not None and candidate not in ranked:
                 ranked.append(candidate)
         ranked.extend(candidate for candidate in candidates if candidate not in ranked)
-        return ranked[:limit]
+        return ranked[:limit_value]
 
     def _build_predictor(self) -> Any:
         dspy_module: Any = importlib.import_module("dspy")
@@ -159,9 +184,9 @@ def build_reranker(
 
 def _candidate_text(item: object) -> str:
     text = getattr(item, "text", None)
-    return str(text if text is not None else item)
+    return boundary_text(text if text is not None else item, "rerank_candidate_text_failed")
 
 
 def _candidate_id(item: object) -> str:
     item_id = getattr(item, "id", None)
-    return str(item_id if item_id is not None else item)
+    return boundary_text(item_id if item_id is not None else item, "rerank_candidate_id_failed")

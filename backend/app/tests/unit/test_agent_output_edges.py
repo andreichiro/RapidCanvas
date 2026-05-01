@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from app.agent.dspy_runner import DspySignatureRunner, _evidence_json
 from app.agent.program import BlueskyExplainer
 from app.agent.runner import AdapterMode, ClassificationResult
+from app.agent.sources import POST_SOURCE_ID
 from app.guardrails.output import BulletDraft, ExplanationDraft, ValidationResult
 from app.guardrails.trust import TrustScorer
 from app.schemas.domain import ContextDocument, Evidence, PostContext, TrustAssessment
@@ -21,6 +22,13 @@ def test_unknown_citation_forces_partial_trace_not_none() -> None:
     assert response.trace.fallback_mode == "partial"
     assert "unknown_citation" in response.trace.guardrail_flags
     assert len(response.bullets) == 3
+    visible_post_bullet = next(
+        bullet for bullet in response.bullets if "visible Bluesky post says" in bullet.text
+    )
+    assert visible_post_bullet.source_ids == [POST_SOURCE_ID]
+    post_source = next(source for source in response.sources if source.id == POST_SOURCE_ID)
+    assert post_source.url == _post().url
+    assert post_source.type == "thread"
 
 
 def test_evidence_json_uses_precise_untrusted_source_labels() -> None:

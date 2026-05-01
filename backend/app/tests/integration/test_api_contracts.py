@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from threading import Event
 
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from pytest import raises
 
+from app.agent.service import ThreadContextEvidenceRetriever
 from app.clients.bsky import BlueskyClientError, InvalidBlueskyPostUrlError
-from app.deps import build_gate3_explainer
+from app.deps import PostContextWarningRetriever, build_gate3_explainer
 from app.main import create_app
 from app.schemas.api import (
     Bullet,
@@ -100,7 +103,52 @@ class FakeBlueskyClient:
                 "Parent context explains the reference.",
                 "Another parent adds source-backed context.",
             ],
+            warnings=["Parent Bluesky post is unavailable or deleted."],
         )
+
+
+def test_post_context_warnings_are_request_local_under_concurrency() -> None:
+    first_entered = Event()
+    release_first = Event()
+
+    class BlockingRetriever:
+        warnings = ("retriever_warning",)
+
+        def retrieve(self, post: PostContext) -> tuple[list[object], list[object]]:
+            if post.author == "first":
+                first_entered.set()
+                assert release_first.wait(timeout=5)
+            return [], []
+
+    wrapper = PostContextWarningRetriever(BlockingRetriever())
+
+    def make_post(author: str, warning: str) -> PostContext:
+        return PostContext(
+            url=f"https://bsky.app/profile/{author}/post/3abcxyz",
+            at_uri=f"at://did:plc:{author}/app.bsky.feed.post/3abcxyz",
+            author=author,
+            text="Post text",
+            created_at=datetime(2026, 4, 29, tzinfo=UTC),
+            warnings=[warning],
+        )
+
+    def first_request() -> tuple[str, ...]:
+        wrapper.retrieve(make_post("first", "first_warning"))
+        return tuple(wrapper.warnings)
+
+    def second_request() -> tuple[str, ...]:
+        assert first_entered.wait(timeout=5)
+        wrapper.retrieve(make_post("second", "second_warning"))
+        warnings = tuple(wrapper.warnings)
+        release_first.set()
+        return warnings
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(first_request)
+        second = pool.submit(second_request)
+
+    assert second.result(timeout=5) == ("retriever_warning", "second_warning")
+    assert first.result(timeout=5) == ("retriever_warning", "first_warning")
 
 
 class InvalidUrlExplainer:
@@ -127,9 +175,14 @@ def test_explain_route_returns_schema_valid_gate3_response() -> None:
     assert "dev_adapter_dspy" in payload["trace"]["guardrail_flags"]
 
 
-def test_default_explainer_uses_dev_c_agent_program() -> None:
+def test_explainer_uses_dev_c_agent_program_with_thread_context_fallback() -> None:
     route_client = TestClient(
-        create_app(explainer=build_gate3_explainer(bluesky_client=FakeBlueskyClient()))
+        create_app(
+            explainer=build_gate3_explainer(
+                bluesky_client=FakeBlueskyClient(),
+                retriever=ThreadContextEvidenceRetriever(),
+            )
+        )
     )
 
     response = route_client.post(
@@ -147,6 +200,7 @@ def test_default_explainer_uses_dev_c_agent_program() -> None:
     assert payload["trace"]["category"] != "gate3_vertical_slice"
     assert payload["trace"]["adapter_mode"] == "deterministic_dev"
     assert "dev_c_api_path_uses_agent_guardrails" in payload["trace"]["warnings"]
+    assert "Parent Bluesky post is unavailable or deleted." in payload["trace"]["warnings"]
 
 
 def test_explain_route_maps_bluesky_fetch_failure() -> None:

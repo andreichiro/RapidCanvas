@@ -1,21 +1,18 @@
-"""Prompt-injection scanning and sanitization for untrusted evidence.
-
-All post, thread, web, and image text is treated as data. This module keeps the
-retrieval lane honest by removing executable-looking page noise, normalizing
-control characters, and flagging text that tries to override the system's tool,
-secret, or citation policy.
-"""
-
 from __future__ import annotations
 
 import html
+import math
 import re
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, cast
 
+from app.guardrails.identifiers import safe_identifier
+from app.ml.boundary import boundary_attr as ba
+from app.ml.boundary import boundary_text, bounded_items
 from app.schemas.domain import ContextDocument, SourceType
 
-UNTRUSTED_LABEL_BY_SOURCE_TYPE: Final[dict[SourceType, str]] = {
+UNTRUSTED_LABEL_BY_SOURCE_TYPE: Final[dict[str, str]] = {
     "thread": "UNTRUSTED_THREAD_CONTEXT",
     "bluesky": "UNTRUSTED_POST_TEXT",
     "web": "UNTRUSTED_WEB_CONTEXT",
@@ -31,12 +28,20 @@ _SCRIPT_STYLE_RE = re.compile(
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", flags=re.DOTALL)
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _WHITESPACE_RE = re.compile(r"\s+")
+_INTERNAL_METADATA_KEYS: Final[frozenset[str]] = frozenset(
+    {
+        "prompt_injection_risk_score",
+        "prompt_injection_flags",
+        "prompt_injection_reasons",
+        "sanitized",
+        "untrusted_label",
+    }
+)
+_NOT_METADATA_SCALAR: Final = object()
 
 
 @dataclass(frozen=True)
 class PromptInjectionPattern:
-    """One heuristic prompt-injection pattern."""
-
     flag: str
     pattern: re.Pattern[str]
     reason: str
@@ -54,13 +59,9 @@ class PromptInjectionScanResult:
 
     @property
     def is_risky(self) -> bool:
-        """Return whether any injection-like content was found."""
-
         return bool(self.flags)
 
     def as_metadata(self) -> dict[str, object]:
-        """Serialize the scan result for document metadata or trace payloads."""
-
         return {
             "prompt_injection_risk_score": self.risk_score,
             "prompt_injection_flags": list(self.flags),
@@ -143,8 +144,6 @@ DEFAULT_PATTERNS: Final[tuple[PromptInjectionPattern, ...]] = (
 
 
 class PromptInjectionScanner:
-    """Fast deterministic scanner for obvious prompt-injection attempts."""
-
     def __init__(
         self,
         patterns: tuple[PromptInjectionPattern, ...] = DEFAULT_PATTERNS,
@@ -152,8 +151,6 @@ class PromptInjectionScanner:
         self._patterns = patterns
 
     def scan(self, text: str, label: str = "UNTRUSTED_CONTEXT") -> PromptInjectionScanResult:
-        """Scan untrusted text and return flags without executing or interpreting it."""
-
         flags: list[str] = []
         reasons: list[str] = []
         risk_score = 0.0
@@ -171,8 +168,6 @@ class PromptInjectionScanner:
 
 
 def sanitize_untrusted_text(text: str, max_chars: int = 6000) -> str:
-    """Normalize untrusted text while preserving useful evidence content."""
-
     without_scripts = _SCRIPT_STYLE_RE.sub(" ", text)
     without_comments = _HTML_COMMENT_RE.sub(" ", without_scripts)
     without_tags = _HTML_TAG_RE.sub(" ", without_comments)
@@ -189,21 +184,121 @@ def sanitize_context_document(
     scanner: PromptInjectionScanner | None = None,
     max_chars: int = 6000,
 ) -> tuple[ContextDocument, PromptInjectionScanResult]:
-    """Return a sanitized copy of a document plus its prompt-injection scan."""
-
     active_scanner = scanner or PromptInjectionScanner()
-    label = UNTRUSTED_LABEL_BY_SOURCE_TYPE.get(document.source_type, "UNTRUSTED_CONTEXT")
-    sanitized_text = sanitize_untrusted_text(document.text, max_chars=max_chars)
-    scan = active_scanner.scan(sanitized_text, label=label)
+    source_type = _coerce_source_type(ba(document, "source_type", "source_type_field_failed"))
+    label = UNTRUSTED_LABEL_BY_SOURCE_TYPE[source_type]
+    sanitized_id = safe_identifier(ba(document, "id", "document_id_field_failed"), prefix="DOC")
+    url_text = _coerce_text(ba(document, "url", "document_url_field_failed"))
+    sanitized_url = sanitize_untrusted_text(url_text, max_chars=1200) or "about:blank"
+    sanitized_title = (
+        sanitize_untrusted_text(
+            _coerce_text(ba(document, "title", "document_title_field_failed")),
+            max_chars=200,
+        )
+        or "Untitled source"
+    )
+    sanitized_text = sanitize_untrusted_text(
+        _coerce_text(ba(document, "text", "document_text_field_failed")),
+        max_chars=max_chars,
+    )
+    metadata = _sanitize_metadata(ba(document, "metadata", "metadata_field_failed"))
+    sanitized_metadata = dict(metadata) if isinstance(metadata, Mapping) else {"metadata": metadata}
+    metadata_scan_text = "\n".join(_metadata_scan_parts(sanitized_metadata))
+    scan_input = "\n".join(
+        part for part in (sanitized_title, sanitized_text, metadata_scan_text) if part
+    )
+    scan = active_scanner.scan(scan_input, label=label)
     metadata = {
-        **document.metadata,
+        **sanitized_metadata,
         "sanitized": True,
         **scan.as_metadata(),
     }
     sanitized_document = document.model_copy(
-        update={"text": sanitized_text, "metadata": metadata}
+        update={
+            "id": sanitized_id,
+            "source_type": source_type,
+            "title": sanitized_title,
+            "url": sanitized_url,
+            "text": sanitized_text,
+            "metadata": metadata,
+        }
     )
     return sanitized_document, scan
+
+
+def _sanitize_metadata(value: object, *, depth: int = 0) -> object:
+    scalar = _sanitize_metadata_scalar(value)
+    if scalar is not _NOT_METADATA_SCALAR:
+        return scalar
+    if depth >= 4:
+        return sanitize_untrusted_text(boundary_text(value), max_chars=1200)
+    if isinstance(value, Mapping):
+        return _sanitize_mapping_metadata(value, depth=depth)
+    if isinstance(value, Iterable):
+        return _sanitize_iterable_metadata(value, depth=depth)
+    return sanitize_untrusted_text(boundary_text(value), max_chars=1200)
+
+
+def _sanitize_mapping_metadata(value: Mapping[object, object], *, depth: int) -> dict[str, object]:
+    try:
+        mapping_items = value.items()
+    except Exception as exc:
+        return {"metadata_iter_failed": f"metadata_iter_failed:{exc.__class__.__name__}"}
+    items, warnings = bounded_items(mapping_items, 50, "metadata_iter_failed")
+    sanitized: dict[str, object] = {}
+    for pair in items:
+        if not isinstance(pair, tuple) or len(pair) != 2:
+            continue
+        key, item = pair
+        key_text = sanitize_untrusted_text(boundary_text(key), max_chars=120) or "metadata_key"
+        sanitized[key_text] = _sanitize_metadata(item, depth=depth + 1)
+    return {**sanitized, **({"metadata_iter_failed": warnings} if warnings else {})}
+
+
+def _sanitize_iterable_metadata(value: Iterable[object], *, depth: int) -> list[object]:
+    items, warnings = bounded_items(value, 50, "metadata_iter_failed")
+    return [*(_sanitize_metadata(item, depth=depth + 1) for item in items), *warnings]
+
+
+def _sanitize_metadata_scalar(value: object) -> object:
+    if isinstance(value, str):
+        return sanitize_untrusted_text(value, max_chars=1200)
+    if isinstance(value, bytes | bytearray):
+        return sanitize_untrusted_text(_coerce_text(value), max_chars=1200)
+    if value is None or isinstance(value, bool | int):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    return _NOT_METADATA_SCALAR
+
+
+def _coerce_text(value: object) -> str:
+    return boundary_text(value)
+
+
+def _coerce_source_type(value: object) -> SourceType:
+    text = boundary_text(value, "source_type_text_failed")
+    if text in UNTRUSTED_LABEL_BY_SOURCE_TYPE:
+        return cast(SourceType, text)
+    return "web"
+
+
+def _metadata_scan_parts(value: object) -> Iterable[str]:
+    if isinstance(value, str):
+        if value:
+            yield value
+        return
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            key_text = boundary_text(key)
+            if key_text in _INTERNAL_METADATA_KEYS:
+                continue
+            yield key_text
+            yield from _metadata_scan_parts(item)
+        return
+    if isinstance(value, Iterable) and not isinstance(value, bytes | bytearray):
+        for item in value:
+            yield from _metadata_scan_parts(item)
 
 
 def sanitize_context_documents(
@@ -211,8 +306,6 @@ def sanitize_context_documents(
     scanner: PromptInjectionScanner | None = None,
     max_chars: int = 6000,
 ) -> tuple[list[ContextDocument], list[PromptInjectionScanResult]]:
-    """Sanitize a batch of documents and collect injection scan results."""
-
     sanitized: list[ContextDocument] = []
     scans: list[PromptInjectionScanResult] = []
     active_scanner = scanner or PromptInjectionScanner()

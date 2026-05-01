@@ -22,6 +22,14 @@ class ClassificationResult:
     rationale: str
 
 
+@dataclass(frozen=True)
+class QueryPlan:
+    """DSPy-generated category and read-only retrieval intents."""
+
+    category: str
+    queries: list[str]
+
+
 class SignatureRunner(Protocol):
     """Abstraction over DSPy predictors so tests can inject deterministic behavior."""
 

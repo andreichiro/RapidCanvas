@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -206,6 +207,91 @@ def test_cross_encoder_reranker_preserves_negative_logit_ordering() -> None:
 
     assert [candidate.item for candidate in ranked] == ["second", "first"]
     assert [candidate.score for candidate in ranked] == [-0.2, -1.0]
+
+
+def test_cross_encoder_reranker_falls_back_when_prediction_fails() -> None:
+    class BrokenPredictModel:
+        def predict(self, pairs: list[tuple[str, str]]) -> list[float]:
+            assert pairs
+            raise RuntimeError("runtime model failure")
+
+    cross_encoder = rerankers.CrossEncoderReranker[str](model=BrokenPredictModel())
+    ranked = cross_encoder.rerank(
+        "query",
+        [
+            RerankCandidate(item="first", score=0.1),
+            RerankCandidate(item="second", score=0.9),
+        ],
+        limit=2,
+    )
+
+    assert [candidate.item for candidate in ranked] == ["second", "first"]
+
+
+def test_rag_service_clamps_public_scores_after_raw_rerank_ordering() -> None:
+    class NegativeScoreReranker:
+        def rerank(
+            self,
+            query: str,
+            candidates: Sequence[RerankCandidate[DocumentChunk]],
+            limit: int,
+        ) -> list[RerankCandidate[DocumentChunk]]:
+            del query, limit
+            return [
+                RerankCandidate(item=candidates[1].item, score=-0.2),
+                RerankCandidate(item=candidates[0].item, score=-1.0),
+            ]
+
+    service = RagService(
+        embedding_provider=KeywordEmbeddingProvider(),
+        vector_store=InMemoryVectorStore(),
+        reranker=NegativeScoreReranker(),
+        chunking=ChunkingConfig(name="test", size=200, overlap=20),
+        evidence_limit=2,
+    )
+    documents = [
+        document("S1", "Mars rover first evidence."),
+        document("S2", "Mars rover second evidence."),
+    ]
+
+    evidence = service.retrieve("mars rover", documents)
+
+    assert [item.document_id for item in evidence] == ["S2", "S1"]
+    assert [item.score for item in evidence] == [0.0, 0.0]
+
+
+def test_rag_service_public_scores_are_finite_after_raw_rerank_ordering() -> None:
+    class ExtremeScoreReranker:
+        def rerank(
+            self,
+            query: str,
+            candidates: Sequence[RerankCandidate[DocumentChunk]],
+            limit: int,
+        ) -> list[RerankCandidate[DocumentChunk]]:
+            del query, limit
+            return [
+                RerankCandidate(item=candidates[2].item, score=float("inf")),
+                RerankCandidate(item=candidates[0].item, score=2.5),
+                RerankCandidate(item=candidates[1].item, score=float("nan")),
+            ]
+
+    service = RagService(
+        embedding_provider=KeywordEmbeddingProvider(),
+        vector_store=InMemoryVectorStore(),
+        reranker=ExtremeScoreReranker(),
+        chunking=ChunkingConfig(name="test", size=200, overlap=20),
+        evidence_limit=3,
+    )
+    documents = [
+        document("S1", "Mars rover first evidence."),
+        document("S2", "Mars rover second evidence."),
+        document("S3", "Mars rover third evidence."),
+    ]
+
+    evidence = service.retrieve("mars rover", documents)
+
+    assert [item.document_id for item in evidence] == ["S3", "S1", "S2"]
+    assert [item.score for item in evidence] == [1.0, 1.0, 0.0]
 
 
 def test_qdrant_vector_store_recreate_and_query_when_dependency_available(

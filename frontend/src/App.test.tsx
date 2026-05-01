@@ -51,7 +51,7 @@ const providersPayload = {
       name: "openai",
       configured: false,
       skipped_reason: "OPENAI_API_KEY is not configured",
-      default_model: null,
+      default_model: "openai/gpt-4.1-mini",
     },
     {
       name: "ollama",
@@ -96,7 +96,8 @@ test("renders the application shell and provider selector", async () => {
 
   expect(screen.getByRole("heading", { name: "Bluesky Contextual Post Explainer" })).toBeVisible();
   expect(await screen.findByLabelText("Bluesky post URL")).toBeVisible();
-  expect(await screen.findByRole("combobox", { name: "Provider" })).toHaveTextContent("openai (skipped)");
+  expect(await screen.findByRole("combobox", { name: "Provider" })).toHaveTextContent("openai");
+  expect(screen.getByText("skipped - OPENAI_API_KEY is not configured - openai/gpt-4.1-mini")).toBeVisible();
 });
 
 test("submits a Bluesky URL through the typed API client", async () => {
@@ -161,7 +162,7 @@ test("toggles trace details with trust, fallback, warnings, and guardrail flags"
 
   await waitFor(() => {
     expect(screen.getByText("gate3_vertical_slice")).toBeVisible();
-    expect(screen.getByText("real_bluesky_fetch_enabled")).toBeVisible();
+    expect(screen.getAllByText("real_bluesky_fetch_enabled")[0]).toBeVisible();
     expect(screen.getByText("deterministic dev")).toBeVisible();
   });
 });

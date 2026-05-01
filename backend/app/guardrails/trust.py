@@ -118,6 +118,9 @@ def _evidence_findings(
     if retrieval_score < 0.45:
         flags.append("weak_retrieval_score")
         reasons.append("Retrieved evidence scores are weak.")
+    if _has_contradiction_markers(evidence):
+        flags.append("conflicting_sources")
+        reasons.append("Evidence contains contradiction markers.")
     return flags, reasons
 
 
@@ -152,6 +155,9 @@ def _guardrail_penalty(flag: str, reasons: list[str]) -> float:
     if flag == "conflicting_sources":
         reasons.append("Evidence contains contradiction markers.")
         return -0.22
+    if flag in {"private_url_blocked", "unsafe_source"} or flag.startswith("source_safety_"):
+        reasons.append("Source-safety diagnostics downgraded trust.")
+        return -0.2
     return 0.0
 
 
@@ -217,6 +223,17 @@ def _retrieval_score(evidence: Sequence[Evidence]) -> float:
         return 0.0
     average = sum(min(1.0, max(0.0, item.score)) for item in evidence) / len(evidence)
     return min(1.0, average)
+
+
+def _has_contradiction_markers(evidence: Sequence[Evidence]) -> bool:
+    markers = (
+        "contradicts",
+        "contradiction",
+        "conflicting source",
+        "disputes this",
+        "directly disputes",
+    )
+    return any(marker in item.text.lower() for item in evidence for marker in markers)
 
 
 def _dedupe(values: Sequence[str]) -> list[str]:

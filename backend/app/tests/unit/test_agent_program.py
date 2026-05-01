@@ -9,12 +9,8 @@ from app.agent.runner import (
     ClassificationResult,
     SignatureRunner,
 )
-from app.agent.service import (
-    AgentExplainerService,
-    StaticEvidenceRetriever,
-)
+from app.agent.sources import POST_SOURCE_ID
 from app.guardrails.output import BulletDraft, ExplanationDraft, ValidationResult
-from app.schemas.api import ExplainRequest
 from app.schemas.domain import ContextDocument, Evidence, PostContext, TrustAssessment
 
 
@@ -63,7 +59,7 @@ def test_bluesky_explainer_returns_three_to_five_cited_bullets_with_trace() -> N
 
     assert 3 <= len(response.bullets) <= 5
     assert all(bullet.source_ids for bullet in response.bullets)
-    assert {source.id for source in response.sources} == {"S1", "S2", "S3"}
+    assert {source.id for source in response.sources} == {POST_SOURCE_ID, "S1", "S2", "S3"}
     assert response.trace.fallback_mode == "none"
     assert response.trace.trust_score > 0.8
     assert response.trace.adapter_mode == "deterministic_dev"
@@ -195,7 +191,7 @@ def test_low_trust_path_returns_schema_valid_fallback() -> None:
     assert len(response.bullets) == 3
     assert response.trace.fallback_mode == "abstain"
     assert "low_evidence" in response.trace.guardrail_flags
-    assert all(bullet.source_ids == ["S1"] for bullet in response.bullets)
+    assert all(bullet.source_ids == [POST_SOURCE_ID] for bullet in response.bullets)
 
 
 class SixBulletRunner(RevisingRunner):
@@ -261,29 +257,6 @@ def test_runner_trust_abstain_forces_final_fallback() -> None:
     assert any(
         "DSPy trust assessment requested abstain" in item for item in response.trace.warnings
     )
-
-
-class FakeFetcher:
-    def fetch_context(self, url: str) -> PostContext:
-        del url
-        return _post()
-
-
-def test_agent_explainer_service_matches_route_protocol() -> None:
-    service = AgentExplainerService(
-        fetcher=FakeFetcher(),
-        retriever=StaticEvidenceRetriever(evidence=_evidence(), documents=_documents()),
-        program=BlueskyExplainer(),
-    )
-    request = ExplainRequest(
-        post_url="https://bsky.app/profile/example.com/post/3abcxyz",
-        provider="openai",
-    )
-
-    response = service.explain(request)
-
-    assert response.post.author == "example.com"
-    assert response.trace.fallback_mode == "none"
 
 
 def test_signature_runner_protocol_is_satisfied_by_revising_runner() -> None:

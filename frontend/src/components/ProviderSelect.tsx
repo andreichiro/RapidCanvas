@@ -7,12 +7,6 @@ type ProviderSelectProps = {
   providers: ProviderInfo[];
 };
 
-function labelForProvider(provider: ProviderInfo): string {
-  const status = provider.configured ? "ready" : "skipped";
-  const model = provider.default_model ? `, ${provider.default_model}` : "";
-  return `${provider.name} (${status}${model})`;
-}
-
 export default function ProviderSelect({ disabled = false, onChange, provider, providers }: ProviderSelectProps) {
   const options = providers.length ? providers : [{ name: "openai", configured: false, skipped_reason: null, default_model: null }];
 
@@ -26,7 +20,7 @@ export default function ProviderSelect({ disabled = false, onChange, provider, p
     >
       {options.map((item) => (
         <option key={item.name} value={item.name}>
-          {labelForProvider(item)}
+          {item.name}
         </option>
       ))}
     </select>

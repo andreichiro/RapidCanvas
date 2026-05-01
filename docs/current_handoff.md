@@ -20,9 +20,9 @@ Merged Gate 4 lanes: Dev A, Dev B, Dev C, Dev D, and Dev E.
   - Trust scoring, output validation, fallback modes, prompt-injection source labels, and provider-error degradation exist in `backend/app/guardrails/` and `backend/app/agent/`.
   - GEPA dry-run/real compile plumbing exists in `backend/app/eval/optimize.py`, `backend/app/eval/gepa_persistence.py`, and `backend/app/eval/gepa_validation.py`; dry-run saves `backend/app/agent/optimized/program.json`, and real mode saves a loadable compiled DSPy program directory when valid provider credentials produce successful rollouts.
   - MLflow smoke logging and DSPy model packaging exist in `backend/app/ops/mlflow.py`, `backend/app/agent/mlflow_wrapper.py`, and `backend/app/agent/log_mlflow.py`.
-- The public `/api/explain` default route now uses the Dev C `AgentExplainerService` and `BlueskyExplainer` program with real Bluesky fetch plus trace-marked thread-context evidence until Gate 5 wires Dev B external Search/RAG retrieval into the route.
-- Deterministic Dev C fallback is used when optional DSPy packages, provider credentials, or live provider calls are unavailable; it marks `adapter_mode=deterministic_dev` and emits guardrail/fallback trace fields instead of silently pretending to be a final live model path.
-- `R045` remains planned for final real-pipeline enforcement because the current route still uses temporary thread-context evidence rather than full external Search/RAG integration.
+- Gate 5 C5 integration branch `codex/gate5-c5-integration` now wires the public route through real Bluesky fetch, Dev B `RetrievalEvidenceRetriever`, and Dev C provider-aware `AgentExplainerService`; missing live dependencies or credentials degrade with trace-visible diagnostics.
+- Dev E PR #7 is merged into C5 and verifies real-response rendering, citation/source navigation, trust/fallback badges, guardrail flags, and trace diagnostics in the frontend.
+- `R045` is closed for C5 runtime enforcement only when the real pipeline modules are present and any fallback/dev adapter use is trace-marked; real public eval rows remain Gate 6 work.
 - Isolated Lane Protocol is instantiated for Dev C through `assets/dev_C_gate4_WORKSPACE_CONTRACT.json` and wrapper scripts in `scripts/`.
 
 ## Dev A Gate 4 Lane
@@ -66,7 +66,7 @@ Added Dev B-owned behavior:
 - OpenAI embedding wrapper with diskcache plus deterministic test embeddings in `backend/app/ml/embeddings.py`.
 - Chunking variants, in-memory vector store, Qdrant local-mode store, and `RagService.retrieve()` in `backend/app/ml/vector_store.py`.
 - Retrieval diagnostics in `backend/app/ml/diagnostics.py`, including prompt-injection flags/warnings surfaced through `RagService.last_diagnostics`.
-- Similarity, optional HF cross-encoder, and optional DSPy rerankers in `backend/app/ml/rerankers.py`; optional HF setup falls back if model loading fails.
+- Similarity, optional HF cross-encoder, and optional DSPy rerankers in `backend/app/ml/rerankers.py`; optional HF setup falls back if model loading or prediction fails.
 - Unit tests for search, safe fetch, prompt-injection scanning, RAG retrieval, Qdrant optional behavior, and reranker fallback.
 
 Important Dev B notes:
@@ -75,8 +75,52 @@ Important Dev B notes:
 - Optional Qdrant and web extraction paths were verified with extras, not only the base dev environment.
 - Dev B's `BlueskySearchProvider` can consume or wrap Dev A's read-only `BlueskyClient.search_posts()` during the integration window.
 
-## Dev C Gate 4 Lane
+## Dev B Gate 5 Lane
+Source branch: `codex/dev-b-gate5-retrieval-safety`
+Gate 5 Dev B checkpoint C2 is implemented in the isolated lane clone at `/Users/akatsurada/Documents/rapidcanvas_dev_b_gate5`:
 
+- `retrieval_service.py`, `retrieval_adapter.py`, and `retrieval_payload.py` expose the C2 service, sync Dev C adapter, and canonical JSON payload helpers.
+- The service accepts Dev A `PostContext` plus supplied/generated queries and returns `RetrievalResult` with sanitized documents, ranked evidence, diagnostics, warnings, guardrail flags, source ids, scores, queries, and private/local URL block evidence.
+- Dev C can call `await build_retrieval_service().retrieve(...)` or use `RetrievalEvidenceRetriever` for the current sync evidence protocol with invocation-scoped diagnostics.
+- Stable fields are `documents`, `evidence`, `warnings`, `guardrail_flags`, `source_ids`, `scores`, `queries`, `private_url_blocks`, and `diagnostics`.
+- Diagnostics map to trace warnings, `prompt_injection_risk`, retrieval/eval source-score metadata, and private URL block evidence.
+- Evidence ordering preserves raw reranker order; public scores are finite 0..1 values.
+- C2 fixture artifacts use the canonical retrieval payload shape under `backend/app/tests/fixtures/gate5_retrieval/`, with integration coverage in `backend/app/tests/integration/test_gate5_retrieval.py`.
+
+Important Dev B Gate 5 notes:
+- Production builder uses `OpenAIEmbeddingProvider` by default; deterministic embeddings are injected only in tests.
+- Qdrant local mode is preferred by the builder. If Qdrant cannot be created, the service
+  falls back to the in-memory vector store with an explicit `qdrant_unavailable_using_in_memory_vector_store:*` warning.
+- Bluesky search is read-only through Dev A `BlueskyClient.search_posts()` when
+  the default builder is used; builder/per-call settings can disable Bluesky or
+  web search, and live provider failures are surfaced as warnings.
+- Search providers return per-call warnings, cap output, avoid concurrent warning leaks, degrade provider failures/invalid bundles safely, bound DDGS iteration, skip zero-limit live searches, and use the same resolver-aware source URL policy in direct Bluesky and final retrieval paths.
+- Built-in provider `last_warnings`, direct `RagService.last_diagnostics`, and the Dev C retrieval adapter keep diagnostics scoped to the current invocation across async tasks and threaded callers while preserving direct-component accessor shapes.
+- Retrieval/evidence/query/reranker limits clamp to non-negative values; zero
+  retrieval/evidence limits and malformed embedding/vector runtime output skip model work safely.
+- For deterministic/offline C2 or controlled Dev C handoff runs, call
+  `build_retrieval_service(..., search_providers=[])`; that explicit empty list
+  is preserved and does not install default live search providers.
+- DDGS web search and linked-page fetch are read-only. The fetcher blocks
+  malformed, credential-bearing, private, localhost, link-local, non-global IP,
+  and unsupported-scheme URLs before fetch and before redirects; it also validates
+  the connected peer address before accepting response bytes. URL diagnostics
+  redact userinfo, query strings, and fragments.
+- Linked-page fetches are capped by `RetrievalSettings.linked_page_limit` so
+  untrusted post context cannot drive unbounded outbound GET attempts; overflow
+  is surfaced as `linked_page_limit_exceeded:*`.
+- Returned documents are sanitized and prompt-injection scanned across titles,
+  body text, bounded string metadata, and decoded bytes metadata. Retrieval
+  filters unsafe source URLs, including normalized provider pass-through docs,
+  into private/local block evidence; parser failures return
+  `extraction_failed:<ExceptionType>`.
+- Normalized Bluesky source metadata may preserve `at://...` AT URIs for
+  Bluesky/thread documents; those identifiers are never fetch targets.
+- C2 invariant coverage verifies sanitized docs, resolver-safe HTTP source URLs, promoted private/local blocks, valid evidence IDs/source links, finite scores, JSON-stable metadata, malformed handoff/provider/diagnostic shapes, safe text coercion, RAG diagnostics, vector payloads, direct accessor compatibility, adapter/provider/RAG state isolation, and embedding/vector/reranker runtime failures.
+- This lane does not wire retrieval into `/api/explain`, does not implement DSPy
+  explanations, and does not close final Search/RAG requirement rows. C5 owns
+  final end-to-end acceptance.
+## Dev C Gate 4 Lane
 Source branch:
 
 ```text
@@ -217,10 +261,10 @@ Dev D `make eval`, fake-agent/API eval modes, and optional DSPy/Ragas/composite 
 ## Important Boundaries
 
 - Do not replace trace-marked temporary evidence/adapters with unmarked fake explanation bullets.
-- Do not claim final integrated `/api/explain` Search/RAG, image understanding, provider comparison, or final no-adapter acceptance until Gate 5+ wires the real pipeline and eval verifies it.
+- Do not claim image understanding, provider comparison, or final public eval until Gate 6+ implements and verifies those rows.
 - Real Bluesky post fetch is required and implemented.
-- Temporary deterministic fallback is allowed only when live Search/RAG or DSPy provider paths are unavailable or explicitly not yet wired; any such use must be visible in `trace`.
-- Dev adapters/fallbacks cannot satisfy final acceptance or `R045`.
+- The C5 route attempts the integrated real Search/RAG plus DSPy path by default; fallback/dev adapter use is acceptable only when `trace` marks the retrieval/provider downgrade.
+- `R045` is satisfied by C5 enforcement artifacts, not by no-key fallback output; a local no-key abstain remains a recorded downgrade, not final public-eval proof.
 - Preserve the no-fake-product-behavior rule: fallback/safe-summary output is allowed only when trace and guardrail fields say so.
 - Generated artifacts under `reports/`, `mlruns/`, Qdrant cache, and local secret files must stay ignored.
 - Shared repo `/Users/akatsurada/Documents/New project` remains inspection-only for isolated lane work.
@@ -235,32 +279,41 @@ may then be parallelized internally.
 The detailed Gate 5 ownership, must-not-edit boundaries, merge order, and final
 review criteria live in `docs/gate5_parallelization_plan.md`.
 
-## Gate 6 Parallelization Plan
+## Gate 5 C5 Integration Handoff
 
-Gate 6 should run on parallel developer branches only after Gate 5 lands a real
-integrated pipeline. Its detailed ownership, must-not-edit boundaries, quality
-spine, merge order, and final review criteria live in
-`docs/gate6_parallelization_plan.md`.
+Integration branch `codex/gate5-c5-integration` combines Dev A PR #5, Dev B PR
+#3, and Dev C PR #4. Dev A still owns only API/dependency composition:
+`backend/app/deps.py` now prefers Dev B `RetrievalEvidenceRetriever` and passes
+it to Dev C `build_agent_explainer_service(...)`; the older query-aware wrapper
+remains a fallback only when the Dev B adapter module is absent.
 
-## Next Work
+The final `/api/explain` path is real only when Dev A `PostContext`, Dev B
+retrieval, and Dev C explainer builders are present together. It fetches the
+Bluesky post, plans queries before retrieval, passes planned queries into Dev B,
+normalizes C2 evidence/diagnostics through Dev C, and returns the stable public
+`ExplainResponse`. Missing credentials or provider failures still downgrade
+through trace-visible fallback behavior rather than route crashes.
 
-Recommended next step: start Gate 5 on parallel branches using
-`docs/gate5_parallelization_plan.md`. Gate 5 integration should wire Dev B
-`RagService` and retrieval diagnostics into Dev C `AgentExplainerService`, carry
-Dev A `PostContext.warnings` into trace warnings, keep Dev E's frontend API
-contract stable, and run Dev D API/model-backed eval against the integrated
-path. Use `docs/gate6_parallelization_plan.md` only after Gate 5 lands.
+Dev A C1: `PostContext` contains metadata, parents, quotes, links, image refs,
+and warning strings; live fetch depends on public Bluesky visibility. Dev B C2:
+retrieval returns bounded evidence, documents, warnings, diagnostics, private
+URL blocks, and guardrail flags. Dev C C3: the service consumes Dev B-shaped
+output, scans visible post context before query planning, and cites the stable
+post source for visible-post fallback.
 
-During the integration window:
+Dev E PR #7 is merged into C5 and is acceptable for integration: it changed only
+frontend-owned files under `frontend/src/*`, fixed C5 response rendering polish,
+covered `thread`, `bluesky`, `web`, and `image` sources plus fallback states, and
+verified browser smoke against local frontend/backend services.
 
-- Replace the temporary `ThreadContextEvidenceRetriever` in `backend/app/agent/service.py` or `backend/app/deps.py` with Dev B retrieval while preserving trace visibility.
-- Map Dev B `RagService.last_diagnostics` prompt-injection/private-url/source-safety warnings into Dev C trust/trace fields.
-- Keep DSPy provider failures guarded with `dspy_provider_error`.
-- Run `make deep-review`, `make eval`, `make optimize`, and `make mlflow-log`.
+Dev D final bookkeeping is recorded in `docs/reviews/gate5_final_review.md` and
+`docs/gate5_checkpoint_status.md`. Gate 6 begins only after this real integrated
+Gate 5 path lands; see `docs/gate6_parallelization_plan.md`.
 
 ## Review Records
 
 - `docs/reviews/gate1_final_review.md`
 - `docs/reviews/gate2_final_review.md`
 - `docs/reviews/gate3_final_review.md`
+- `docs/reviews/gate5_final_review.md`
 - Dev C Gate 4 verification is recorded in this handoff and `TRANSLATION_LOG.md`.
