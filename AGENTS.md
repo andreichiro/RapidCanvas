@@ -41,6 +41,14 @@ JSONL, Markdown, summary JSON, confusion matrix CSV, and SVG graph artifacts
 under ignored `reports/eval/`. Default eval is still offline; live API quality,
 provider-backed judges, and MLflow remain explicit commands.
 
+Gate 7 G7-C final truth/docs is implemented on the final-truth branch. It adds
+`docs/reviews/gate7_final_review.md`, keeps README/matrix/handoff claims honest,
+and exposes `make gate7-final-truth-audit`. The submitted runtime truth is
+one-shot Search/RAG with trace-visible fallbacks, adaptive retrieval is reserved,
+GEPA is dry-run metadata unless a real compile later succeeds, image support is
+alt-text/context evidence and not live vision, and provider comparison is
+registry/skip visibility rather than a live multi-provider benchmark.
+
 Do not claim T1-T15 are complete until their files, tests, and requirement
 matrix rows exist.
 
@@ -60,6 +68,12 @@ For Dev D eval/docs changes, also run:
 ```bash
 make eval
 make gate6-shipping-audit
+```
+
+For G7-C final truth/docs changes, also run:
+
+```bash
+make gate7-final-truth-audit
 ```
 
 `make deep-review` expands to:
@@ -93,6 +107,7 @@ make maintainability-review
 make user-smoke
 make eval
 make gate6-shipping-audit
+make gate7-final-truth-audit
 make dev
 make dev-backend
 make dev-frontend
@@ -107,6 +122,10 @@ dependencies so a clean checkout can immediately run `make deep-review`.
 Gate 6 truth layer, including public/synthetic fixture honesty, raw attack
 manifest parity, report-summary labels, documentation claims, Dev D ownership
 boundaries, and ignored generated artifacts.
+`make gate7-final-truth-audit` regenerates cached eval artifacts and verifies the
+Gate 7 truth table, GEPA dry-run metadata, one-shot/fallback retrieval wording,
+reserved bonus surfaces, no-live-provider-report wording, and generated-artifact
+hygiene.
 
 ## Ownership Boundaries
 

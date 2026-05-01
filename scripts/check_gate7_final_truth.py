@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only Gate 7 final-truth audit.
-
-This is intentionally narrower than `make deep-review`: it checks that the final
-submission documents do not overclaim live/adaptive/optimized/bonus behavior and
-that G7-C only changed allowed truth-layer files.
-"""
+"""Read-only Gate 7 final-truth audit for G7-C submission claims."""
 
 from __future__ import annotations
 
@@ -34,6 +29,7 @@ EXPECTED_TRUTH = {
 }
 ALLOWED_DELTA_PATHS = {
     "README.md",
+    "AGENTS.md",
     "TRANSLATION_LOG.md",
     "Makefile",
     "assets/dev_G7_C_WORKSPACE_CONTRACT.json",
@@ -64,6 +60,7 @@ def main() -> int:
     final_review = read(root / "docs/reviews/gate7_final_review.md")
     handoff = read(root / "docs/current_handoff.md")
     readme = read(root / "README.md")
+    agents = read(root / "AGENTS.md")
     matrix = read(root / "docs/requirements_matrix.md")
     translation_log = read(root / "TRANSLATION_LOG.md")
 
@@ -72,7 +69,7 @@ def main() -> int:
     check_gepa_truth(root, errors)
     check_runtime_truth(root, errors)
     check_final_review(final_review, errors)
-    check_docs(readme, handoff, matrix, translation_log, errors)
+    check_docs(readme, handoff, matrix, translation_log, agents, errors)
     check_generated_artifact_hygiene(root, errors)
 
     print(json.dumps({"errors": errors, "checked": "gate7_final_truth"}, indent=2))
@@ -183,6 +180,7 @@ def check_docs(
     handoff: str,
     matrix: str,
     translation_log: str,
+    agents: str,
     errors: list[str],
 ) -> None:
     doc_requirements = {
@@ -213,10 +211,13 @@ def check_docs(
         "TRANSLATION_LOG.md": [
             "Gate 7 Search/RAG and adaptive retrieval truth",
             "Gate 7 GEPA dataset bridge and real compile status",
-            "Gate 7 image understanding truth",
-            "Gate 7 provider comparison truth",
-            "Gate 7 MLflow/Ragas/judge status",
-            "Gate 7 pasted OpenAI key handling",
+            "Gate 7 image understanding truth", "Gate 7 provider comparison truth",
+            "Gate 7 MLflow/Ragas/judge status", "Gate 7 pasted OpenAI key handling",
+            "Gate 7 AGENTS handoff drift",
+        ],
+        "AGENTS.md": [
+            "Gate 7 G7-C final truth/docs", "make gate7-final-truth-audit",
+            "adaptive retrieval is reserved", "GEPA is dry-run metadata", "not live vision",
         ],
     }
     documents = {
@@ -224,6 +225,7 @@ def check_docs(
         "docs/current_handoff.md": handoff,
         "docs/requirements_matrix.md": matrix,
         "TRANSLATION_LOG.md": translation_log,
+        "AGENTS.md": agents,
     }
     for file_name, phrases in doc_requirements.items():
         text = normalize_ws(documents[file_name])
@@ -231,7 +233,7 @@ def check_docs(
             need(phrase in text, errors, f"{file_name} missing: {phrase}")
 
     check_matrix_status(matrix, errors)
-    check_no_overclaim_phrases(readme, handoff, matrix, translation_log, errors)
+    check_no_overclaim_phrases(readme, handoff, matrix, translation_log, agents, errors)
 
 
 def check_matrix_status(matrix: str, errors: list[str]) -> None:
@@ -248,6 +250,7 @@ def check_no_overclaim_phrases(
     handoff: str,
     matrix: str,
     translation_log: str,
+    agents: str,
     errors: list[str],
 ) -> None:
     overclaim_terms = [
@@ -257,7 +260,7 @@ def check_no_overclaim_phrases(
         "real compiled optimized program was produced",
         "provider-backed judges ran in G7-C",
     ]
-    combined = "\n".join((readme, handoff, matrix, final_truth_only(translation_log))).lower()
+    combined = "\n".join((readme, handoff, matrix, agents, final_truth_only(translation_log))).lower()
     for term in overclaim_terms:
         need(term not in combined, errors, f"overclaim phrase present: {term}")
 
