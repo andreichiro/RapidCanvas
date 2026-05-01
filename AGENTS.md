@@ -59,6 +59,7 @@ For Dev D eval/docs changes, also run:
 
 ```bash
 make eval
+make gate6-shipping-audit
 ```
 
 `make deep-review` expands to:
@@ -91,6 +92,7 @@ make check-secrets
 make maintainability-review
 make user-smoke
 make eval
+make gate6-shipping-audit
 make dev
 make dev-backend
 make dev-frontend
@@ -101,6 +103,10 @@ make mlflow-ui
 
 `make setup` installs the full backend review dependency set plus frontend
 dependencies so a clean checkout can immediately run `make deep-review`.
+`make gate6-shipping-audit` regenerates cached eval artifacts and verifies the
+Gate 6 truth layer, including public/synthetic fixture honesty, raw attack
+manifest parity, report-summary labels, documentation claims, Dev D ownership
+boundaries, and ignored generated artifacts.
 
 ## Ownership Boundaries
 

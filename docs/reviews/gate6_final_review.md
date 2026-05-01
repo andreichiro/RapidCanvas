@@ -111,6 +111,7 @@ cd backend && uv run --all-extras python -m app.eval.runner --mode cached --judg
 cd backend && uv run python -m app.eval.runner --mode api --judge deterministic --out reports/eval_api_final
 make mlflow-log
 python3 scripts/check_gate6_shipping_audit.py
+make gate6-shipping-audit
 make lint
 make test
 make requirements-review

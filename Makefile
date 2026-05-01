@@ -3,7 +3,7 @@ SHELL := /bin/bash
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 
-.PHONY: help setup setup-backend setup-backend-full setup-frontend lint backend-lint frontend-lint test backend-test frontend-test dev dev-backend dev-frontend eval optimize mlflow-log mlflow-ui clean clean-generated check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review skills-review maintainability-review api-smoke frontend-smoke user-smoke deep-review
+.PHONY: help setup setup-backend setup-backend-full setup-frontend lint backend-lint frontend-lint test backend-test frontend-test dev dev-backend dev-frontend eval gate6-shipping-audit optimize mlflow-log mlflow-ui clean clean-generated check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review skills-review maintainability-review api-smoke frontend-smoke user-smoke deep-review
 
 help:
 	@echo "Bluesky Contextual Post Explainer"
@@ -22,10 +22,11 @@ help:
 	@echo "  make check-secrets      Check that local secrets are not tracked"
 	@echo ""
 	@echo "Evaluation and later-phase commands:"
-	@echo "  make eval        Run cached eval fixtures and write ignored reports"
-	@echo "  make optimize    Run GEPA dry-run metadata save"
-	@echo "  make mlflow-log  Create a local MLflow run"
-	@echo "  make mlflow-ui   Start the local MLflow UI"
+	@echo "  make eval                 Run cached eval fixtures and write ignored reports"
+	@echo "  make gate6-shipping-audit Regenerate eval reports and verify Gate 6 truth layer"
+	@echo "  make optimize             Run GEPA dry-run metadata save"
+	@echo "  make mlflow-log           Create a local MLflow run"
+	@echo "  make mlflow-ui            Start the local MLflow UI"
 
 setup: setup-backend setup-frontend
 
@@ -129,6 +130,9 @@ dev-frontend:
 
 eval:
 	cd $(BACKEND_DIR) && uv run python -m app.eval.runner --cases eval/posts.yaml --out reports/eval
+
+gate6-shipping-audit: eval
+	python3 scripts/check_gate6_shipping_audit.py
 
 optimize:
 	cd $(BACKEND_DIR) && uv run python -m app.eval.optimize --dry-run

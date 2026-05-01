@@ -232,6 +232,12 @@ def check_reports(root: Path, errors: list[str]) -> None:
 def check_docs(root: Path, errors: list[str]) -> None:
     handoff = (root / "docs/current_handoff.md").read_text(encoding="utf-8").splitlines()
     need(len(handoff) <= 320, errors, f"handoff too long: {len(handoff)}")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    agents = (root / "AGENTS.md").read_text(encoding="utf-8")
+    need("make gate6-shipping-audit" in readme, errors, "README missing audit command")
+    need("make gate6-shipping-audit" in agents, errors, "AGENTS missing audit command")
+    need("Gate 6 remains responsible" not in readme, errors, "README has stale Gate 6 future wording")
+    need("Public eval completion remains Gate 6 work" not in readme, errors, "README has stale eval wording")
     final = (root / "docs/reviews/gate6_final_review.md").read_text(encoding="utf-8")
     for text in ("API-Mode Smoke Snapshot", "Attack fixture manifest", "not final live quality closure"):
         need(text in final, errors, f"final review missing {text}")
