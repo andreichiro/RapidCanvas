@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from contextvars import ContextVar
 from threading import local
+from typing import cast
 
 from app.ml.c2_policy import diagnostic_strings
 from app.ml.diagnostics import RetrievalDiagnostics
@@ -36,9 +38,13 @@ def safe_last_diagnostics(rag_service: object) -> tuple[RetrievalDiagnostics, li
         diagnostics = getattr(rag_service, "last_diagnostics", RetrievalDiagnostics())
         flags = diagnostic_strings(getattr(diagnostics, "prompt_injection_flags", ()))
         warnings = diagnostic_strings(getattr(diagnostics, "warnings", ()))
+        reranker_scores = getattr(diagnostics, "reranker_scores", {})
     except Exception as exc:
         return RetrievalDiagnostics(), [f"retrieval_diagnostics_failed:{exc.__class__.__name__}"]
     return RetrievalDiagnostics(
         prompt_injection_flags=tuple(flags),
         warnings=tuple(warnings),
+        reranker_scores=cast(dict[str, float], reranker_scores)
+        if isinstance(reranker_scores, Mapping)
+        else {},
     ), []

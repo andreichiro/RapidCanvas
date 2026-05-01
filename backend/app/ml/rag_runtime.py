@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
-from typing import Any, Protocol, TypeVar
+from typing import Any, Protocol, TypeVar, cast
 
 from app.ml.boundary import boundary_attr, boundary_text, bounded_items, safe_limit
 from app.ml.rerankers import RerankCandidate
@@ -95,8 +96,9 @@ def _has_attr(value: object, name: str) -> bool:
 def evidence_from_ranked_candidates(
     ranked: Sequence[RerankCandidate[T]],
     document_ids: set[str],
-) -> tuple[list[Evidence], list[str]]:
+) -> tuple[list[Evidence], list[str], dict[str, float]]:
     evidence: list[Evidence] = []
+    scores: dict[str, float] = {}
     warnings: list[str] = []
     for index, candidate in enumerate(ranked, start=1):
         document_id, bad_document_id = _chunk_field(candidate.item, "document_id")
@@ -111,16 +113,27 @@ def evidence_from_ranked_candidates(
         if document_id not in document_ids or source_id not in document_ids:
             warnings.append(f"rag_evidence_orphaned_candidate:{index}")
             continue
+        evidence_id = f"E{len(evidence) + 1}"
         evidence.append(
             Evidence(
-                id=f"E{len(evidence) + 1}",
+                id=evidence_id,
                 document_id=document_id,
                 text=text,
                 score=public_score(candidate.score),
                 source_id=source_id,
             )
         )
-    return evidence, warnings
+        if (score := _finite_float(candidate.score)) is not None:
+            scores[evidence_id] = score
+    return evidence, warnings, scores
+
+
+def _finite_float(value: object) -> float | None:
+    try:
+        score = float(cast(Any, value))
+    except Exception:
+        return None
+    return score if math.isfinite(score) else None
 
 
 def _chunk_field(item: object, name: str) -> tuple[str, bool]:

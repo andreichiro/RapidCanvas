@@ -15,6 +15,7 @@ from app.schemas.domain import ContextDocument, Evidence, PostContext
 T = TypeVar("T")
 _WORD_RE = re.compile(r"[A-Za-z0-9_@#:.+-]+")
 _BLOCK_WARNING_PREFIXES = ("blocked_url:", "blocked_link:", "blocked_document_url:")
+DocumentWarningResult = tuple[list[ContextDocument], list[str]]
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,7 @@ class RetrievalDiagnostics:
     warnings: tuple[str, ...] = ()
     source_ids: tuple[str, ...] = ()
     evidence_scores: dict[str, float] = field(default_factory=dict)
+    reranker_scores: dict[str, float] = field(default_factory=dict)
     private_url_blocks: tuple[str, ...] = ()
     search_queries: tuple[str, ...] = ()
     document_count: int = 0
@@ -67,15 +69,14 @@ def make_retrieval_result(
     warnings: Sequence[object],
     private_url_blocks: Sequence[object],
     extra_guardrail_flags: Sequence[object] = (),
+    reranker_scores: Mapping[str, float] | None = None,
 ) -> RetrievalResult:
     safe_evidence_result = safe_evidence_for_documents(evidence, documents)
     safe_evidence = safe_evidence_result.evidence
     prompt_flag_values = dedupe_values(
-        [*diagnostic_strings(prompt_flags), *safe_evidence_result.prompt_flags]
-    )
+        [*diagnostic_strings(prompt_flags), *safe_evidence_result.prompt_flags])
     warning_values = dedupe_values(
-        [*diagnostic_strings(warnings), *safe_evidence_result.warnings]
-    )
+        [*diagnostic_strings(warnings), *safe_evidence_result.warnings])
     source_ids = dedupe_values(item.source_id for item in safe_evidence)
     scores = {item.id: item.score for item in safe_evidence}
     private_blocks = dedupe_values(diagnostic_strings(private_url_blocks))
@@ -94,6 +95,7 @@ def make_retrieval_result(
         warnings=tuple(warning_values),
         source_ids=tuple(source_ids),
         evidence_scores=scores,
+        reranker_scores=dict(reranker_scores or {}),
         private_url_blocks=tuple(private_blocks),
         search_queries=tuple(query_values),
         document_count=len(documents),
@@ -112,9 +114,7 @@ def make_retrieval_result(
     )
 
 
-def documents_from_post_context_with_warnings(
-    post: PostContext,
-) -> tuple[list[ContextDocument], list[str]]:
+def documents_from_post_context_with_warnings(post: PostContext) -> DocumentWarningResult:
     post_url = _context_text(_context_field(post, "url")) or "about:blank"
     post_at_uri = _context_text(_context_field(post, "at_uri"))
     documents = [_target_document(post)]
