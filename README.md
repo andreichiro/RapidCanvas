@@ -6,8 +6,9 @@ This repository is being implemented from **Plan Final E**. Gates 0-5 now includ
 the scaffold, API/domain contracts, real Bluesky fetch, Search/RAG modules,
 DSPy/guardrail orchestration, offline eval/reporting, local project skills, a
 componentized React UI, and the C5 route integration that wires the lane modules
-into one trace-visible runtime path. Gate 6 remains responsible for final
-public-post eval expansion and quality review.
+into one trace-visible runtime path. Gate 6 Dev D adds the reviewer-facing
+quality evidence package with cached public-post fixtures, metrics, reports,
+matrix honesty, and final review notes.
 
 ## Current Status
 
@@ -21,6 +22,7 @@ public-post eval expansion and quality review.
 - Gate 4 Dev D eval/docs lane: implemented with research docs, task packets, local project skills, cached eval fixtures, deterministic metrics, and report generation.
 - Gate 4 Dev E frontend lane: implemented and merged into the integration baseline.
 - Gate 5 C5 integration: Dev B retrieval is connected into Dev C `AgentExplainerService` through Dev A dependency wiring, Dev E PR #7 polished the C5 response UI, and Dev D records the final review in `docs/reviews/gate5_final_review.md`.
+- Gate 6 Dev D rapid eval/reporting: `make eval` runs 19 cached cases, including 10 fixture-backed public Bluesky URLs and 9 marked synthetic attack/edge fixtures, then writes reviewer-facing reports under ignored `reports/eval/`.
 - Image understanding and provider-comparison bonus surfaces remain reserved for their final integration work.
 - The assignment API key must be placed only in local `.env`; do not commit it.
 - Because the key was shared in plain text during intake, rotate it before real use.
@@ -36,6 +38,7 @@ make skills-review
 make lint
 make test
 make eval
+make gate6-shipping-audit
 ```
 
 Run the scaffolded services:
@@ -139,10 +142,12 @@ summary.json
 
 The cached predictions are evaluation fixtures only. They do not replace final
 Search/RAG, DSPy, guardrail, or citation behavior.
-The current committed cases are synthetic cached fixtures for deterministic
-attack and workflow coverage; they are not counted as the final 10+ real public
-Bluesky-post eval set. Gate 6 must add or refresh real/fixture-backed public
-Bluesky post cases before closing that assignment requirement.
+Gate 6 adds fixture-backed public Bluesky coverage while keeping synthetic
+attack fixtures explicit: `summary.json` reports public fixture counts,
+synthetic fixture counts, optional judge status, MLflow status, and live/default
+mode boundaries. Synthetic `example.com` cases are not counted as public
+Bluesky coverage, and Ragas-shaped default metrics are labeled
+`ragas_metric_source=deterministic_proxy`.
 
 Each report records its prediction mode, judge backend, cached/live row counts,
 and whether API or model calls were allowed, so explicit integration runs are
@@ -163,6 +168,16 @@ cases. `dspy` and `ragas` modes require the listed optional extras; when
 `OPENAI_API_KEY` is absent they use no-network review paths, and when it is set
 they use `dspy_judge_model` for provider-backed judging. The default `make eval`
 path stays offline and deterministic for reproducible review.
+
+For the Gate 6 release-captain audit, run:
+
+```bash
+make gate6-shipping-audit
+```
+
+It regenerates the cached eval reports and checks Dev A baseline ancestry, Dev D
+ownership boundaries, fixture/report/doc consistency, raw attack-manifest
+coverage, requirement-matrix honesty, and generated-artifact ignore rules.
 
 ## Dev C Agent, Guardrails, GEPA, And MLflow
 
@@ -206,7 +221,9 @@ Integration gates must use real Bluesky post fetching. The C5 route attempts the
 integrated real Search/RAG and DSPy workflow by default; temporary evidence
 sources or deterministic fallbacks are allowed only when live providers,
 retrieval, or optional dependencies fail, and any response that uses them must
-mark that clearly in `trace`. Public eval completion remains Gate 6 work.
+mark that clearly in `trace`. Gate 6 Dev D closes cached fixture-backed public
+eval coverage; release-captain review should rerun selected API-mode public
+cases with runtime credentials before treating live-route quality as final.
 
 ## Commands
 
@@ -220,6 +237,7 @@ make skills-review      # validate local project skills
 make check-secrets      # verify no tracked env files or obvious API keys
 make user-smoke         # exercise backend/frontend as a user-facing scaffold
 make eval               # run cached offline eval fixtures and reports
+make gate6-shipping-audit # verify Gate 6 eval/report/docs/artifact truth layer
 make optimize           # run GEPA dry-run metadata save
 make mlflow-log         # create a local MLflow run and package the DSPy program
 make deep-review        # full local review gate used before handoff/push
@@ -267,6 +285,6 @@ Research docs live under `docs/research/`, task packets live at
 `docs/task_packets.md`, and local project skills live under `.codex/skills/`.
 Run `make skills-review` or each skill's local `quick_validate.py` before
 handoff.
-The next implementation step should replace the temporary thread-context
-evidence path with Dev B Search/RAG while preserving Dev C guardrails and trace
-semantics.
+Gate 7 and release-captain integration should rerun selected API-mode public
+cases with runtime credentials, complete reserved image/provider evidence, and
+preserve the Gate 6 cached/offline report contract for reproducible review.

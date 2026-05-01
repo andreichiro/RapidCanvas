@@ -1,0 +1,23 @@
+{
+  "created_at": "2026-05-01",
+  "purpose": "Gate 6 public Bluesky fixture manifest for cached eval provenance.",
+  "verification_method": "Read-only public AppView calls: com.atproto.identity.resolveHandle and app.bsky.feed.getPostThread.",
+  "default_eval_network_policy": "make eval does not read this manifest live and performs no network calls.",
+  "public_fixture_case_ids": [
+    "public_atproto_working_group",
+    "public_bsky_photo_carousel_reply",
+    "public_current_event_maryland_pricing",
+    "public_bsky_baseball_quote",
+    "public_atmosphereconf_link",
+    "public_wikipedia_image_puzzle",
+    "public_atproto_acorn_ambiguous",
+    "public_jay_william_morris_slang",
+    "public_jay_rose_sparse",
+    "public_github_git_city_video"
+  ],
+  "limitations": [
+    "The manifest proves the URLs were publicly resolvable when curated, not that default cached eval refetched them.",
+    "Synthetic attack fixtures remain necessary for prompt-injection, private URL, unavailable/deleted, contradictory-source, and non-English edge coverage.",
+    "Live provider-backed quality remains explicit API-mode work and is not hidden inside make eval."
+  ]
+}

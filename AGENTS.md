@@ -34,9 +34,12 @@ metrics, report writers, and `make eval`. The cached eval uses fixture-backed
 predictions only for evaluation and does not replace real Search/RAG or DSPy
 product behavior.
 
-The committed eval cases are synthetic cached fixtures for deterministic review.
-They do not close the final requirement for 10+ real or fixture-backed public
-Bluesky post cases; Gate 6 owns that closure.
+Gate 6 Dev D rapid eval/reporting is implemented on the Gate 6 branch. It adds
+10 fixture-backed public Bluesky URLs, keeps 9 synthetic attack/edge fixtures
+clearly marked, reports public/synthetic provenance in `make eval`, and writes
+JSONL, Markdown, summary JSON, confusion matrix CSV, and SVG graph artifacts
+under ignored `reports/eval/`. Default eval is still offline; live API quality,
+provider-backed judges, and MLflow remain explicit commands.
 
 Do not claim T1-T15 are complete until their files, tests, and requirement
 matrix rows exist.
@@ -56,6 +59,7 @@ For Dev D eval/docs changes, also run:
 
 ```bash
 make eval
+make gate6-shipping-audit
 ```
 
 `make deep-review` expands to:
@@ -88,6 +92,7 @@ make check-secrets
 make maintainability-review
 make user-smoke
 make eval
+make gate6-shipping-audit
 make dev
 make dev-backend
 make dev-frontend
@@ -98,6 +103,10 @@ make mlflow-ui
 
 `make setup` installs the full backend review dependency set plus frontend
 dependencies so a clean checkout can immediately run `make deep-review`.
+`make gate6-shipping-audit` regenerates cached eval artifacts and verifies the
+Gate 6 truth layer, including public/synthetic fixture honesty, raw attack
+manifest parity, report-summary labels, documentation claims, Dev D ownership
+boundaries, and ignored generated artifacts.
 
 ## Ownership Boundaries
 

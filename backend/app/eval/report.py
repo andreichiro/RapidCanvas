@@ -46,23 +46,7 @@ def _write_markdown(path: Path, rows: list[dict[str, Any]], summary: dict[str, A
     judge = str(summary.get("judge_backend", "deterministic"))
     api_allowed = bool(summary.get("api_network_calls_allowed", False))
     model_allowed = bool(summary.get("model_judge_calls_allowed", False))
-    lines = [
-        "# Bluesky Explainer Eval Report",
-        "",
-        f"- Prediction mode: `{mode}`",
-        f"- Judge backend: `{judge}`",
-        f"- Cached prediction rows: `{int(float(summary.get('cached_case_count', 0)))}`",
-        f"- Live/API prediction rows: `{int(float(summary.get('live_case_count', 0)))}`",
-        f"- API/network calls allowed: `{_yes_no(api_allowed)}`",
-        f"- Model judge calls allowed: `{_yes_no(model_allowed)}`",
-        "",
-        _run_context_sentence(api_allowed, model_allowed),
-        "",
-        "## Summary Metrics",
-        "",
-        "| metric | value |",
-        "|---|---:|",
-    ]
+    lines = _markdown_header(summary, mode, judge, api_allowed, model_allowed)
     for key in sorted(summary):
         value = summary[key]
         rendered = (
@@ -84,13 +68,53 @@ def _write_markdown(path: Path, rows: list[dict[str, Any]], summary: dict[str, A
         lines.append(
             "| {case_id} | {category} | {fallback_mode} | {recall:.3f} | {citations:.3f} |".format(
                 case_id=row["case_id"],
-                category=row["category"],
+                category=f"{row['category']} ({row.get('case_provenance', 'unknown')})",
                 fallback_mode=row["fallback_mode"],
                 recall=float(row["expected_point_recall"]),
                 citations=float(row["citation_coverage"]),
             )
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _markdown_header(
+    summary: dict[str, Any],
+    mode: str,
+    judge: str,
+    api_allowed: bool,
+    model_allowed: bool,
+) -> list[str]:
+    public_count = int(float(summary.get("public_fixture_case_count", 0)))
+    synthetic_count = int(float(summary.get("synthetic_fixture_case_count", 0)))
+    return [
+        "# Bluesky Explainer Eval Report",
+        "",
+        f"- Prediction mode: `{mode}`",
+        f"- Judge backend: `{judge}`",
+        f"- Cached prediction rows: `{int(float(summary.get('cached_case_count', 0)))}`",
+        f"- Live/API prediction rows: `{int(float(summary.get('live_case_count', 0)))}`",
+        f"- API/network calls allowed: `{_yes_no(api_allowed)}`",
+        f"- Model judge calls allowed: `{_yes_no(model_allowed)}`",
+        f"- Public fixture-backed Bluesky cases: `{public_count}`",
+        f"- Synthetic fixture-only cases: `{synthetic_count}`",
+        f"- Ragas status: `{summary.get('ragas_status', 'unknown')}`",
+        f"- Ragas metric source: `{summary.get('ragas_metric_source', 'unknown')}`",
+        f"- DSPy judge status: `{summary.get('dspy_judge_status', 'unknown')}`",
+        f"- MLflow status: `{summary.get('mlflow_status', 'unknown')}`",
+        "",
+        _run_context_sentence(api_allowed, model_allowed),
+        "",
+        "## Optional Tool Notes",
+        "",
+        f"- Ragas: {summary.get('ragas_skip_reason') or 'executed for this run.'}",
+        f"- DSPy judge: {summary.get('dspy_judge_skip_reason') or 'executed for this run.'}",
+        f"- MLflow: {summary.get('mlflow_skip_reason') or 'executed outside make eval.'}",
+        "",
+        "## Summary Metrics",
+        "",
+        "| metric | value |",
+        "|---|---:|",
+    ]
 
 
 def _yes_no(value: bool) -> str:
@@ -127,10 +151,15 @@ def _write_confusion_matrix(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def _write_svg(path: Path, summary: dict[str, Any]) -> None:
+    faithfulness_label = (
+        "ragas_faithfulness"
+        if summary.get("ragas_metric_source") == "ragas_judge"
+        else "faithfulness_proxy"
+    )
     selected = {
         "point_recall": summary.get("expected_point_recall", 0.0),
         "citations": summary.get("citation_coverage", 0.0),
-        "faithfulness": summary.get("ragas_faithfulness", 0.0),
+        faithfulness_label: summary.get("ragas_faithfulness", 0.0),
         "injection": summary.get("prompt_injection_resistance", 0.0),
         "guardrails": summary.get("guardrail_trigger_accuracy", 0.0),
     }
