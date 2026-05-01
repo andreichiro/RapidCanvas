@@ -20,9 +20,9 @@ Merged Gate 4 lanes: Dev A, Dev B, Dev C, Dev D, and Dev E.
   - Trust scoring, output validation, fallback modes, prompt-injection source labels, and provider-error degradation exist in `backend/app/guardrails/` and `backend/app/agent/`.
   - GEPA dry-run/real compile plumbing exists in `backend/app/eval/optimize.py`, `backend/app/eval/gepa_persistence.py`, and `backend/app/eval/gepa_validation.py`; dry-run saves `backend/app/agent/optimized/program.json`, and real mode saves a loadable compiled DSPy program directory when valid provider credentials produce successful rollouts.
   - MLflow smoke logging and DSPy model packaging exist in `backend/app/ops/mlflow.py`, `backend/app/agent/mlflow_wrapper.py`, and `backend/app/agent/log_mlflow.py`.
-- The public `/api/explain` default route now uses the Dev C `AgentExplainerService` and `BlueskyExplainer` program with real Bluesky fetch plus trace-marked thread-context evidence until Gate 5 wires Dev B external Search/RAG retrieval into the route.
-- Deterministic Dev C fallback is used when optional DSPy packages, provider credentials, or live provider calls are unavailable; it marks `adapter_mode=deterministic_dev` and emits guardrail/fallback trace fields instead of silently pretending to be a final live model path.
-- `R045` remains planned for final real-pipeline enforcement because the current route still uses temporary thread-context evidence rather than full external Search/RAG integration.
+- Gate 5 C5 integration branch `codex/gate5-c5-integration` now wires the public route through real Bluesky fetch, Dev B `RetrievalEvidenceRetriever`, and Dev C provider-aware `AgentExplainerService`; missing live dependencies or credentials degrade with trace-visible diagnostics.
+- Dev E PR #7 is merged into C5 and verifies real-response rendering, citation/source navigation, trust/fallback badges, guardrail flags, and trace diagnostics in the frontend.
+- `R045` is closed for C5 runtime enforcement only when the real pipeline modules are present and any fallback/dev adapter use is trace-marked; real public eval rows remain Gate 6 work.
 - Isolated Lane Protocol is instantiated for Dev C through `assets/dev_C_gate4_WORKSPACE_CONTRACT.json` and wrapper scripts in `scripts/`.
 
 ## Dev A Gate 4 Lane
@@ -261,10 +261,10 @@ Dev D `make eval`, fake-agent/API eval modes, and optional DSPy/Ragas/composite 
 ## Important Boundaries
 
 - Do not replace trace-marked temporary evidence/adapters with unmarked fake explanation bullets.
-- Do not claim final integrated `/api/explain` Search/RAG, image understanding, provider comparison, or final no-adapter acceptance until Gate 5+ wires the real pipeline and eval verifies it.
+- Do not claim image understanding, provider comparison, or final public eval until Gate 6+ implements and verifies those rows.
 - Real Bluesky post fetch is required and implemented.
-- Temporary deterministic fallback is allowed only when live Search/RAG or DSPy provider paths are unavailable or explicitly not yet wired; any such use must be visible in `trace`.
-- Dev adapters/fallbacks cannot satisfy final acceptance or `R045`.
+- The C5 route attempts the integrated real Search/RAG plus DSPy path by default; fallback/dev adapter use is acceptable only when `trace` marks the retrieval/provider downgrade.
+- `R045` is satisfied by C5 enforcement artifacts, not by no-key fallback output; a local no-key abstain remains a recorded downgrade, not final public-eval proof.
 - Preserve the no-fake-product-behavior rule: fallback/safe-summary output is allowed only when trace and guardrail fields say so.
 - Generated artifacts under `reports/`, `mlruns/`, Qdrant cache, and local secret files must stay ignored.
 - Shared repo `/Users/akatsurada/Documents/New project` remains inspection-only for isolated lane work.
@@ -301,14 +301,19 @@ URL blocks, and guardrail flags. Dev C C3: the service consumes Dev B-shaped
 output, scans visible post context before query planning, and cites the stable
 post source for visible-post fallback.
 
-Dev E should review only if final public response or trace rendering changes.
-Dev D should own final Gate 5 review artifacts, requirement-matrix closure,
-docs, and eval bookkeeping. Gate 6 begins only after this real integrated Gate
-5 path lands; see `docs/gate6_parallelization_plan.md`.
+Dev E PR #7 is merged into C5 and is acceptable for integration: it changed only
+frontend-owned files under `frontend/src/*`, fixed C5 response rendering polish,
+covered `thread`, `bluesky`, `web`, and `image` sources plus fallback states, and
+verified browser smoke against local frontend/backend services.
+
+Dev D final bookkeeping is recorded in `docs/reviews/gate5_final_review.md` and
+`docs/gate5_checkpoint_status.md`. Gate 6 begins only after this real integrated
+Gate 5 path lands; see `docs/gate6_parallelization_plan.md`.
 
 ## Review Records
 
 - `docs/reviews/gate1_final_review.md`
 - `docs/reviews/gate2_final_review.md`
 - `docs/reviews/gate3_final_review.md`
+- `docs/reviews/gate5_final_review.md`
 - Dev C Gate 4 verification is recorded in this handoff and `TRANSLATION_LOG.md`.
