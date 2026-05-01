@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
@@ -26,6 +26,18 @@ class MlflowRunSummary:
     model_package: dict[str, Any] | None = None
 
 
+@dataclass(frozen=True)
+class MlflowSupportStatus:
+    """Dev D-callable status for MLflow logging support."""
+
+    callable: bool
+    tracking_uri: str
+    experiment_name: str = EXPERIMENT_NAME
+    artifact_logging_supported: bool = False
+    model_packaging_supported: bool = False
+    skip_reason: str | None = None
+
+
 def build_default_mlflow_params(settings: Settings) -> dict[str, str | bool]:
     """Return the required Dev C parameter set for experiment tracking."""
 
@@ -38,6 +50,75 @@ def build_default_mlflow_params(settings: Settings) -> dict[str, str | bool]:
         "hf_reranker_enabled": settings.enable_hf_reranker,
         "guardrail_policy_version": "gate4-dev-c-v1",
         "prompt_injection_detector_version": "heuristic-policy-v1",
+    }
+
+
+def mlflow_support_status(settings: Settings) -> MlflowSupportStatus:
+    """Return whether MLflow and DSPy packaging are importable without starting a run."""
+
+    try:
+        import_module("mlflow")
+    except ImportError as exc:
+        return MlflowSupportStatus(
+            callable=False,
+            tracking_uri=settings.mlflow_tracking_uri,
+            skip_reason=f"mlflow_unavailable:{exc.name}",
+        )
+    except Exception as exc:
+        return MlflowSupportStatus(
+            callable=False,
+            tracking_uri=settings.mlflow_tracking_uri,
+            skip_reason=f"mlflow_import_failed:{exc.__class__.__name__}",
+        )
+
+    model_packaging_supported = True
+    skip_reason = None
+    try:
+        mlflow_dspy = import_module("mlflow.dspy")
+        if not callable(getattr(mlflow_dspy, "log_model", None)):
+            model_packaging_supported = False
+            skip_reason = "mlflow_dspy_log_model_missing"
+    except ImportError as exc:
+        model_packaging_supported = False
+        skip_reason = f"mlflow_dspy_unavailable:{exc.name}"
+    except Exception as exc:
+        model_packaging_supported = False
+        skip_reason = f"mlflow_dspy_import_failed:{exc.__class__.__name__}"
+
+    return MlflowSupportStatus(
+        callable=True,
+        tracking_uri=settings.mlflow_tracking_uri,
+        artifact_logging_supported=True,
+        model_packaging_supported=model_packaging_supported,
+        skip_reason=skip_reason,
+    )
+
+
+def build_quality_mlflow_payload(
+    settings: Settings,
+    *,
+    provider: Mapping[str, Any] | None = None,
+    metrics: Mapping[str, float] | None = None,
+    artifacts: Sequence[Path] = (),
+    model_metadata: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build params, metrics, artifacts, and metadata for Dev D MLflow calls."""
+
+    safe_provider = dict(provider or {})
+    params = {
+        **build_default_mlflow_params(settings),
+        "provider": str(safe_provider.get("selected_provider", "unknown")),
+        "requested_provider": str(safe_provider.get("requested_provider", "unknown")),
+        "provider_model": str(safe_provider.get("provider_model", "")),
+        "provider_configured": bool(safe_provider.get("provider_configured", False)),
+    }
+    return {
+        "status": mlflow_support_status(settings).__dict__,
+        "params": params,
+        "metrics": dict(metrics or {}),
+        "artifacts": [str(path) for path in artifacts],
+        "provider_metadata": safe_provider,
+        "model_metadata": dict(model_metadata or {}),
     }
 
 

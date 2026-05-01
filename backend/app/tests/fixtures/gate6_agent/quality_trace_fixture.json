@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "category": "general_context",
+  "query_plan_summary": {
+    "category": "general_context",
+    "queries": [
+      "Why is this old quote suddenly everywhere? general_context context"
+    ],
+    "query_count": 1
+  },
+  "bullet_evidence": [
+    {
+      "bullet_index": 0,
+      "text": "Source-backed context: Evidence 1 explains one verifiable part of the post.",
+      "source_ids": [
+        "S1"
+      ],
+      "evidence_ids": [
+        "E1"
+      ],
+      "missing_source_ids": [],
+      "source_support_status": "supported"
+    }
+  ],
+  "validation_issues": [],
+  "guardrails": {
+    "fallback_mode": "none",
+    "fallback_reasons": [],
+    "abstention_reasons": [],
+    "unsupported_claim_indicators": [],
+    "prompt_injection_resistance_signals": [],
+    "source_support_validation_status": "supported",
+    "source_support_issues": [],
+    "unsafe_output_flags": [],
+    "validation_issues": [],
+    "revision_attempted": false,
+    "revision_succeeded": false,
+    "guardrail_flags": []
+  },
+  "provider": {
+    "requested_provider": "openai",
+    "selected_provider": "openai",
+    "provider_model": "openai/gpt-4.1-mini",
+    "provider_configured": false,
+    "provider_fallback_reason": "OPENAI_API_KEY is not configured",
+    "adapter_mode": "deterministic_dev",
+    "adapter_notes": [
+      "DSPy signatures are defined, but deterministic Dev C runner handled this call.",
+      "Use backend optional AI dependencies and provider credentials for live DSPy prediction."
+    ],
+    "latency_ms": 0,
+    "cost_metadata": {
+      "available": false,
+      "skip_reason": "provider_usage_not_reported_by_current_runner"
+    }
+  },
+  "retrieval": {
+    "evidence_count": 3,
+    "source_ids": [
+      "S1",
+      "S2",
+      "S3"
+    ],
+    "retrieval_scores": {
+      "E1": 0.9,
+      "E2": 0.9,
+      "E3": 0.9
+    },
+    "source_diversity": 3,
+    "sanitizer_warnings": [],
+    "prompt_injection_flags": [],
+    "private_url_blocks": [],
+    "pending_fields": [
+      "sanitizer_warnings",
+      "private_url_blocks"
+    ]
+  },
+  "trace_events": [],
+  "chain_of_thought_exposed": false,
+  "hidden_prompts_exposed": false
+}

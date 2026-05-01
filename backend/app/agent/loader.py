@@ -59,12 +59,28 @@ def load_program(
         warnings.extend(provider.warnings)
         warnings.append("dspy_runner_unavailable_using_deterministic_dev")
 
-    program = BlueskyExplainer(runner=runner, optimized_config=optimized_config)
+    program = BlueskyExplainer(
+        runner=runner,
+        optimized_config=optimized_config,
+        provider_metadata=_provider_metadata(provider),
+    )
     return ProgramLoadResult(
         program=program,
         optimized_path=optimized_path if optimized_config else None,
         warnings=warnings,
     )
+
+
+def _provider_metadata(provider: Any) -> dict[str, Any]:
+    warnings = list(getattr(provider, "warnings", ()))
+    selected = provider.selected
+    return {
+        "requested_provider": provider.requested,
+        "selected_provider": selected.name,
+        "provider_model": selected.model,
+        "provider_configured": selected.configured,
+        "provider_fallback_reason": "; ".join(warnings) if warnings else selected.skipped_reason,
+    }
 
 
 def configure_dspy(
