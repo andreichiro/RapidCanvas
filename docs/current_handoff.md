@@ -39,7 +39,9 @@ Active lane owner: Dev G7-C final truth/docs/submission.
 - Final review: `docs/reviews/gate7_final_review.md`.
 - Final branch/push status: branch
   `codex/g7-c-final-truth-docs-submission` pushed to GitHub. Initial final truth
-  commit: `e9f1500`; latest audit follow-up is visible with `git log`.
+  commit: `e9f1500`; latest audit follow-up is visible with `git log`, and the
+  Gate 7 audit checks that `origin/codex/g7-c-final-truth-docs-submission`
+  matches local `HEAD`.
 
 ## Current State
 

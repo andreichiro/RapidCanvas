@@ -36,7 +36,7 @@ submission behavior.
 | `make skills-review` | passed | All four local project skills validate. |
 | `make deep-review` | passed | Full local review gate, including audit/build, generated-artifact cleanup, maintainability, API smoke, and frontend smoke. |
 | final `make eval && make check-secrets` | passed | Regenerated ignored cached eval reports after `deep-review` cleanup and rechecked secrets. |
-| `make gate7-final-truth-audit` | passed | Mechanically checks final truth table classifications, dry-run/reserved wording, G7-C allowed-file scope, eval counts, GEPA metadata, and generated-artifact hygiene. |
+| `make gate7-final-truth-audit` | passed | Mechanically checks final truth table classifications, dry-run/reserved wording, G7-C allowed-file scope, branch push freshness, eval counts, GEPA metadata, and generated-artifact hygiene. |
 
 Provider-backed OpenAI/Ragas/DSPy runs were not launched from the pasted chat key.
 `OPENAI_API_KEY` was not present in the G7-C shell environment, and G7-C did not
@@ -185,7 +185,8 @@ Only `reports/.gitkeep` remains tracked.
 ## Submission Decision
 
 The repository is submission-ready as an honest final delivery. The G7-C branch
-is pushed; use `git log` for the latest audit-follow-up commit. This
+is pushed and `origin/codex/g7-c-final-truth-docs-submission` matches `HEAD`;
+use `git log` for the latest audit-follow-up commit. This
 is real where integrated, cached where reproducibility matters, skipped where
 credentials/environment are absent, dry-run where only metadata/smoke paths
 exist, and reserved where not implemented, tested, documented, and visible in

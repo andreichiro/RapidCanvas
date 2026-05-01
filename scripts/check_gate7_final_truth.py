@@ -11,6 +11,7 @@ from typing import Any
 
 
 GATE6_MAIN = "4728cc3"
+BRANCH = "codex/g7-c-final-truth-docs-submission"
 EXPECTED_CASES = 19
 EXPECTED_PUBLIC = 10
 EXPECTED_SYNTHETIC = 9
@@ -99,6 +100,11 @@ def check_git_scope(root: Path, errors: list[str]) -> None:
     changed = set(git(root, "diff", "--name-only", f"{GATE6_MAIN}..HEAD").stdout.splitlines())
     disallowed = sorted(changed - ALLOWED_DELTA_PATHS)
     need(not disallowed, errors, f"G7-C delta touches out-of-scope paths: {disallowed}")
+    remote = git(root, "rev-parse", "--verify", f"origin/{BRANCH}")
+    need(remote.returncode == 0, errors, f"origin/{BRANCH} is missing")
+    if remote.returncode == 0:
+        head = git(root, "rev-parse", "HEAD")
+        need(remote.stdout == head.stdout, errors, f"origin/{BRANCH} is not at HEAD")
 
 
 def check_eval_truth(cases: list[dict[str, Any]], root: Path, errors: list[str]) -> None:
