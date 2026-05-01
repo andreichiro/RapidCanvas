@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 COPY README.md /app/README.md
 COPY backend/pyproject.toml backend/uv.lock ./
-RUN uv sync --all-extras --no-dev --frozen
+RUN uv sync --extra bluesky --extra ai --extra eval --no-dev --frozen
 
 COPY backend/app ./app
 

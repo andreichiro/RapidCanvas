@@ -120,6 +120,8 @@ class OutputGuardrail:
             issues.append("unknown_citation")
         if self._policy.forbidden_output_hits(bullet.text):
             issues.append("leaked_instruction_or_secret")
+        if text_appears_non_english(bullet.text):
+            issues.append("non_english_output")
         return issues
 
     def _fallback_drafts(
@@ -190,11 +192,48 @@ def _appears_non_english(post: PostContext) -> bool:
         isinstance(lang, str) and lang and not lang.lower().startswith("en") for lang in langs
     ):
         return True
-    text = post.text.lower()
-    spanish_markers = (" el ", " la ", " los ", " las ", " que ", " con ", " hoy,", " está")
-    return any(ord(character) > 127 for character in text) and any(
-        marker in f" {text} " for marker in spanish_markers
+    return text_appears_non_english(post.text)
+
+
+def text_appears_non_english(text: str) -> bool:
+    """Conservative language check for output bullets that must be English.
+
+    The product contract is English explanations. This intentionally catches
+    obvious Spanish/Portuguese passthrough while avoiding broad language ID
+    dependencies in the hot path.
+    """
+
+    lowered = f" {text.lower()} "
+    if not lowered.strip():
+        return False
+    non_ascii = any(ord(character) > 127 for character in lowered)
+    markers = (
+        " el ",
+        " la ",
+        " los ",
+        " las ",
+        " un ",
+        " una ",
+        " de ",
+        " del ",
+        " en ",
+        " que ",
+        " con ",
+        " por ",
+        " para ",
+        " hoy,",
+        " ganó",
+        " sacó",
+        " está",
+        " semifinales",
+        " afición",
+        " bandera",
+        " victoria",
+        " jugadores",
+        " incluyendo",
     )
+    marker_count = sum(1 for marker in markers if marker in lowered)
+    return (non_ascii and marker_count >= 1) or marker_count >= 4
 
 
 def _fill_to_minimum(
@@ -234,4 +273,5 @@ OutputIssue = Literal[
     "uncited_output",
     "unknown_citation",
     "leaked_instruction_or_secret",
+    "non_english_output",
 ]

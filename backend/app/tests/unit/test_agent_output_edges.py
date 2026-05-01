@@ -107,6 +107,21 @@ def test_dspy_runner_non_finite_provider_scores_are_not_reportable_quality() -> 
     assert _float_or_default("-inf", 0.0) == 0.0
 
 
+def test_non_english_draft_revises_to_english_before_fallback() -> None:
+    response = BlueskyExplainer(runner=NonEnglishRepairRunner()).explain_context(
+        post=_post(),
+        evidence=_evidence(),
+        documents=_documents(),
+    )
+
+    serialized = " ".join(bullet.text.lower() for bullet in response.bullets)
+    assert response.trace.fallback_mode == "none"
+    assert "rayo vallecano won" in serialized
+    assert "ganó" not in serialized
+    assert "sacó" not in serialized
+    assert response.trace.guardrail_flags == []
+
+
 class FailingPredictor:
     def __call__(self, **kwargs):  # type: ignore[no-untyped-def]
         del kwargs
@@ -181,6 +196,53 @@ class UnknownCitationRunner:
     ) -> dict[str, float | list[str]]:
         del expected, prediction, evidence
         return {"score": 1.0, "error_labels": []}
+
+
+class NonEnglishRepairRunner(UnknownCitationRunner):
+    def explain(self, post: PostContext, evidence: Sequence[Evidence]) -> ExplanationDraft:
+        del post, evidence
+        return ExplanationDraft(
+            bullets=[
+                BulletDraft(
+                    text="El Rayo Vallecano ganó 1-0 en la semifinal.",
+                    source_ids=["S1"],
+                ),
+                BulletDraft(
+                    text="Ilias Akhomach sacó una bandera palestina.",
+                    source_ids=["S2"],
+                ),
+                BulletDraft(
+                    text="La afición cantó durante la victoria.",
+                    source_ids=["S3"],
+                ),
+            ]
+        )
+
+    def revise(
+        self,
+        post: PostContext,
+        draft: ExplanationDraft,
+        evidence: Sequence[Evidence],
+        issues: Sequence[str],
+    ) -> ExplanationDraft:
+        if "non_english_output" in issues:
+            return ExplanationDraft(
+                bullets=[
+                    BulletDraft(
+                        text="Rayo Vallecano won 1-0 in the semifinal.",
+                        source_ids=["S1"],
+                    ),
+                    BulletDraft(
+                        text="Ilias Akhomach brought out a Palestinian flag.",
+                        source_ids=["S2"],
+                    ),
+                    BulletDraft(
+                        text="The supporters sang during the victory celebration.",
+                        source_ids=["S3"],
+                    ),
+                ]
+            )
+        return super().revise(post, draft, evidence, issues)
 
 
 def _post() -> PostContext:

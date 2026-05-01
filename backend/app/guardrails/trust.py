@@ -84,7 +84,12 @@ def _policy_fallback_mode(
 ) -> FallbackMode:
     if any(
         flag in flags
-        for flag in ("invalid_output_shape", "unknown_citation", "uncited_output")
+        for flag in (
+            "invalid_output_shape",
+            "unknown_citation",
+            "uncited_output",
+            "non_english_output",
+        )
     ):
         return "partial"
     if "dspy_provider_error" in flags:
@@ -192,6 +197,11 @@ def _validation_penalty(issue: str, flags: list[str], reasons: list[str]) -> flo
             "unknown_citation",
             -0.2,
             "A generated bullet cited an unknown source.",
+        ),
+        "non_english_output": (
+            "non_english_output",
+            -0.2,
+            "A generated bullet was not written in English.",
         ),
     }
     if issue not in penalties:

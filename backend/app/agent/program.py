@@ -231,6 +231,14 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
             allowed_source_ids,
         )
         output_validation = self._output_guardrail.validate(draft, allowed_source_ids)
+        if _only_language_issues(output_validation.issues):
+            draft, output_validation = self._revise_once_if_needed(
+                post,
+                evidence,
+                draft,
+                output_validation,
+                allowed_source_ids,
+            )
         validation_issues = validation.issues + output_validation.issues
         self._event("validate", "completed", tool="dspy", warnings=validation_issues)
         return draft, validation_issues
@@ -313,3 +321,7 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
 
 def _combined_flags(*groups: Sequence[str]) -> list[str]:
     return [flag for group in groups for flag in group]
+
+
+def _only_language_issues(issues: Sequence[str]) -> bool:
+    return bool(issues) and set(issues) <= {"non_english_output"}

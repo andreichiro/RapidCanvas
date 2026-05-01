@@ -11,7 +11,12 @@ from typing import Any, cast
 from app.agent.runner import AdapterMode, ClassificationResult, HeuristicSignatureRunner
 from app.agent.signatures import build_dspy_signature_classes
 from app.agent.untrusted import evidence_untrusted_label
-from app.guardrails.output import BulletDraft, ExplanationDraft, ValidationResult
+from app.guardrails.output import (
+    BulletDraft,
+    ExplanationDraft,
+    ValidationResult,
+    text_appears_non_english,
+)
 from app.guardrails.policies import compact_text
 from app.schemas.domain import (
     ContextDocument,
@@ -40,6 +45,7 @@ class DspySignatureRunner:
         self._assess = dspy.Predict(signatures["AssessEvidenceTrust"])
         self._explain = dspy.Predict(signatures["ExplainPost"])
         self._validate = dspy.Predict(signatures["ValidateExplanation"])
+        self._ensure_english = dspy.Predict(signatures["EnsureEnglishExplanation"])
         self._judge = dspy.Predict(signatures["JudgeEvaluationCase"])
 
     def set_context_documents(self, documents: Sequence[ContextDocument]) -> None:
@@ -190,7 +196,10 @@ class DspySignatureRunner:
         evidence: Sequence[Evidence],
         issues: Sequence[str],
     ) -> ExplanationDraft:
-        del issues
+        if "non_english_output" in issues:
+            translated = self._translate_draft_to_english(draft, evidence)
+            if translated is not None:
+                return translated
         validation = self.validate(post, draft, evidence)
         return ExplanationDraft(bullets=validation.revised_bullets)
 
@@ -234,6 +243,25 @@ class DspySignatureRunner:
         for item in (note, detail):
             if item not in self.adapter_notes:
                 self.adapter_notes.append(item)
+
+    def _translate_draft_to_english(
+        self,
+        draft: ExplanationDraft,
+        evidence: Sequence[Evidence],
+    ) -> ExplanationDraft | None:
+        if not any(text_appears_non_english(bullet.text) for bullet in draft.bullets):
+            return draft
+        prediction = self._predict(
+            "english_output_repair",
+            self._ensure_english,
+            bullets_json=draft.model_dump_json(),
+        )
+        if prediction is None:
+            return None
+        return _normalize_draft_source_ids(
+            _draft_from_json(str(getattr(prediction, "translated_bullets_json", "[]"))),
+            evidence,
+        )
 
 
 def _thread_context(post: PostContext) -> str:

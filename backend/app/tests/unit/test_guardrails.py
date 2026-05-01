@@ -188,6 +188,38 @@ def test_output_guardrail_fallback_keeps_non_english_visible_post_in_english() -
     assert "source-backed evidence" in serialized
 
 
+def test_output_guardrail_rejects_non_english_explanation_bullets() -> None:
+    guardrail = OutputGuardrail()
+    draft = ExplanationDraft(
+        bullets=[
+            BulletDraft(
+                text="El Rayo Vallecano ganó 1-0 en la semifinal.",
+                source_ids=["S1"],
+            ),
+            BulletDraft(
+                text="Ilias Akhomach sacó una bandera palestina durante la celebración.",
+                source_ids=["S2"],
+            ),
+            BulletDraft(
+                text="La afición cantó durante la victoria.",
+                source_ids=["S3"],
+            ),
+        ]
+    )
+
+    validation = guardrail.validate(draft, {"S1", "S2", "S3"})
+    assessment = TrustScorer().assess(
+        _post(),
+        _evidence(),
+        validation_issues=validation.issues,
+    )
+
+    assert validation.is_valid is False
+    assert validation.issues == ["non_english_output"]
+    assert assessment.fallback_mode == "partial"
+    assert "non_english_output" in assessment.flags
+
+
 def test_output_guardrail_accepts_three_cited_supported_bullets() -> None:
     guardrail = OutputGuardrail()
     draft = ExplanationDraft(

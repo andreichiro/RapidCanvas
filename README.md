@@ -306,12 +306,3 @@ make skills-review            # local project skill validation
 make check-secrets            # secret/artifact hygiene scan
 make deep-review              # full Deep Review Workflow gate
 ```
-
-## Review Artifacts
-
-Gate 1 is closed by `docs/requirements_matrix.md` and `make requirements-review`.
-The main handoff is `docs/current_handoff.md`; detailed review notes live under
-`docs/reviews/`.
-
-Security reminder: `.env`, API keys, `mlruns/`, Qdrant cache, screenshots,
-provider outputs, and generated live reports must not be committed.
