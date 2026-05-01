@@ -308,7 +308,6 @@ def test_public_response_contract_rejects_uncited_bullet() -> None:
             }
         )
 
-
 def test_bluesky_url_validator_accepts_expected_shape() -> None:
     request = ExplainRequest.model_validate(
         {

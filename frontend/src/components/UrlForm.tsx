@@ -4,7 +4,9 @@ import { type ProviderInfo } from "../api/client";
 import ProviderSelect from "./ProviderSelect";
 
 type UrlFormProps = {
+  apiKey: string;
   isLoading: boolean;
+  onApiKeyChange: (value: string) => void;
   onPostUrlChange: (value: string) => void;
   onProviderChange: (provider: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -31,7 +33,9 @@ function providerStatusText(provider?: ProviderInfo): string {
 }
 
 export default function UrlForm({
+  apiKey,
   isLoading,
+  onApiKeyChange,
   onPostUrlChange,
   onProviderChange,
   onSubmit,
@@ -58,6 +62,22 @@ export default function UrlForm({
         <span className="field-helper" aria-hidden="true">
           &nbsp;
         </span>
+      </div>
+
+      <div className="api-key-field form-field">
+        <label htmlFor="api-key">OpenAI API key</label>
+        <input
+          autoComplete="off"
+          disabled={isLoading}
+          id="api-key"
+          onChange={(event) => onApiKeyChange(event.target.value)}
+          placeholder="sk-..."
+          required
+          spellCheck={false}
+          type="password"
+          value={apiKey}
+        />
+        <span className="field-helper">Required for embeddings and model calls. Not saved.</span>
       </div>
 
       <div className="provider-field form-field">

@@ -26,11 +26,41 @@ class ExplainerService(Protocol):
         """Return a schema-valid explanation response."""
 
 
+class _ExplainerResolver:
+    def __init__(self, settings: Settings, explainer: ExplainerService | None) -> None:
+        self._settings = settings
+        self._injected = explainer
+        self._default = explainer
+
+    def for_request(self, request: ExplainRequest) -> ExplainerService:
+        if self._injected is not None:
+            return self._injected
+        if request.api_key is None and self._settings.openai_api_key is None:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "missing_openai_api_key",
+                    "message": (
+                        "OpenAI API key is required for embeddings and "
+                        "provider-backed explanations."
+                    ),
+                },
+            )
+        if request.api_key is not None:
+            request_settings = self._settings.model_copy(
+                update={"openai_api_key": request.api_key}
+            )
+            return build_gate3_explainer(settings=request_settings)
+        if self._default is None:
+            self._default = build_gate3_explainer(settings=self._settings)
+        return self._default
+
+
 def create_api_router(settings: Settings, explainer: ExplainerService | None = None) -> APIRouter:
     """Create versionless API routes under the configured prefix."""
 
     router = APIRouter(prefix=settings.api_prefix)
-    explain_service = explainer or build_gate3_explainer(settings=settings)
+    explainer_resolver = _ExplainerResolver(settings, explainer)
 
     @router.get("/health", response_model=HealthResponse, tags=["health"])
     def health() -> HealthResponse:
@@ -48,7 +78,7 @@ def create_api_router(settings: Settings, explainer: ExplainerService | None = N
     )
     def explain(request: ExplainRequest) -> ExplainResponse:
         try:
-            return explain_service.explain(request)
+            return explainer_resolver.for_request(request).explain(request)
         except InvalidBlueskyPostUrlError as exc:
             raise HTTPException(
                 status_code=422,

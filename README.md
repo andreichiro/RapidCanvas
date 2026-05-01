@@ -2,13 +2,8 @@
 
 AI agent for explaining Bluesky posts by finding and synthesizing relevant context.
 
-This repository is being implemented from **Plan Final E**. Gates 0-5 now include
-the scaffold, API/domain contracts, real Bluesky fetch, Search/RAG modules,
-DSPy/guardrail orchestration, offline eval/reporting, local project skills, a
-componentized React UI, and the C5 route integration that wires the lane modules
-into one trace-visible runtime path. Gate 6 Dev D adds the reviewer-facing
-quality evidence package with cached public-post fixtures, metrics, reports,
-matrix honesty, and final review notes.
+This repository is being implemented from **Plan Final E**. Gates 0-5 now include the scaffold, API/domain contracts, real Bluesky fetch, Search/RAG modules, DSPy/guardrail orchestration, offline eval/reporting, local project skills, a componentized React UI, and the C5 route integration that wires the lane modules into one trace-visible runtime path.
+Gate 6 Dev D adds the reviewer-facing quality evidence package with cached public-post fixtures, metrics, reports, matrix honesty, and final review notes.
 
 ## Current Status
 
@@ -23,8 +18,8 @@ matrix honesty, and final review notes.
 - Gate 4 Dev E frontend lane: implemented and merged into the integration baseline.
 - Gate 5 C5 integration: Dev B retrieval is connected into Dev C `AgentExplainerService` through Dev A dependency wiring, Dev E PR #7 polished the C5 response UI, and Dev D records the final review in `docs/reviews/gate5_final_review.md`.
 - Gate 6 Dev D rapid eval/reporting: `make eval` runs 19 cached cases, including 10 fixture-backed public Bluesky URLs and 9 marked synthetic attack/edge fixtures, then writes reviewer-facing reports under ignored `reports/eval/`.
-- Gate 7 final integration: runtime Search/RAG is real by default, and capped adaptive retrieval is enabled with max one extra safe query when first-round evidence is weak. G7-B's eval-dataset GEPA bridge and real compiled saved DSPy program are merged. Image support is URL/alt-text context plus helper-level vision fallback, not a full browser/UI live vision claim. Provider comparison is registry/skip visibility, not a live multi-provider benchmark.
-- The assignment API key must be placed only in local `.env`; do not commit it.
+- Gate 7 final integration: runtime Search/RAG is real by default, and capped adaptive retrieval is enabled with max one extra safe query when first-round evidence is weak. The browser UI has a masked required OpenAI API-key field so embeddings and model-backed explanations are available without committing secrets. G7-B's eval-dataset GEPA bridge and real compiled saved DSPy program are merged. Image support is URL/alt-text context plus helper-level vision fallback, not a full browser/UI live vision claim. Provider comparison is registry/skip visibility, not a live multi-provider benchmark.
+- For CLI/headless runs, the assignment API key may be placed only in local `.env`; do not commit it.
 - Because the key was shared in plain text during intake, rotate it before real use.
 - Current handoff snapshot: `docs/current_handoff.md`.
 
@@ -50,30 +45,22 @@ make dev-frontend
 ```
 
 The backend exposes `GET /api/health`, `GET /api/providers`, and `POST /api/explain`.
-`/api/explain` validates Bluesky post URLs, performs real Bluesky post/thread
-fetching, and routes through the C5 integrated one-shot Dev B retrieval plus Dev C
-agent/guardrail program. When live search, retrieval, DSPy dependencies,
-credentials, or provider calls are unavailable, the response remains
-schema-valid and records the downgrade in `trace`.
+`/api/explain` validates Bluesky post URLs, performs real Bluesky post/thread fetching, and routes through the C5 integrated one-shot Dev B retrieval plus Dev C agent/guardrail program. When live search, retrieval, DSPy dependencies, credentials, or provider calls are unavailable, the response remains schema-valid and records the downgrade in `trace`.
 
 ## Frontend UI
 
-The React app runs at `http://localhost:5173` with Vite proxying `/api` to the
-FastAPI backend on `http://127.0.0.1:8000`.
+The React app runs at `http://localhost:5173` with Vite proxying `/api` to the FastAPI backend on `http://127.0.0.1:8000`.
 
 The Gate 4 UI includes the Dev E surface from Plan Final E:
 
 - Bluesky post URL form with provider selection from `GET /api/providers`.
+- Masked required OpenAI API-key field. The key is sent with the explain request for embeddings and model calls; it is not stored in the repo.
 - Loading and API error states.
 - Cited 3-5 bullet rendering with chips that jump to source cards.
 - Source list with title, URL, source type, and snippet.
 - Trust/fallback status for `none`, `partial`, `abstain`, and `safe_summary`.
-- Guardrail flags and a toggleable trace panel with category, queries,
-  warnings, latency, trust score, fallback mode, adapter mode, and notes.
-- Gate 6 quality-state checks cover backend-provided fallback, warning,
-  validation-error, unavailable-post, provider-error, citation/source, and trace
-  states; long trace diagnostics wrap and scroll without adding frontend quality
-  decisions.
+- Guardrail flags and a toggleable trace panel with category, queries, warnings, latency, trust score, fallback mode, adapter mode, and notes.
+- Gate 6 quality-state checks cover backend-provided fallback, warning, validation-error, unavailable-post, provider-error, citation/source, and trace states; long trace diagnostics wrap and scroll without adding frontend quality decisions.
 
 Focused frontend checks:
 
@@ -88,7 +75,7 @@ npm --prefix frontend run build
 cp .env.example .env
 ```
 
-Set `OPENAI_API_KEY` in `.env` locally. `.env` is ignored by Git.
+Set `OPENAI_API_KEY` in `.env` locally for CLI/headless commands, or paste it into the masked UI field for one browser request. `.env` is ignored by Git.
 
 ## Architecture Target
 
@@ -132,9 +119,11 @@ The successful `ExplainResponse` schema already requires 3-5 cited bullets,
 sources, and trace fields for trust score, fallback mode, and guardrail flags.
 The route now exercises the Dev C agent program, including classification,
 query generation, prompt-injection scanning, reranking hooks, trust scoring,
-validation, fallback repair, and Dev B Search/RAG retrieval. No-key or provider
-failure runs can still downgrade to a cited safe summary or abstain result, and
-that downgrade must be visible in the trace.
+validation, fallback repair, and Dev B Search/RAG retrieval. The default route
+requires either the transient request `api_key` or local `OPENAI_API_KEY` before
+it runs embeddings/model-backed explanations. Provider failures can still
+downgrade to a cited safe summary or abstain result, and that downgrade must be
+visible in the trace.
 
 ## Evaluation
 
@@ -179,7 +168,7 @@ cases. `dspy` and `ragas` modes require the listed optional extras; when
 they use `dspy_judge_model` for provider-backed judging. The default `make eval`
 path stays offline and deterministic for reproducible review.
 
-G7-C also ran API mode over the 10 fixture-backed public URLs after the final A/B/C merge. In the no-key local shell, every live response stayed schema-valid, cited, and 3 bullets, but fell back to `abstain`; provider-backed live answer quality should be rerun with `OPENAI_API_KEY` configured locally.
+G7-C also ran API mode over the 10 fixture-backed public URLs after the final A/B/C merge. That no-key smoke proved schema safety but returned `abstain` fallbacks, so the final closure added a required UI/request key path. A provider-backed live route smoke with a transient request key then hit two public Bluesky URLs successfully: both returned 200 with `adapter_mode=none`, web/thread sources, and 3-4 cited bullets; one was a normal answer and one stayed a guarded `partial`.
 
 For the Gate 6 release-captain audit, run:
 
@@ -238,7 +227,8 @@ sources or deterministic fallbacks are allowed only when live providers,
 retrieval, or optional dependencies fail, and responses must mark that in
 `trace`. Gate 6 Dev D closes cached fixture-backed public eval coverage;
 release-captain review should rerun selected API-mode public cases with runtime
-credentials before treating live-route quality as final.
+credentials, either through the masked UI field or local `.env`, before treating
+live-route quality as final.
 
 ## Bonus And Optional Surfaces
 
@@ -307,6 +297,8 @@ reserved rows to be deliberately explained in the Gate 7 final truth review.
 
 - Never commit `.env`.
 - Never commit API keys.
+- The browser API-key field is transient UI input; do not add local storage or
+  generated key artifacts.
 - Never commit `mlruns/`, Qdrant cache, or live generated artifacts.
 - All external content is treated as untrusted evidence, never as instructions.
 

@@ -78,7 +78,7 @@ h2 {
 
 .explain-form {
   display: grid;
-  grid-template-columns: minmax(300px, 1fr) minmax(240px, 360px) auto;
+  grid-template-columns: minmax(300px, 1fr) minmax(240px, 300px) minmax(220px, 280px) auto;
   gap: 12px;
   align-items: start;
   border: 1px solid #d8dfdc;

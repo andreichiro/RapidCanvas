@@ -6,7 +6,7 @@ import re
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 from app.schemas.domain import FallbackMode, ProviderInfo, SourceType
 
@@ -30,12 +30,26 @@ class ExplainRequest(ApiModel):
     )
     provider: str = Field(default="openai", min_length=1)
     include_trace: bool = True
+    api_key: SecretStr | None = Field(
+        default=None,
+        repr=False,
+        description="Transient OpenAI API key for this request. It is not returned in responses.",
+        json_schema_extra={"format": "password", "writeOnly": True},
+    )
 
     @field_validator("post_url")
     @classmethod
     def validate_bluesky_post_url(cls, value: str) -> str:
         if not BLUESKY_POST_URL_PATTERN.match(value):
             raise ValueError("post_url must match https://bsky.app/profile/{actor}/post/{rkey}")
+        return value
+
+    @field_validator("api_key", mode="before")
+    @classmethod
+    def normalize_api_key(cls, value: object) -> object:
+        if isinstance(value, str):
+            normalized = value.strip()
+            return normalized or None
         return value
 
 

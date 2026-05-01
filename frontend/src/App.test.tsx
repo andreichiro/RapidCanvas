@@ -82,6 +82,15 @@ function mockFetch(response: ExplainResponse = baseResponse) {
   });
 }
 
+async function fillRequiredFields(apiKey = "sk-ui-test-key") {
+  const urlInput = await screen.findByLabelText("Bluesky post URL");
+  const keyInput = await screen.findByLabelText("OpenAI API key");
+  fireEvent.change(urlInput, {
+    target: { value: " https://bsky.app/profile/example.com/post/3abcxyz " },
+  });
+  fireEvent.change(keyInput, { target: { value: ` ${apiKey} ` } });
+}
+
 beforeEach(() => {
   vi.restoreAllMocks();
 });
@@ -95,7 +104,9 @@ test("renders the application shell and provider selector", async () => {
   render(<App />);
 
   expect(screen.getByRole("heading", { name: "Bluesky Contextual Post Explainer" })).toBeVisible();
-  expect(await screen.findByLabelText("Bluesky post URL")).toBeVisible();
+  expect(await screen.findByLabelText("Bluesky post URL")).toHaveValue("");
+  expect(await screen.findByLabelText("OpenAI API key")).toHaveAttribute("type", "password");
+  expect(screen.getByText("Required for embeddings and model calls. Not saved.")).toBeVisible();
   expect(await screen.findByRole("combobox", { name: "Provider" })).toHaveTextContent("openai");
   expect(screen.getByText("skipped - OPENAI_API_KEY is not configured - openai/gpt-4.1-mini")).toBeVisible();
 });
@@ -104,10 +115,7 @@ test("submits a Bluesky URL through the typed API client", async () => {
   const fetchMock = mockFetch();
   render(<App />);
 
-  const input = await screen.findByLabelText("Bluesky post URL");
-  fireEvent.change(input, {
-    target: { value: " https://bsky.app/profile/example.com/post/3abcxyz " },
-  });
+  await fillRequiredFields();
   fireEvent.click(screen.getByRole("button", { name: "Explain" }));
 
   expect(await screen.findByText("Fetched post text is available.")).toBeVisible();
@@ -117,6 +125,7 @@ test("submits a Bluesky URL through the typed API client", async () => {
     post_url: "https://bsky.app/profile/example.com/post/3abcxyz",
     provider: "openai",
     include_trace: true,
+    api_key: "sk-ui-test-key",
   });
 });
 
@@ -124,6 +133,7 @@ test("submits the selected provider", async () => {
   const fetchMock = mockFetch();
   render(<App />);
 
+  await fillRequiredFields();
   const providerSelect = await screen.findByRole("combobox", { name: "Provider" });
   fireEvent.change(providerSelect, { target: { value: "ollama" } });
   fireEvent.click(screen.getByRole("button", { name: "Explain" }));
@@ -139,6 +149,7 @@ test("renders cited bullets and source cards", async () => {
   mockFetch();
   render(<App />);
 
+  await fillRequiredFields();
   fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
 
   const bullets = await screen.findByLabelText("explanation bullets");
@@ -153,6 +164,7 @@ test("toggles trace details with trust, fallback, warnings, and guardrail flags"
   mockFetch();
   render(<App />);
 
+  await fillRequiredFields();
   fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
 
   expect(await screen.findByLabelText("trust and fallback status")).toHaveTextContent("Safe summary");
@@ -179,6 +191,7 @@ test("renders a partial-success state distinctly", async () => {
   });
   render(<App />);
 
+  await fillRequiredFields();
   fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
 
   expect(await screen.findByLabelText("trust and fallback status")).toHaveTextContent("Partial");
@@ -198,6 +211,7 @@ test("renders an abstain state distinctly", async () => {
   });
   render(<App />);
 
+  await fillRequiredFields();
   fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
 
   expect(await screen.findByLabelText("trust and fallback status")).toHaveTextContent("Abstain");
@@ -215,6 +229,7 @@ test("renders API errors", async () => {
   });
   render(<App />);
 
+  await fillRequiredFields();
   fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Bluesky fetch failed");

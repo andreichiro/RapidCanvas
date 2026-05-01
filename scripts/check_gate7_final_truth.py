@@ -27,6 +27,8 @@ ALLOWED_DELTA_PATHS = {
     "README.md", "AGENTS.md", "TRANSLATION_LOG.md", "Makefile",
     "assets/dev_G7_C_WORKSPACE_CONTRACT.json", "assets/dev_G7_BC_WORKSPACE_CONTRACT.json",
     "assets/dev_G7_A_WORKSPACE_CONTRACT.json", "backend/app/deps.py", "backend/app/agent/service.py",
+    "backend/app/api/routes.py", "backend/app/schemas/api.py",
+    "backend/app/tests/integration/test_api_contracts.py",
     "docs/current_handoff.md", "docs/requirements_matrix.md", "docs/reviews/gate7_final_review.md",
     "scripts/assert_dev_G7_C_execution_context.sh", "scripts/verify_dev_G7_C_isolation.sh",
     "scripts/assert_dev_G7_BC_execution_context.sh", "scripts/verify_dev_G7_BC_isolation.sh",
@@ -38,13 +40,13 @@ ALLOWED_DELTA_PREFIXES = (
     "backend/app/ml/image.py", "backend/app/agent/adaptive_retrieval.py", "backend/app/agent/query_planning.py",
     "backend/app/tests/integration/test_gate7_", "backend/app/tests/unit/test_agent_",
     "backend/app/tests/unit/test_gate7b_delivery_review.py", "backend/app/tests/unit/test_gepa_optimize.py",
-    "backend/app/tests/unit/test_image.py", "scripts/assert_dev_G7_", "scripts/verify_dev_G7_",
+    "backend/app/tests/unit/test_image.py", "frontend/src/",
+    "scripts/assert_dev_G7_", "scripts/verify_dev_G7_",
 )
 FORBIDDEN_TRACKED_PREFIXES = (
     ".env", "backend/.env", "frontend/.env", "backend/mlruns/", "mlruns/",
     "backend/qdrant_storage/", "qdrant_storage/", "reports/eval/", "reports/provider_comparison",
 )
-
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
@@ -68,23 +70,18 @@ def main() -> int:
     print(json.dumps({"errors": errors, "checked": "gate7_final_truth"}, indent=2))
     return 1 if errors else 0
 
-
 def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
-
 
 def load_json(path: Path) -> Any:
     return json.loads(read(path))
 
-
 def git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(("git", *args), cwd=root, text=True, capture_output=True)
-
 
 def need(condition: bool, errors: list[str], message: str) -> None:
     if not condition:
         errors.append(message)
-
 
 def check_git_scope(root: Path, errors: list[str]) -> None:
     need(git(root, "diff", "--quiet").returncode == 0, errors, "unstaged tracked changes present")
@@ -99,7 +96,6 @@ def check_git_scope(root: Path, errors: list[str]) -> None:
     if remote.returncode == 0:
         head = git(root, "rev-parse", "HEAD")
         need(remote.stdout == head.stdout, errors, f"origin/{BRANCH} is not at HEAD")
-
 
 def check_eval_truth(cases: list[dict[str, Any]], root: Path, errors: list[str]) -> None:
     public = [case for case in cases if case.get("provenance") == "fixture_backed_public"]
@@ -125,7 +121,6 @@ def check_eval_truth(cases: list[dict[str, Any]], root: Path, errors: list[str])
         for key, expected in expected_values.items():
             need(summary.get(key) == expected, errors, f"summary {key}={summary.get(key)!r}")
 
-
 def check_gepa_truth(root: Path, errors: list[str]) -> None:
     payload = load_json(root / "backend/app/agent/optimized/program.json")
     need(payload.get("mode") == "real", errors, "optimized program is not real metadata")
@@ -140,10 +135,13 @@ def check_gepa_truth(root: Path, errors: list[str]) -> None:
     need((compiled / "metadata.json").is_file(), errors, "compiled metadata missing")
     need((compiled / "program.pkl").is_file(), errors, "compiled program pickle missing")
 
-
 def check_runtime_truth(root: Path, errors: list[str]) -> None:
     deps = read(root / "backend/app/deps.py")
     service = read(root / "backend/app/agent/service.py")
+    routes = read(root / "backend/app/api/routes.py")
+    schema = read(root / "backend/app/schemas/api.py")
+    app = read(root / "frontend/src/App.tsx")
+    form = read(root / "frontend/src/components/UrlForm.tsx")
     gate5_marker = "gate5_service = _build_gate5_explainer"
     fallback_marker = "retriever or ThreadContextEvidenceRetriever()"
     need("RetrievalEvidenceRetriever" in deps, errors, "deps.py does not reference retrieval adapter")
@@ -159,7 +157,10 @@ def check_runtime_truth(root: Path, errors: list[str]) -> None:
         errors,
         "thread-context fallback warning missing",
     )
-
+    need("missing_openai_api_key" in routes, errors, "route does not reject missing API key")
+    need("api_key: SecretStr" in schema, errors, "request API key is not secret typed")
+    need('type="password"' in form, errors, "UI API key input is not masked")
+    need("api_key: trimmedApiKey" in app, errors, "UI does not send transient request key")
 
 def check_final_review(final_review: str, errors: list[str]) -> None:
     normalized_review = normalize_ws(final_review)
@@ -182,19 +183,12 @@ def check_final_review(final_review: str, errors: list[str]) -> None:
     for phrase in required_phrases:
         need(phrase in normalized_review, errors, f"final review missing phrase: {phrase}")
 
-
-def check_docs(
-    readme: str,
-    handoff: str,
-    matrix: str,
-    translation_log: str,
-    agents: str,
-    errors: list[str],
-) -> None:
+def check_docs(readme: str, handoff: str, matrix: str, translation_log: str, agents: str, errors: list[str]) -> None:
     doc_requirements = {
         "README.md": [
             "one-shot Search/RAG",
             "capped adaptive retrieval is enabled",
+            "masked required OpenAI API-key field",
             "real compiled saved DSPy program",
             "Live vision was not run",
             "not a live multi-provider benchmark",
@@ -203,6 +197,7 @@ def check_docs(
         "docs/current_handoff.md": [
             "one-shot integrated route", "codex/g7bc-final-integration", "3a79056", "fc4dff4",
             "Capped adaptive retrieval is enabled", "real compiled metadata",
+            "masked OpenAI API-key field",
             "Live vision was not run", "no live Anthropic/Gemini/Ollama benchmark ran",
             "G7-C did not run a fresh browser-use pass",
         ],
@@ -211,6 +206,7 @@ def check_docs(
             "mode=real",
             "compiled saved DSPy program",
             "no fresh Gate 7 browser-use pass",
+            "transient-key live route smoke",
             "live vision",
             "no live provider comparison report was generated",
         ],
@@ -220,6 +216,7 @@ def check_docs(
             "Gate 7 B/C integration isolation", "Gate 7 image understanding truth",
             "Gate 7 provider comparison truth", "Gate 7 MLflow/Ragas/judge status",
             "Gate 7 pasted OpenAI key handling", "Gate 7 G7-B branch handoff",
+            "Gate 7 closure API-key UI/default behavior",
         ],
         "AGENTS.md": [
             "Gate 7 final A/B/C integration", "make gate7-final-truth-audit",
@@ -242,7 +239,6 @@ def check_docs(
     check_matrix_status(matrix, errors)
     check_no_overclaim_phrases(readme, handoff, matrix, translation_log, agents, errors)
 
-
 def check_matrix_status(matrix: str, errors: list[str]) -> None:
     rows = requirement_rows(matrix)
     need(row_status(rows, "R032") == "reserved", errors, "R032 must remain reserved")
@@ -252,7 +248,6 @@ def check_matrix_status(matrix: str, errors: list[str]) -> None:
     need("capped adaptive" in row_text(rows, "R013"), errors, "R013 missing adaptive evidence")
     need("no fresh Gate 7 browser-use pass" in row_text(rows, "R008"), errors, "R008 overclaims browser verification")
     need("no live provider comparison report was generated" in row_text(rows, "R039"), errors, "R039 overclaims provider report")
-
 
 def check_no_overclaim_phrases(
     readme: str,
@@ -273,7 +268,6 @@ def check_no_overclaim_phrases(
     for term in overclaim_terms:
         need(term not in combined, errors, f"overclaim phrase present: {term}")
 
-
 def requirement_rows(matrix: str) -> dict[str, list[str]]:
     rows: dict[str, list[str]] = {}
     for line in matrix.splitlines():
@@ -284,27 +278,21 @@ def requirement_rows(matrix: str) -> dict[str, list[str]]:
             rows[cells[0]] = cells
     return rows
 
-
 def allowed_delta_path(path: str) -> bool:
     return path in ALLOWED_DELTA_PATHS or any(path.startswith(prefix) for prefix in ALLOWED_DELTA_PREFIXES)
-
 
 def row_status(rows: dict[str, list[str]], row_id: str) -> str | None:
     row = rows.get(row_id)
     return row[-1].strip().lower() if row else None
 
-
 def row_text(rows: dict[str, list[str]], row_id: str) -> str:
     return " | ".join(rows.get(row_id, ()))
-
 
 def final_truth_only(translation_log: str) -> str:
     return "\n".join(line for line in translation_log.splitlines() if "Gate 7" in line)
 
-
 def normalize_ws(text: str) -> str:
     return " ".join(text.split())
-
 
 def check_generated_artifact_hygiene(root: Path, errors: list[str]) -> None:
     tracked = git(root, "ls-files", *FORBIDDEN_TRACKED_PREFIXES).stdout.splitlines()

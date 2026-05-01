@@ -46,6 +46,7 @@ export type ExplainRequest = {
   post_url: string;
   provider: string;
   include_trace: boolean;
+  api_key?: string;
 };
 
 type ApiErrorPayload = {

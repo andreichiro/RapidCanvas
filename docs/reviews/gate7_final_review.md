@@ -15,7 +15,9 @@ integrated with max one extra safe query, GEPA has a real compiled saved DSPy
 program from the cached eval dataset, image support includes alt-text/context
 evidence plus helper-level vision fallback, provider comparison is registry/skip
 visibility without a live benchmark, and MLflow is verified as local file-backed
-ops plumbing.
+ops plumbing. The final closure adds a masked required UI/request OpenAI key
+path so live embeddings and provider-backed DSPy can run without storing secrets
+in the repository.
 
 This integration branch merges G7-C final truth docs with G7-B commit `3a79056`
 and G7-A commit `fc4dff4`.
@@ -31,19 +33,22 @@ and G7-A commit `fc4dff4`.
 | `make requirements-review` | passed | 45 mapped rows, no unmapped rows. |
 | `make check-secrets` | passed | No tracked `.env` or obvious OpenAI keys found in unignored files. |
 | `make optimize` | passed | Preserves merged real GEPA metadata and compiled program; `mode=real`, `metric_score=0.875`. |
-| `make mlflow-log` | passed | Local file-backed MLflow run `ebe784c2058d45da8c62ecac65693a86`; generated artifacts remain ignored. |
+| `make mlflow-log` | passed | Local file-backed MLflow run `210212431e8145deb442a37bff05f1b6`; generated artifacts remain ignored. |
 | `make lint` | passed | Backend Ruff/mypy and frontend TypeScript checks. |
-| `make test` | passed | 342 backend tests and 32 frontend tests on the merged A/B/C integration branch. |
+| `make test` | passed | 345 backend tests and 32 frontend tests on the merged A/B/C integration branch. |
 | focused G7-A runtime tests | passed | 16 targeted Search/RAG, adaptive retrieval, query-planning, source-order, no-credential, and service tests. |
 | `--mode api` public smoke | passed with limitation | 10 fixture-backed public Bluesky URLs hit the live route; all returned cited 3-bullet `abstain` fallbacks because this shell had no provider key. |
+| transient-key live route smoke | passed | Two public Bluesky URLs returned 200 with `adapter_mode=none`, web/thread sources, and 3-4 cited bullets; one normal answer and one guarded `partial`. |
+| transient API-key UI/backend tests | passed | Backend rejects keyless default explain requests, trims/masks request keys, and frontend sends a masked required key without storing it. |
 | `make skills-review` | passed | All four local project skills validate. |
 | `make deep-review` | passed | Full local review gate, including audit/build, generated-artifact cleanup, maintainability, API smoke, and frontend smoke. |
 | final `make eval && make check-secrets` | passed | Regenerated ignored cached eval reports after `deep-review` cleanup and rechecked secrets. |
 | `make gate7-final-truth-audit` | passed | Mechanically checks truth classifications, clean tracked tree, allowed Gate 7 scope, branch freshness, eval counts, real GEPA metadata, compiled artifact presence, and generated-artifact hygiene. |
 
-Provider-backed OpenAI/Ragas/DSPy runs were not launched from the pasted chat key.
-`OPENAI_API_KEY` was not present in the integration shell environment, and G7-C did not
-write the pasted secret to `.env`, disk, command text, or docs.
+Provider-backed Ragas/DSPy judge runs were not launched. `OPENAI_API_KEY` was
+not present in the integration shell environment; the live route smoke used a
+transient request key and G7-C did not write the pasted secret to `.env`, tracked
+files, or docs.
 
 ## Gate 6 Landing Check
 
@@ -97,12 +102,12 @@ ignored.
 |---|---|---|---|
 | Search/RAG runtime | real | `backend/app/deps.py`, `backend/app/ml/retrieval_service.py`, `backend/app/ml/retrieval_adapter.py`, G7-A tests | Default route uses Dev B Search/RAG with trace-visible fallbacks when runtime modules are present. |
 | Adaptive retrieval | real | `backend/app/agent/adaptive_retrieval.py`, `backend/app/agent/query_planning.py`, `backend/app/tests/integration/test_gate7_adaptive_retrieval.py`, forced live adaptive smoke from G7-A | Bounded adaptive path is integrated: max one extra safe query and no unbounded confidence-search loop. Organic public round-two trigger was not observed before shipping. |
-| Public live answer usefulness | partial | `/tmp/rapidcanvas_gate7_all_public_api_eval/summary.json`, direct TestClient sample | Without a local provider key, 10/10 public API-mode cases were safe cited abstentions, not the assignment-style rich context answer. Cached eval remains the quality proof. |
+| Public live answer usefulness | partial | `/tmp/rapidcanvas_gate7_all_public_api_eval/summary.json`, transient-key direct TestClient sample | No-key API-mode cases now remain a documented degraded baseline; the transient-key smoke proves provider-backed live route wiring on two public posts, including one normal contextual answer and one safe partial. Cached eval remains the quality proof. |
 | Eval dataset | fixture-backed | `eval/posts.yaml`, `eval/fixtures/gate6/public_cases.json`, `make eval` summary | 19 cached rows, 10 fixture-backed public Bluesky URLs, 9 synthetic fixtures. Live search is not ground truth. |
 | GEPA | real | `backend/app/agent/optimized/program.json`, `backend/app/agent/optimized/program_compiled/`, `backend/app/eval/gepa_dataset.py`, `make optimize` | GEPA examples are built from finalized cached eval fixtures, and a real compiled saved DSPy program is included. Loader use depends on DSPy and provider credentials. |
 | Provider comparison | skipped/config-limited | `GET /api/providers`, `backend/app/deps.py`, README/matrix | Registry and skipped-provider reasons are visible. No live multi-provider benchmark ran. |
 | Image understanding | partial | `backend/app/clients/bsky.py`, `backend/app/ml/diagnostics.py`, image eval cases | Image alt text and image context evidence are supported. Live vision was not run in the landed base. |
-| MLflow | real | `make mlflow-log`, `backend/app/ops/mlflow.py`, run `ebe784c2058d45da8c62ecac65693a86` | Local file-backed MLflow run and DSPy packaging path work. This is not a hosted experiment workflow. |
+| MLflow | real | `make mlflow-log`, `backend/app/ops/mlflow.py`, run `210212431e8145deb442a37bff05f1b6` | Local file-backed MLflow run and DSPy packaging path work. This is not a hosted experiment workflow. |
 | Ragas/LLM judge | skipped/config-limited | `make eval` summary, Gate 6 review | Default eval uses deterministic/no-network judging. Gate 6 recorded explicit offline optional judge smokes; G7-C did not run provider-backed judges. |
 | Browser/user verification | partial | Gate 6 frontend tests, `make deep-review` user smoke target, Gate 5/6 review records | UI behavior is covered by tests and previous browser notes; G7-C did not run new browser-use verification. |
 | No-write API safety | real | `backend/app/clients/bsky.py`, `backend/app/clients/fetcher.py`, Gate 6 API smoke/readiness tests, `R037` | Public reads and safe web GETs only; no Bluesky write endpoints are exposed. |
@@ -114,6 +119,8 @@ The matrix remains at 45 mapped rows. G7-C tightened wording for the final truth
 surface:
 
 - `R013`: Search/RAG now records one-shot plus capped adaptive runtime status.
+- `R014`/`R015`: final closure verifies transient-key live route outputs keep
+  3-5 cited bullets.
 - `R026`: GEPA row now points to the merged eval-dataset bridge and real compiled
   saved DSPy program.
 - `R027`: MLflow row now states local file-backed run/package behavior, not a
@@ -122,6 +129,8 @@ surface:
   a full browser/UI live vision claim.
 - `R033`: provider row now distinguishes provider registry/skip visibility from
   an unrun live multi-provider benchmark.
+- `R045`: no-key fallback is no longer the default browser behavior; the UI and
+  default API route require a transient request key or local `OPENAI_API_KEY`.
 - `make gate7-final-truth-audit` now enforces those final-truth claims so a
   future docs edit cannot quietly turn skipped/reserved/dry-run behavior into
   shipped behavior.
@@ -150,27 +159,28 @@ Only `reports/.gitkeep` remains tracked.
 
 - Organic public adaptive trigger: not observed before G7-A shipped; deterministic
   tests and forced live adaptive smoke cover second-round entry.
-- Provider-backed live answer quality: not verified in this shell. API-mode smoke
-  over all 10 public fixture-backed URLs returned schema-valid cited 3-bullet
-  abstentions because `OPENAI_API_KEY` was unavailable locally.
+- Provider-backed live answer quality: partially verified with two transient-key
+  public route smokes. This is enough to prove wiring, citations, and useful
+  output shape, but not a broad live public-post benchmark.
 - Live vision: skipped/config-limited; landed base uses image alt-text/context
   evidence.
 - Live provider comparison: skipped/config-limited; optional provider keys and
   benchmark runs were not available in G7-C.
 - Provider-backed Ragas/DSPy judge: skipped in G7-C; default eval remains
   deterministic and no-network.
-- G7 browser-use pass: not rerun by G7-C because no frontend files changed and
-  the lane scope is final truth/docs.
-- Chat-pasted OpenAI key: not used from chat because G7-C will not write or echo
-  secrets into commands or local files. Rotate the key before any real use.
+- G7 browser-use pass: not rerun by G7-C; frontend closure is covered by
+  Vitest, TypeScript build, and the Vite smoke target.
+- Chat-pasted OpenAI key: used only as transient request input for a live route
+  smoke; it was not written to tracked files or docs. Rotate the key before any
+  real use because it appeared in chat.
 
 ## Final Risks
 
 - Live route quality still depends on external provider credentials, Bluesky/web
   availability, embeddings, and optional provider behavior. Gate 6 cached scores
   are the reproducible quality proof, not a guarantee for drifting live posts.
-- No-key live public smoke proves safety and output shape, but not rich
-  assignment-style contextual usefulness.
+- The transient-key live smoke proves end-to-end wiring on a tiny sample, not a
+  broad live benchmark over drifting public posts.
 - Adaptive retrieval is bounded, not open-ended: max one extra safe query, and it
   does not search until confidence is high.
 - The backend `build_gate3_explainer()` docstring still contains older

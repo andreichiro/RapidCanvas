@@ -46,6 +46,15 @@ function mockAppFetch(payload: ExplainResponse | { detail: unknown }, status = 2
   });
 }
 
+async function fillAppForm() {
+  fireEvent.change(await screen.findByLabelText("Bluesky post URL"), {
+    target: { value: "https://bsky.app/profile/example.com/post/3abcxyz" },
+  });
+  fireEvent.change(await screen.findByLabelText("OpenAI API key"), {
+    target: { value: "sk-ui-test-key" },
+  });
+}
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -187,6 +196,7 @@ test("renders unavailable or deleted post errors clearly", async () => {
   mockAppFetch({ detail: "Post is unavailable or deleted." }, 404);
   render(<App />);
 
+  await fillAppForm();
   fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Post is unavailable or deleted.");
@@ -196,6 +206,7 @@ test("renders provider or upstream errors clearly", async () => {
   mockAppFetch({ detail: { message: "Provider upstream failed; try again later." } }, 502);
   render(<App />);
 
+  await fillAppForm();
   fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Provider upstream failed; try again later.");
@@ -214,6 +225,7 @@ test("renders FastAPI validation detail arrays clearly", async () => {
   );
   render(<App />);
 
+  await fillAppForm();
   fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent(

@@ -22,6 +22,10 @@ Active lane owner: Dev G7-C final truth/docs/submission consuming G7-A/G7-B evid
   providers are available. `ThreadContextEvidenceRetriever` remains only an
   explicit fallback/injected path. Capped adaptive retrieval is enabled with max
   one extra safe query, pre-retrieval prompt-injection skip, and trace warnings.
+- The frontend now requires a masked OpenAI API-key field, and the default
+  backend route requires either that transient `api_key` or local
+  `OPENAI_API_KEY` before it runs embeddings/model-backed explanations. The
+  field is not stored in the repo or browser local storage.
 - GEPA in this integration branch is real compiled metadata at
   `backend/app/agent/optimized/program.json` with a saved DSPy program under
   `backend/app/agent/optimized/program_compiled/`. The examples come from
@@ -37,12 +41,14 @@ Active lane owner: Dev G7-C final truth/docs/submission consuming G7-A/G7-B evid
 - Ragas/DSPy judge provider-backed runs were not launched by G7-C. Default eval
   stays deterministic/no-network; Gate 6 records explicit optional offline judge
   smokes.
-- G7-C API-mode smoke over all 10 fixture-backed public Bluesky URLs hit the
-  live route and returned schema-valid cited 3-bullet responses, but all were
-  `abstain` fallbacks because no provider key was available in the local shell.
-- The OpenAI key pasted in chat was not written to disk or commands by G7-C;
-  the integration shell did not have `OPENAI_API_KEY` available. Rotate it
-  before real use.
+- G7-C API-mode smoke over all 10 fixture-backed public Bluesky URLs first hit
+  the live route without a provider key and returned safe cited abstentions.
+  Final closure then added the transient request-key path and verified two
+  public Bluesky URLs with provider-backed routing: both returned 200,
+  `adapter_mode=none`, web/thread sources, and 3-4 cited bullets.
+- The OpenAI key pasted in chat was used only as transient request input for
+  that live route smoke. It was not written to tracked files or docs. Rotate it
+  before real use because it appeared in chat.
 - Final review: `docs/reviews/gate7_final_review.md`.
 - Final branch/push status: branch `codex/g7bc-final-integration` contains the
   G7-C docs branch, G7-B commit `3a79056`, and G7-A commit `fc4dff4`. The Gate 7
@@ -57,7 +63,7 @@ Active lane owner: Dev G7-C final truth/docs/submission consuming G7-A/G7-B evid
 - Gate 3 is implemented: `/api/explain` performs real Bluesky post/thread fetching and returns a schema-valid cited safe summary.
 - Gate 4 Dev A is merged into the baseline: Backend/API/Bluesky normalization covers URL parsing, DID/handle AT URI construction, real thread fetch, parent context, quote text, external links, image alt text/fullsize/thumb URLs, unavailable/blocked warnings, concise upstream error wrapping, and a read-only Bluesky `search_posts()` wrapper returning `ContextDocument` objects.
 - Gate 4 Dev B is merged into the baseline: Search/RAG/source-safety modules cover web and Bluesky search adapters, safe linked-page fetching, prompt-injection scanning, sanitization, embeddings, Qdrant/in-memory retrieval, retrieval diagnostics, and reranking.
-- Gate 4 Dev E is merged into the baseline: the React frontend is componentized, typed against the API contract, and renders URL/provider input, loading/error states, cited bullets, sources, trust/fallback states, guardrail flags, and a trace panel.
+- Gate 4 Dev E is merged into the baseline: the React frontend is componentized, typed against the API contract, and renders URL/provider input, a masked required OpenAI API-key field, loading/error states, cited bullets, sources, trust/fallback states, guardrail flags, and a trace panel.
 - Gate 4 Dev D is merged into the baseline: eval/docs/skills cover research docs, task packets, local project skills and validators, 18 synthetic cached eval cases, prompt-injection fixtures, deterministic metrics, selectable DSPy/Ragas/composite judges, fake/API eval modes, JSONL/Markdown/confusion/SVG/summary reports, and requirement-matrix coverage.
 - Gate 4 Dev C is merged into the baseline:
   - DSPy signature definitions and runner plumbing exist in `backend/app/agent/signatures.py`, `backend/app/agent/runner.py`, `backend/app/agent/dspy_runner.py`, `backend/app/agent/program.py`, `backend/app/agent/loader.py`, and `backend/app/agent/service.py`.
@@ -116,7 +122,10 @@ Detailed Gate 4-6 lane history is preserved in `TRANSLATION_LOG.md`,
 - Preserve Dev B's retrieval diagnostics and optional dependency fallback behavior while integrating with Dev C trace/guardrails.
 - Preserve Dev E's public API client contract and visible adapter/trust/fallback trace fields while the real pipeline replaces temporary evidence sources.
 - Preserve Dev D's default offline eval contract while reusing the same runner for explicit API/model-backed integration checks.
-- Preserve Dev C's provider-error fallback behavior so bad or missing live model credentials produce schema-valid safe-summary/abstain responses rather than route crashes.
+- Preserve Dev C's provider-error fallback behavior so bad live model
+  credentials produce schema-valid safe-summary/abstain responses rather than
+  route crashes. Missing credentials on the default public route should fail
+  fast with `missing_openai_api_key` instead of pretending embeddings ran.
 
 ## Verified Commands
 
@@ -146,6 +155,9 @@ Dev B optional `--extra bluesky` fetch/search checks and `--extra ai` Qdrant ret
 Prior Dev E browser-use verification at http://127.0.0.1:5173/; G7-C did not
 run a fresh browser-use pass.
 Dev D `make eval`, fake-agent/API eval modes, and optional DSPy/Ragas/composite judge smokes.
+Gate 7 closure transient-key route smoke: two public Bluesky URLs returned 200,
+`adapter_mode=none`, web/thread sources, and 3-4 cited bullets; no generated
+live report was tracked.
 ```
 
 ## Important Boundaries
@@ -155,13 +167,16 @@ Dev D `make eval`, fake-agent/API eval modes, and optional DSPy/Ragas/composite 
   fixture-backed and cached, not a live refetch benchmark.
 - Real Bluesky post fetch is required and implemented.
 - The C5 route attempts the integrated real Search/RAG plus DSPy path by default; fallback/dev adapter use is acceptable only when `trace` marks the retrieval/provider downgrade.
-- `R045` is satisfied by C5 enforcement artifacts, not by no-key fallback output; a local no-key abstain remains a recorded downgrade, not final public-eval proof.
+- `R045` is satisfied by C5/G7 enforcement artifacts, not by no-key fallback
+  output. The default UI/API path now requires a key before embeddings/model
+  calls; no-key abstain output remains only historical limitation evidence.
 - Gate 6 public eval coverage is fixture-backed and cached by default. It
   closes the 10+ public Bluesky eval-case requirement without pretending that
   synthetic `example.com` URLs are public posts or that default eval refetched
   live posts.
-- Live provider-backed quality remains an explicit API-mode/integration task
-  for release review, not hidden inside default `make eval`.
+- Live provider-backed quality is partially smoke-tested for wiring on two
+  public posts, but broader API-mode benchmarking remains outside default
+  `make eval`.
 - Preserve the no-fake-product-behavior rule: fallback/safe-summary output is allowed only when trace and guardrail fields say so.
 - Generated artifacts under `reports/`, `mlruns/`, Qdrant cache, and local secret files must stay ignored.
 - Shared repo `/Users/akatsurada/Documents/New project` remains inspection-only for isolated lane work.
@@ -181,9 +196,10 @@ Raw attack payloads are inventoried in `eval/fixtures/prompt_injection/manifest.
 and enforced by the Gate 6 readiness test.
 Default eval remains offline and reports those optional paths separately. An
 explicit API-mode eval against the local FastAPI route completed without aborting,
-but the no-credential/live-service posture abstained on all 19 rows; treat that
-as a live-route limitation to rerun with runtime credentials, not as final live
-quality closure.
+but the no-credential/live-service posture abstained on all 19 rows. Gate 7
+closure later added the required transient key path and verified two
+provider-backed public route smokes; treat that as wiring proof, not as a broad
+live benchmark.
 
 ## Review Records
 

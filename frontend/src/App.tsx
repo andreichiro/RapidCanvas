@@ -5,7 +5,6 @@ import ErrorBanner from "./components/ErrorBanner";
 import ResultView from "./components/ResultView";
 import UrlForm from "./components/UrlForm";
 
-const SAMPLE_URL = "https://bsky.app/profile/bsky.app/post/3mk6ipt5iv22y";
 const DEFAULT_PROVIDER: ProviderInfo = {
   name: "openai",
   configured: false,
@@ -16,7 +15,8 @@ const DEFAULT_PROVIDER: ProviderInfo = {
 type RequestState = "idle" | "loading" | "success" | "error";
 
 export default function App() {
-  const [postUrl, setPostUrl] = useState(SAMPLE_URL);
+  const [postUrl, setPostUrl] = useState("");
+  const [apiKey, setApiKey] = useState("");
   const [provider, setProvider] = useState(DEFAULT_PROVIDER.name);
   const [providers, setProviders] = useState<ProviderInfo[]>([DEFAULT_PROVIDER]);
   const [result, setResult] = useState<ExplainResponse | null>(null);
@@ -51,17 +51,26 @@ export default function App() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedUrl = postUrl.trim();
+    const trimmedApiKey = apiKey.trim();
     setPostUrl(trimmedUrl);
+    setApiKey(trimmedApiKey);
     setRequestState("loading");
     setError(null);
     setProviderWarning(null);
     setResult(null);
+
+    if (!trimmedApiKey) {
+      setError("OpenAI API key is required for embeddings and model-backed explanations.");
+      setRequestState("error");
+      return;
+    }
 
     try {
       const response = await explainPost({
         post_url: trimmedUrl,
         provider,
         include_trace: true,
+        api_key: trimmedApiKey,
       });
       setResult(response);
       setRequestState("success");
@@ -80,7 +89,9 @@ export default function App() {
         </header>
 
         <UrlForm
+          apiKey={apiKey}
           isLoading={requestState === "loading"}
+          onApiKeyChange={setApiKey}
           onPostUrlChange={setPostUrl}
           onProviderChange={setProvider}
           onSubmit={handleSubmit}
