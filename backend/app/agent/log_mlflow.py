@@ -68,10 +68,33 @@ def _write_manifest(settings: Settings, program_result: ProgramLoadResult) -> Pa
             str(program_result.optimized_path) if program_result.optimized_path else None
         ),
         "loader_warnings": program_result.warnings,
+        "optimization_status": _optimization_status(program_result),
         "model_signature": mlflow_model_signature(),
     }
     manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True))
     return manifest_path
+
+
+def _optimization_status(program_result: ProgramLoadResult) -> dict[str, object]:
+    config = program_result.program.optimized_config
+    compile_payload = _mapping(config.get("gepa_compile", {}))
+    dataset_bridge = _mapping(config.get("dataset_bridge", {}))
+    return {
+        "optimizer": config.get("optimizer"),
+        "mode": config.get("mode"),
+        "metric_score": config.get("metric_score"),
+        "compile_executed": compile_payload.get("executed"),
+        "compiled_program_path": compile_payload.get("compiled_program_path"),
+        "dataset_source": dataset_bridge.get("source"),
+        "dataset_case_count": dataset_bridge.get("case_count"),
+        "trainset_size": dataset_bridge.get("trainset_size"),
+        "devset_size": dataset_bridge.get("devset_size"),
+        "holdout_size": dataset_bridge.get("holdout_size"),
+    }
+
+
+def _mapping(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}
 
 
 def _summary_payload(run: MlflowRunSummary) -> dict[str, object]:

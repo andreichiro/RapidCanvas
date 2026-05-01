@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import Any, cast
 
 from pydantic import SecretStr
 
 from app.agent.evidence_contract import normalize_retrieval_output
-from app.agent.loader import configure_dspy, load_program
+from app.agent.loader import ProgramLoadResult, configure_dspy, load_program
+from app.agent.log_mlflow import _write_manifest
 from app.agent.providers import resolve_provider
 from app.config import Settings
 from app.ops import mlflow as mlflow_ops
@@ -184,6 +186,45 @@ def test_mlflow_param_payload_includes_required_dev_c_fields() -> None:
     assert params["dspy_model"] == "openai/gpt-4.1-mini"
     assert params["guardrail_policy_version"] == "gate6-dev-c-v1"
     assert params["prompt_injection_detector_version"] == "heuristic-policy-v1"
+
+
+def test_mlflow_manifest_records_real_gepa_optimization_status(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    class FakeProgram:
+        optimized_config = {
+            "optimizer": "GEPA",
+            "mode": "real",
+            "metric_score": 0.875,
+            "gepa_compile": {
+                "executed": True,
+                "compiled_program_path": "program_compiled",
+            },
+            "dataset_bridge": {
+                "source": "eval/posts.yaml plus cached fixtures",
+                "case_count": 19,
+                "trainset_size": 10,
+                "devset_size": 4,
+                "holdout_size": 5,
+            },
+        }
+
+    manifest_path = _write_manifest(
+        Settings(openai_api_key=None, reports_dir=str(tmp_path)),
+        ProgramLoadResult(
+            program=cast(Any, FakeProgram()),
+            optimized_path=Path("backend/app/agent/optimized/program.json"),
+            warnings=["optimized_dspy_program_loaded"],
+        ),
+    )
+    payload = json.loads(manifest_path.read_text())
+    status = payload["optimization_status"]
+
+    assert status["optimizer"] == "GEPA"
+    assert status["mode"] == "real"
+    assert status["compile_executed"] is True
+    assert status["compiled_program_path"] == "program_compiled"
+    assert status["dataset_case_count"] == 19
+    assert status["trainset_size"] == 10
+    assert "optimized_dspy_program_loaded" in payload["loader_warnings"]
 
 
 def test_mlflow_fallback_run_writes_manifest_when_mlflow_missing(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
