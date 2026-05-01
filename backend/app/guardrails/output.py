@@ -128,7 +128,7 @@ class OutputGuardrail:
         post: PostContext,
         post_source_id: str,
     ) -> list[BulletDraft]:
-        visible_text = compact_text(post.text or "The visible post has no text.", limit=220)
+        visible_text = _safe_visible_post_text(post.text, self._policy)
         fallback_label = _fallback_label(fallback_mode)
         return [
             BulletDraft(
@@ -160,6 +160,16 @@ def _fallback_label(fallback_mode: FallbackMode) -> str:
         "abstain": "Abstention.",
     }
     return labels[fallback_mode]
+
+
+def _safe_visible_post_text(text: str, policy: GuardrailPolicy) -> str:
+    visible_text = text or "The visible post has no text."
+    if policy.forbidden_output_hits(visible_text):
+        return (
+            "The visible post contains instruction-like or credential-seeking text "
+            "that was not echoed."
+        )
+    return compact_text(visible_text, limit=220)
 
 
 def _fill_to_minimum(
@@ -200,4 +210,3 @@ OutputIssue = Literal[
     "unknown_citation",
     "leaked_instruction_or_secret",
 ]
-

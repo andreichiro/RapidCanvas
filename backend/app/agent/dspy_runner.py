@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from importlib import import_module
+from math import isfinite
 from typing import Any, cast
 
 from app.agent.runner import AdapterMode, ClassificationResult, HeuristicSignatureRunner
@@ -248,7 +249,7 @@ def _evidence_json(
         {
             "id": item.id,
             "source_id": item.source_id,
-            "score": item.score,
+            "score": round(_float_or_default(str(item.score), 0.0), 4),
             "text": _label(
                 evidence_untrusted_label(item, source_types),
                 compact_text(item.text, limit=800),
@@ -256,7 +257,7 @@ def _evidence_json(
         }
         for item in evidence
     ]
-    return json.dumps(payload)
+    return json.dumps(payload, allow_nan=False)
 
 
 def _draft_from_json(value: str) -> ExplanationDraft:
@@ -306,9 +307,10 @@ def _json_mapping(value: str) -> dict[str, object]:
 
 def _float_or_default(value: str, default: float) -> float:
     try:
-        return float(value)
+        parsed = float(value)
     except ValueError:
         return default
+    return parsed if isfinite(parsed) else default
 
 
 def _parse_json(value: str) -> object:

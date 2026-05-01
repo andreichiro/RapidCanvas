@@ -45,7 +45,7 @@ _FORBIDDEN_OUTPUT_PATTERNS: tuple[str, ...] = (
 class GuardrailPolicy:
     """Versioned thresholds and patterns used by output and trust guardrails."""
 
-    version: str = "gate4-dev-c-v1"
+    version: str = "gate6-dev-c-v1"
     min_bullets: int = 3
     max_bullets: int = 5
     min_normal_trust: float = 0.62

@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from app.agent.program import BlueskyExplainer
+from app.agent.quality_trace import quality_trace_payload
 from app.agent.runner import (
     AdapterMode,
     ClassificationResult,
@@ -56,6 +57,7 @@ def test_bluesky_explainer_returns_three_to_five_cited_bullets_with_trace() -> N
     program = BlueskyExplainer()
 
     response = program.explain_context(post=_post(), evidence=_evidence(), documents=_documents())
+    quality_trace = program.last_quality_trace
 
     assert 3 <= len(response.bullets) <= 5
     assert all(bullet.source_ids for bullet in response.bullets)
@@ -72,6 +74,21 @@ def test_bluesky_explainer_returns_three_to_five_cited_bullets_with_trace() -> N
         "explain",
         "validate",
     ]
+    assert quality_trace is not None
+    assert quality_trace.chain_of_thought_exposed is False
+    assert quality_trace.hidden_prompts_exposed is False
+    assert quality_trace.query_plan_summary.category == response.trace.category
+    assert quality_trace.provider.cost_metadata["available"] is False
+    assert quality_trace.retrieval.retrieval_scores == {"E1": 0.9, "E2": 0.9, "E3": 0.9}
+    assert [item.evidence_ids for item in quality_trace.bullet_evidence] == [
+        ["E1"],
+        ["E2"],
+        ["E3"],
+    ]
+    payload = quality_trace_payload(quality_trace)
+    assert payload["guardrails"]["source_support_validation_status"] == "supported"
+    assert "system prompt" not in str(payload).lower()
+    assert "developer message" not in str(payload).lower()
 
 
 def test_bluesky_explainer_flags_prompt_injection_from_untrusted_evidence() -> None:
@@ -183,15 +200,21 @@ def test_validator_triggers_one_revision_attempt() -> None:
     assert runner.revision_attempts == 1
     assert response.trace.fallback_mode == "none"
     assert all(bullet.source_ids for bullet in response.bullets)
+    assert program.last_quality_trace is not None
+    assert program.last_quality_trace.guardrails.revision_attempted is True
+    assert program.last_quality_trace.guardrails.revision_succeeded is True
 
 
 def test_low_trust_path_returns_schema_valid_fallback() -> None:
-    response = BlueskyExplainer().explain_context(post=_post(), evidence=[], documents=[])
+    program = BlueskyExplainer()
+    response = program.explain_context(post=_post(), evidence=[], documents=[])
 
     assert len(response.bullets) == 3
     assert response.trace.fallback_mode == "abstain"
     assert "low_evidence" in response.trace.guardrail_flags
     assert all(bullet.source_ids == [POST_SOURCE_ID] for bullet in response.bullets)
+    assert program.last_quality_trace is not None
+    assert program.last_quality_trace.guardrails.abstention_reasons
 
 
 class SixBulletRunner(RevisingRunner):
