@@ -176,6 +176,10 @@
   overflow-wrap: anywhere;
 }
 
+.trace-list li {
+  overflow-wrap: anywhere;
+}
+
 .bullets {
   display: grid;
   gap: 14px;
