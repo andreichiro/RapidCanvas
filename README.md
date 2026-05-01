@@ -23,7 +23,7 @@ matrix honesty, and final review notes.
 - Gate 4 Dev E frontend lane: implemented and merged into the integration baseline.
 - Gate 5 C5 integration: Dev B retrieval is connected into Dev C `AgentExplainerService` through Dev A dependency wiring, Dev E PR #7 polished the C5 response UI, and Dev D records the final review in `docs/reviews/gate5_final_review.md`.
 - Gate 6 Dev D rapid eval/reporting: `make eval` runs 19 cached cases, including 10 fixture-backed public Bluesky URLs and 9 marked synthetic attack/edge fixtures, then writes reviewer-facing reports under ignored `reports/eval/`.
-- Image understanding and provider-comparison bonus surfaces remain reserved for their final integration work.
+- Gate 7 final truth/docs: the landed runtime uses one-shot Search/RAG with trace-visible fallbacks; adaptive retrieval is reserved. GEPA is dry-run metadata unless `--real` is run with valid credentials and produces a compiled program. Image support is image URL/alt-text context evidence, not live vision. Provider comparison is registry/skip visibility, not a live multi-provider benchmark.
 - The assignment API key must be placed only in local `.env`; do not commit it.
 - Because the key was shared in plain text during intake, rotate it before real use.
 - Current handoff snapshot: `docs/current_handoff.md`.
@@ -50,7 +50,7 @@ make dev-frontend
 
 The backend exposes `GET /api/health`, `GET /api/providers`, and `POST /api/explain`.
 `/api/explain` validates Bluesky post URLs, performs real Bluesky post/thread
-fetching, and routes through the C5 integrated Dev B retrieval plus Dev C
+fetching, and routes through the C5 integrated one-shot Dev B retrieval plus Dev C
 agent/guardrail program. When live search, retrieval, DSPy dependencies,
 credentials, or provider calls are unavailable, the response remains
 schema-valid and records the downgrade in `trace`.
@@ -110,6 +110,11 @@ Bluesky URL
 -> guardrail fallback
 -> response
 ```
+
+The submitted Gate 7 runtime implements this as a bounded one-shot path with
+guarded fallback. It does not implement an adaptive multi-round retrieval loop.
+Live image vision and live multi-provider benchmarking are reserved; image alt
+text and provider skip/configuration visibility are present.
 
 ## API Contract Status
 
@@ -200,11 +205,14 @@ Implemented behavior includes:
   failures.
 - Live DSPy provider/auth/runtime failures degrade to visible guarded fallback
   output instead of crashing `/api/explain`.
-- `make optimize` writes GEPA dry-run metadata; `--real` requires valid provider
-  credentials, uses a reflection LM, rejects all-failed rollouts, and persists a
-  loadable compiled DSPy program directory.
-- `make mlflow-log` creates a local MLflow run and exercises
-  `mlflow.dspy.log_model` against the live DSPy runner path.
+- `make optimize` writes GEPA dry-run metadata in
+  `backend/app/agent/optimized/program.json`. A real compiled optimized program
+  is not included by default; `--real` requires valid provider credentials, uses
+  a reflection LM, rejects all-failed rollouts, and persists a loadable compiled
+  DSPy program directory only when the real compile succeeds.
+- `make mlflow-log` creates a local file-backed MLflow run and exercises
+  `mlflow.dspy.log_model` against the live DSPy runner path. It is local ops
+  plumbing, not a hosted experiment workflow.
 
 Focused Dev C checks:
 
@@ -222,12 +230,27 @@ make mlflow-log
 ## Integration Adapter Rule
 
 Integration gates must use real Bluesky post fetching. The C5 route attempts the
-integrated real Search/RAG and DSPy workflow by default; temporary evidence
+integrated one-shot Search/RAG and DSPy workflow by default; temporary evidence
 sources or deterministic fallbacks are allowed only when live providers,
 retrieval, or optional dependencies fail, and any response that uses them must
 mark that clearly in `trace`. Gate 6 Dev D closes cached fixture-backed public
 eval coverage; release-captain review should rerun selected API-mode public
 cases with runtime credentials before treating live-route quality as final.
+
+## Bonus And Optional Surfaces
+
+- Image understanding: Bluesky images are normalized with URLs and alt text, and
+  alt text can become cited image evidence. Live OpenAI vision was not run in the
+  landed Gate 7 base.
+- Provider comparison: `GET /api/providers` exposes OpenAI configuration and
+  skipped reasons for Anthropic, Gemini, and Ollama. No live multi-provider
+  benchmark was run.
+- Ragas/DSPy judge: default `make eval` is deterministic and no-network.
+  Optional judge commands are explicit and should be run only when the local
+  environment is configured.
+- GEPA: final submitted artifact is dry-run metadata. Do not treat it as a real
+  optimized compiled program unless a successful `--real` run produces and
+  loader-verifies a compiled program directory.
 
 ## Commands
 
@@ -292,3 +315,4 @@ handoff.
 Gate 7 and release-captain integration should rerun selected API-mode public
 cases with runtime credentials, complete reserved image/provider evidence, and
 preserve the Gate 6 cached/offline report contract for reproducible review.
+The final Gate 7 truth table is in `docs/reviews/gate7_final_review.md`.

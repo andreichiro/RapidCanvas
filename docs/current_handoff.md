@@ -2,8 +2,40 @@
 
 Updated: 2026-05-01
 Repository: `andreichiro/RapidCanvas`
-Current baseline: Gate 6 integration branch `gate6/integration`
-Active lane owner: Dev D integration/review owner.
+Current baseline: Gate 7 final truth branch
+`codex/g7-c-final-truth-docs-submission` from `origin/main` Gate 6 integration
+commit `4728cc3`.
+Active lane owner: Dev G7-C final truth/docs/submission.
+
+## Gate 7 Final Truth Snapshot
+
+- Gate 6 is landed and reproducible in the G7-C clone: `make setup`,
+  `make eval`, `make requirements-review`, `make check-secrets`, and
+  `make deep-review` all passed.
+- Default eval is fixture-backed and offline: 19 cached cases, 10
+  fixture-backed public Bluesky URLs, and 9 marked synthetic attack/edge
+  fixtures. Expected key points remain the curated truth layer.
+- Runtime Search/RAG is a real one-shot integrated route when modules and
+  providers are available. `ThreadContextEvidenceRetriever` remains only an
+  explicit fallback/injected path. Adaptive retrieval is reserved.
+- GEPA in the submitted base is dry-run metadata at
+  `backend/app/agent/optimized/program.json`; no real compiled optimized program
+  was produced, and the eval-dataset GEPA bridge exists only in unmerged G7-B
+  local diffs.
+- Image support in the submitted base is Bluesky image URL/alt-text context
+  evidence. Live vision was not run.
+- Provider comparison is provider registry and skipped-provider visibility
+  through `GET /api/providers`; no live Anthropic/Gemini/Ollama benchmark ran.
+- MLflow local file-backed logging was verified with `make mlflow-log`; generated
+  `backend/mlruns/` and report manifests remain ignored.
+- Ragas/DSPy judge provider-backed runs were not launched by G7-C. Default eval
+  stays deterministic/no-network; Gate 6 records explicit optional offline judge
+  smokes.
+- The OpenAI key pasted in chat was not written to disk or commands by G7-C.
+  Rotate it before real use.
+- Final review: `docs/reviews/gate7_final_review.md`.
+- Final branch/push status: branch created locally; final commit/push status is
+  recorded in the G7-C handoff response after staging.
 
 ## Current State
 
@@ -45,194 +77,24 @@ Active lane owner: Dev D integration/review owner.
   Dev C `0664d07`, and Dev E `a969a59`. No available Gate 6 lane was skipped.
 - Merge result: all branches merged cleanly, no broad conflicts, no generated artifacts/secrets/Qdrant/MLflow/live outputs tracked, and generated `reports/eval/` remains ignored.
 
-## Dev A Gate 4 Lane
+## Historical Lane Summary
 
-Source branch:
+Detailed Gate 4-6 lane history is preserved in `TRANSLATION_LOG.md`,
+`docs/reviews/gate5_final_review.md`, and
+`docs/reviews/gate6_final_review.md`. The current implementation contains:
 
-```text
-codex/dev-a-gate4
-```
-
-Added Dev A-owned behavior:
-
-- Expanded `backend/app/clients/bsky.py` for robust public Bluesky URL parsing, DID/handle AT URI construction, and read-only SDK access.
-- Normalized target posts, parent context, quote text, external links, image alt text/fullsize/thumb URLs, and unavailable/blocked/deleted warnings.
-- Added concise upstream error wrapping so raw provider response bodies do not leak into API details.
-- Added a read-only `BlueskyClient.search_posts()` wrapper returning `ContextDocument` objects for retrieval lanes.
-- Updated `PostContext.warnings` in domain contracts.
-- Added unit/integration coverage for parent, quote, link, image, unavailable, search, and sanitized error behavior.
-
-Important Dev A notes:
-
-- Live unauthenticated `app.bsky.feed.searchPosts` returned `403` in this environment. The wrapper keeps failures typed and sanitized rather than treating unauthenticated live search as final retrieval completion.
-- `PostContext.warnings` is normalized by Dev A, but the current route exposes only the warnings emitted by the active service/retriever path.
-
-## Dev B Gate 4 Lane
-
-Source branch:
-
-```text
-codex/dev-b-gate4-retrieval-safety
-```
-
-Added Dev B-owned behavior:
-
-- Search provider protocols and adapters in `backend/app/clients/search.py`.
-- DDGS-backed web search and read-only Bluesky search normalization.
-- Safe linked-page fetcher in `backend/app/clients/fetcher.py`.
-- HTML/text extraction helper in `backend/app/clients/extraction.py`.
-- SSRF/private-IP/localhost/link-local/file-scheme blocking before fetch and before redirects.
-- Prompt-injection scanning and source sanitization in `backend/app/guardrails/prompt_injection.py`.
-- OpenAI embedding wrapper with diskcache plus deterministic test embeddings in `backend/app/ml/embeddings.py`.
-- Chunking variants, in-memory vector store, Qdrant local-mode store, and `RagService.retrieve()` in `backend/app/ml/vector_store.py`.
-- Retrieval diagnostics in `backend/app/ml/diagnostics.py`, including prompt-injection flags/warnings surfaced through `RagService.last_diagnostics`.
-- Similarity, optional HF cross-encoder, and optional DSPy rerankers in `backend/app/ml/rerankers.py`; optional HF setup falls back if model loading or prediction fails.
-- Unit tests for search, safe fetch, prompt-injection scanning, RAG retrieval, Qdrant optional behavior, and reranker fallback.
-
-Important Dev B notes:
-
-- `RagService.retrieve(query, documents) -> Evidence[]` is ready for integration and exposes prompt-injection diagnostics through `last_diagnostics`.
-- Optional Qdrant and web extraction paths were verified with extras, not only the base dev environment.
-- Dev B's `BlueskySearchProvider` can consume or wrap Dev A's read-only `BlueskyClient.search_posts()` during the integration window.
-
-## Dev B Gate 5 Lane
-Source branch: `codex/dev-b-gate5-retrieval-safety`
-Gate 5 Dev B checkpoint C2 is implemented in the isolated lane clone at `/Users/akatsurada/Documents/rapidcanvas_dev_b_gate5`:
-
-- `retrieval_service.py`, `retrieval_adapter.py`, and `retrieval_payload.py` expose the C2 service, sync Dev C adapter, and canonical JSON payload helpers.
-- The service accepts Dev A `PostContext` plus supplied/generated queries and returns `RetrievalResult` with sanitized documents, ranked evidence, diagnostics, warnings, guardrail flags, source ids, scores, queries, and private/local URL block evidence.
-- Dev C can call `await build_retrieval_service().retrieve(...)` or use `RetrievalEvidenceRetriever` for the current sync evidence protocol with invocation-scoped diagnostics.
-- Stable fields are `documents`, `evidence`, `warnings`, `guardrail_flags`, `source_ids`, `scores`, `queries`, `private_url_blocks`, and `diagnostics`.
-- Diagnostics map to trace warnings, `prompt_injection_risk`, retrieval/eval source-score metadata, and private URL block evidence.
-- Evidence ordering preserves raw reranker order; public scores are finite 0..1 values.
-- C2 fixture artifacts use the canonical retrieval payload shape under `backend/app/tests/fixtures/gate5_retrieval/`, with integration coverage in `backend/app/tests/integration/test_gate5_retrieval.py`.
-
-Important Dev B Gate 5 notes:
-- Production builder uses `OpenAIEmbeddingProvider` by default; deterministic embeddings are injected only in tests.
-- Qdrant local mode is preferred by the builder. If Qdrant cannot be created, the service
-  falls back to the in-memory vector store with an explicit `qdrant_unavailable_using_in_memory_vector_store:*` warning.
-- Bluesky search is read-only through Dev A `BlueskyClient.search_posts()` when
-  the default builder is used; builder/per-call settings can disable Bluesky or
-  web search, and live provider failures are surfaced as warnings.
-- Search providers return per-call warnings, cap output, avoid concurrent warning leaks, degrade provider failures/invalid bundles safely, bound DDGS iteration, skip zero-limit live searches, and use the same resolver-aware source URL policy in direct Bluesky and final retrieval paths.
-- Built-in provider `last_warnings`, direct `RagService.last_diagnostics`, and the Dev C retrieval adapter keep diagnostics scoped to the current invocation across async tasks and threaded callers while preserving direct-component accessor shapes.
-- Retrieval/evidence/query/reranker limits clamp to non-negative values; zero
-  retrieval/evidence limits and malformed embedding/vector runtime output skip model work safely.
-- For deterministic/offline C2 or controlled Dev C handoff runs, call
-  `build_retrieval_service(..., search_providers=[])`; that explicit empty list
-  is preserved and does not install default live search providers.
-- DDGS web search and linked-page fetch are read-only. The fetcher blocks
-  malformed, credential-bearing, private, localhost, link-local, non-global IP,
-  and unsupported-scheme URLs before fetch and before redirects; it also validates
-  the connected peer address before accepting response bytes. URL diagnostics
-  redact userinfo, query strings, and fragments.
-- Linked-page fetches are capped by `RetrievalSettings.linked_page_limit` so
-  untrusted post context cannot drive unbounded outbound GET attempts; overflow
-  is surfaced as `linked_page_limit_exceeded:*`.
-- Returned documents are sanitized and prompt-injection scanned across titles,
-  body text, bounded string metadata, and decoded bytes metadata. Retrieval
-  filters unsafe source URLs, including normalized provider pass-through docs,
-  into private/local block evidence; parser failures return
-  `extraction_failed:<ExceptionType>`.
-- Normalized Bluesky source metadata may preserve `at://...` AT URIs for
-  Bluesky/thread documents; those identifiers are never fetch targets.
-- C2 invariant coverage verifies sanitized docs, resolver-safe HTTP source URLs, promoted private/local blocks, valid evidence IDs/source links, finite scores, JSON-stable metadata, malformed handoff/provider/diagnostic shapes, safe text coercion, RAG diagnostics, vector payloads, direct accessor compatibility, adapter/provider/RAG state isolation, and embedding/vector/reranker runtime failures.
-- This lane does not wire retrieval into `/api/explain`, does not implement DSPy
-  explanations, and does not close final Search/RAG requirement rows. C5 owns
-  final end-to-end acceptance.
-## Dev C Gate 4 Lane
-Source branch:
-
-```text
-codex/dev-c-gate4
-```
-
-Added Dev C-owned behavior:
-
-- DSPy signatures for classification, query generation, reranking, explanation, validation, prompt-injection risk, evidence trust, and eval judging.
-- Live `DspySignatureRunner` wiring for all defined signatures with deterministic guarded fallback.
-- `BlueskyExplainer` orchestration: injection scan, classify, query generation, rerank, trust assessment, explain, validate/revise once, output repair, fallback decision, and schema-valid response construction.
-- Source-type-aware `UNTRUSTED_*` labels for post text, thread context, web evidence, and image alt text in both prompt-injection scans and evidence payloads.
-- Output guardrails for 3-5 bullets, required citations, unknown citation rejection, forbidden prompt/secret leakage, and fallback-safe cited bullets.
-- Trust scoring for low evidence, low source diversity, weak retrieval scores, prompt-injection risk, DSPy trust requests, validation issues, and live provider failures.
-- Loader path that configures DSPy from `.env`/settings, exports `OPENAI_API_KEY` before `dspy.configure`, loads optimized DSPy programs when present, and falls back safely when optional live pieces are absent.
-- GEPA dry-run and real compile path with reflection LM, train/dev examples, metric feedback, failed-rollout rejection, and compiled-program persistence/loading.
-- MLflow run logging and `mlflow.dspy.log_model` packaging inside the active run, using the live DSPy runner path for packaging.
-- FastAPI default dependency now routes through Dev C `AgentExplainerService` instead of the old `Gate3Explainer`, while still marking thread-context evidence until Dev B retrieval is connected in Gate 5.
-
-Review follow-ups already fixed:
-
-- Public API bypassed Dev C program.
-- GEPA real mode did not optimize, lacked reflection LM, could falsely save auth failures, and did not save/load the compiled DSPy program.
-- `make mlflow-log` skipped packaging or packaged the deterministic runner.
-- Several DSPy signatures were defined but unused.
-- Invalid-shape/unknown-citation outputs could produce fallback text while trace said `fallback_mode=none`.
-- DSPy trust fallback flags were ignored by final trust.
-- Untrusted labels were generic, inconsistent, or spoofable by raw content.
-- `.env` OpenAI keys were not exported before live DSPy calls.
-- Live DSPy provider/auth/runtime errors could crash `/api/explain`.
-- README status was stale after Dev C Gate 4.
-
-Important Dev C notes:
-
-- Dev C does not claim final Search/RAG route integration; the current route uses trace-marked thread-context evidence until Dev B retrieval is wired into the route in Gate 5.
-- Live provider quality depends on optional extras and valid provider credentials.
-- The pasted test key was never committed; rotate it before real use because it was shared in plain text.
-
-## Dev E Gate 4 Lane
-
-Source branch:
-
-```text
-codex/dev-e-gate4-frontend-ux
-```
-
-Added Dev E-owned behavior:
-
-- Componentized React UI for `UrlForm`, `ProviderSelect`, `ResultView`, `CitationChip`, `SourceList`, `TracePanel`, `ErrorBanner`, `TrustBadge`, and `GuardrailFlags`.
-- Typed API client in `frontend/src/api/client.ts` with FastAPI detail payload handling and fallback error messages.
-- User-facing loading, error, partial-success, abstain, and safe-summary states.
-- Cited bullet rendering with citation chips that link to the source list.
-- Source list rendering for title, URL, type, and snippet.
-- Trace panel toggle for category, queries, warnings, latency, trust score, fallback mode, and guardrail flags.
-- Frontend tests for provider selection, successful submit, cited bullets, source cards, trace toggle, partial fallback, abstain fallback, and API errors.
-- Browser verification at `http://127.0.0.1:5173/` against the local backend.
-
-Important Dev E notes:
-
-- The final Dev E review fixed the viewport-scaled H1 finding by replacing `clamp(..., 4vw, ...)` with rem-only sizes and discrete media-query steps.
-- `scripts/review_quality.py` now fails `make deep-review` if CSS `font-size` uses `clamp()` or viewport units, preventing the heading regression from returning silently.
-- Dev E intentionally did not change backend schemas or route contracts; the frontend consumes the existing public API shape and preserves visible adapter/trust/fallback fields.
-
-## Dev D Gate 4 Lane
-
-Source branch:
-
-```text
-codex/dev-d-gate4-eval-docs
-```
-
-Added Dev D-owned behavior:
-
-- Research docs under `docs/research/` with source links, syntax snippets, selected defaults, rejected alternatives, and implementation consequences.
-- `docs/task_packets.md`, `AGENTS.md`, `TRANSLATION_LOG.md`, and requirement-matrix/handoff updates for the five-lane Gate 4 flow.
-- Four local project skills under `.codex/skills/`, each with `SKILL.md`, `agents/openai.yaml`, references, and skill-local `quick_validate.py`.
-- `scripts/quick_validate.py` plus `make skills-review`, wired into `make deep-review`.
-- `eval/posts.yaml` with 18 synthetic cached eval cases and fixtures under `eval/fixtures/`, including prompt-injection, private URL, contradiction, low-evidence, image, link, quote, reply, non-English, and unavailable/deleted scenarios.
-- `backend/app/eval/` runner, agents, metrics, judges, report writers, and dataset loaders.
-- Eval runner modes for cached fixtures, fake-agent protocol checks, and current FastAPI `/api/explain` API mode.
-- Deterministic, DSPy, Ragas, and composite judge backends. DSPy/Ragas use provider-backed judging when `OPENAI_API_KEY` is configured and no-network local review paths otherwise.
-- API eval mode records per-case HTTP failures, route/client exceptions, and non-JSON responses as scored `api_eval_error` abstain rows instead of aborting the report.
-- Reports include prediction mode, judge backend, cached/live row counts, API/model-call allowance, JSONL rows, Markdown summary, confusion matrix CSV, SVG graph, and summary JSON.
-- Numeric judge metrics, including `dspy_judge_*`, are aggregated into `summary.json` and surfaced in Markdown reports; DSPy support/evidence metrics also appear in the SVG graph when present.
-
-Important Dev D notes:
-
-- Default `make eval` remains deterministic/offline and performs no network or model calls.
-- The older synthetic fixtures are not counted as public coverage; Gate 6 adds 10 fixture-backed public Bluesky URL cases and reports that count separately.
-- Optional provider-backed judge runs are explicit and generated artifacts remain ignored under `reports/`.
-- Provider-backed full cached eval was verified with an ignored local `.env` key before final shipping: 18-case DSPy and Ragas runs completed, with Ragas rows recording `ragas_mode=ragas_llm`.
-- Dev D did not claim final runtime Search/RAG/DSPy pipeline completion; the eval harness can score API mode and is ready to score the real pipeline when Gate 5 integration lands.
+- Dev A: Bluesky URL parsing, read-only post/thread fetch, search wrapper,
+  parent/quote/link/image normalization, and sanitized API errors.
+- Dev B: safe web/Bluesky search, linked-page fetch, prompt-injection scanning,
+  embeddings, Qdrant/in-memory retrieval, reranking, retrieval diagnostics, and
+  the `RetrievalEvidenceRetriever` route adapter.
+- Dev C: DSPy signatures/program, provider-aware loading, trust/output
+  guardrails, source labels, GEPA dry-run/real-mode plumbing, and MLflow
+  local logging/package helpers.
+- Dev D: research docs, task packets, local skills, cached eval fixtures,
+  metrics, reports, optional judge paths, and requirement-matrix reviews.
+- Dev E: React UI for URL/provider input, cited bullets, sources,
+  trust/fallback states, guardrail flags, trace diagnostics, and frontend tests.
 
 ## Merge Notes
 
