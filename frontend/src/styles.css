@@ -78,9 +78,9 @@ h2 {
 
 .explain-form {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(190px, 260px) auto;
+  grid-template-columns: minmax(300px, 1fr) minmax(240px, 360px) auto;
   gap: 12px;
-  align-items: end;
+  align-items: start;
   border: 1px solid #d8dfdc;
   border-radius: 8px;
   background: #ffffff;
@@ -88,11 +88,15 @@ h2 {
   box-shadow: 0 12px 32px rgba(28, 37, 40, 0.08);
 }
 
-.url-field,
-.provider-field {
+.form-field,
+.submit-field {
   display: grid;
   gap: 6px;
   min-width: 0;
+}
+
+.submit-field {
+  justify-items: stretch;
 }
 
 .explain-form label,
@@ -107,6 +111,7 @@ h2 {
 .explain-form input,
 .explain-form select {
   width: 100%;
+  height: 44px;
   min-height: 44px;
   border: 1px solid #b9c6c1;
   border-radius: 6px;
@@ -123,14 +128,23 @@ h2 {
   outline-offset: 2px;
 }
 
-.provider-status {
+.provider-status,
+.field-helper,
+.submit-label-spacer,
+.submit-helper {
   min-height: 18px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.provider-status {
   color: #667672;
   font-size: 0.78rem;
   overflow-wrap: anywhere;
 }
 
 .submit-button {
+  height: 44px;
   min-height: 44px;
   border: 1px solid #184b8f;
   border-radius: 6px;
@@ -139,6 +153,7 @@ h2 {
   color: #ffffff;
   font-weight: 800;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .submit-button:disabled,
@@ -160,6 +175,12 @@ h2 {
 
   .explain-form {
     grid-template-columns: 1fr;
+  }
+
+  .field-helper,
+  .submit-label-spacer,
+  .submit-helper {
+    display: none;
   }
 
   .submit-button {

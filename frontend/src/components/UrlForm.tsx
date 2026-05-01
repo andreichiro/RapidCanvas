@@ -13,6 +13,23 @@ type UrlFormProps = {
   providers: ProviderInfo[];
 };
 
+function providerStatusText(provider?: ProviderInfo): string {
+  if (!provider) {
+    return "default";
+  }
+
+  const details = [provider.configured ? "ready" : "skipped"];
+
+  if (provider.skipped_reason) {
+    details.push(provider.skipped_reason);
+  }
+  if (provider.default_model) {
+    details.push(provider.default_model);
+  }
+
+  return details.join(" - ");
+}
+
 export default function UrlForm({
   isLoading,
   onPostUrlChange,
@@ -26,7 +43,7 @@ export default function UrlForm({
 
   return (
     <form className="explain-form" onSubmit={onSubmit}>
-      <div className="url-field">
+      <div className="url-field form-field">
         <label htmlFor="post-url">Bluesky post URL</label>
         <input
           autoComplete="off"
@@ -38,19 +55,30 @@ export default function UrlForm({
           type="url"
           value={postUrl}
         />
-      </div>
-
-      <div className="provider-field">
-        <label htmlFor="provider">Provider</label>
-        <ProviderSelect disabled={isLoading} onChange={onProviderChange} provider={provider} providers={providers} />
-        <span className="provider-status" id="provider-status">
-          {selectedProvider?.skipped_reason ?? selectedProvider?.default_model ?? "default"}
+        <span className="field-helper" aria-hidden="true">
+          &nbsp;
         </span>
       </div>
 
-      <button className="submit-button" disabled={isLoading} type="submit">
-        {isLoading ? "Explaining..." : "Explain"}
-      </button>
+      <div className="provider-field form-field">
+        <label htmlFor="provider">Provider</label>
+        <ProviderSelect disabled={isLoading} onChange={onProviderChange} provider={provider} providers={providers} />
+        <span className="provider-status" id="provider-status">
+          {providerStatusText(selectedProvider)}
+        </span>
+      </div>
+
+      <div className="submit-field">
+        <span className="submit-label-spacer" aria-hidden="true">
+          &nbsp;
+        </span>
+        <button className="submit-button" disabled={isLoading} type="submit">
+          {isLoading ? "Explaining..." : "Explain"}
+        </button>
+        <span className="submit-helper" aria-hidden="true">
+          &nbsp;
+        </span>
+      </div>
     </form>
   );
 }

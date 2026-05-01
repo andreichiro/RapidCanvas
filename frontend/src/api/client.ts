@@ -53,17 +53,19 @@ type ApiErrorPayload = {
 };
 
 async function readError(response: Response): Promise<string> {
+  const fallback = response.statusText || `Request failed with status ${response.status}.`;
+
   try {
     const payload = (await response.json()) as ApiErrorPayload;
     if (typeof payload.detail === "string") {
       return payload.detail;
     }
     if (Array.isArray(payload.detail)) {
-      return payload.detail.map((item) => item.message ?? item.msg).filter(Boolean).join("; ") || response.statusText;
+      return payload.detail.map((item) => item.message ?? item.msg).filter(Boolean).join("; ") || fallback;
     }
-    return payload.detail?.message ?? response.statusText;
+    return payload.detail?.message ?? fallback;
   } catch {
-    return response.statusText;
+    return fallback;
   }
 }
 
