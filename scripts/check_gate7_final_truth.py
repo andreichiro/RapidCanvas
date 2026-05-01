@@ -11,46 +11,37 @@ from typing import Any
 
 
 GATE6_MAIN = "4728cc3"
-BRANCH = "codex/g7-c-final-truth-docs-submission"
+BRANCH = "codex/g7bc-final-integration"
 EXPECTED_CASES = 19
 EXPECTED_PUBLIC = 10
 EXPECTED_SYNTHETIC = 9
 EXPECTED_TRUTH = {
-    "Search/RAG runtime": "real",
-    "Adaptive retrieval": "reserved",
-    "Eval dataset": "fixture-backed",
-    "GEPA": "dry-run",
-    "Provider comparison": "skipped/config-limited",
-    "Image understanding": "partial",
-    "MLflow": "real",
-    "Ragas/LLM judge": "skipped/config-limited",
-    "Browser/user verification": "partial",
-    "No-write API safety": "real",
+    "Search/RAG runtime": "real", "Adaptive retrieval": "reserved",
+    "Eval dataset": "fixture-backed", "GEPA": "real",
+    "Provider comparison": "skipped/config-limited", "Image understanding": "partial",
+    "MLflow": "real", "Ragas/LLM judge": "skipped/config-limited",
+    "Browser/user verification": "partial", "No-write API safety": "real",
     "No-secrets hygiene": "real",
 }
 ALLOWED_DELTA_PATHS = {
-    "README.md",
-    "AGENTS.md",
-    "TRANSLATION_LOG.md",
-    "Makefile",
-    "assets/dev_G7_C_WORKSPACE_CONTRACT.json",
-    "docs/current_handoff.md",
-    "docs/requirements_matrix.md",
-    "docs/reviews/gate7_final_review.md",
-    "scripts/assert_dev_G7_C_execution_context.sh",
+    "README.md", "AGENTS.md", "TRANSLATION_LOG.md", "Makefile",
+    "assets/dev_G7_C_WORKSPACE_CONTRACT.json", "assets/dev_G7_BC_WORKSPACE_CONTRACT.json",
+    "docs/current_handoff.md", "docs/requirements_matrix.md", "docs/reviews/gate7_final_review.md",
+    "scripts/assert_dev_G7_C_execution_context.sh", "scripts/verify_dev_G7_C_isolation.sh",
+    "scripts/assert_dev_G7_BC_execution_context.sh", "scripts/verify_dev_G7_BC_isolation.sh",
     "scripts/check_gate7_final_truth.py",
-    "scripts/verify_dev_G7_C_isolation.sh",
 }
+ALLOWED_DELTA_PREFIXES = (
+    "assets/dev_G7_B_WORKSPACE_CONTRACT.json", "backend/app/agent/log_mlflow.py",
+    "backend/app/agent/optimized/", "backend/app/eval/gepa_", "backend/app/eval/optimize.py",
+    "backend/app/ml/image.py", "backend/app/tests/unit/test_agent_loader_optimize_mlflow.py",
+    "backend/app/tests/unit/test_gate7b_delivery_review.py", "backend/app/tests/unit/test_gepa_optimize.py",
+    "backend/app/tests/unit/test_image.py", "scripts/assert_dev_G7_B_execution_context.sh",
+    "scripts/verify_dev_G7_B_isolation.sh",
+)
 FORBIDDEN_TRACKED_PREFIXES = (
-    ".env",
-    "backend/.env",
-    "frontend/.env",
-    "backend/mlruns/",
-    "mlruns/",
-    "backend/qdrant_storage/",
-    "qdrant_storage/",
-    "reports/eval/",
-    "reports/provider_comparison",
+    ".env", "backend/.env", "frontend/.env", "backend/mlruns/", "mlruns/",
+    "backend/qdrant_storage/", "qdrant_storage/", "reports/eval/", "reports/provider_comparison",
 )
 
 
@@ -100,7 +91,7 @@ def check_git_scope(root: Path, errors: list[str]) -> None:
     ancestry = git(root, "merge-base", "--is-ancestor", GATE6_MAIN, "HEAD")
     need(ancestry.returncode == 0, errors, f"{GATE6_MAIN} is not an ancestor of HEAD")
     changed = set(git(root, "diff", "--name-only", f"{GATE6_MAIN}..HEAD").stdout.splitlines())
-    disallowed = sorted(changed - ALLOWED_DELTA_PATHS)
+    disallowed = sorted(path for path in changed if not allowed_delta_path(path))
     need(not disallowed, errors, f"G7-C delta touches out-of-scope paths: {disallowed}")
     remote = git(root, "rev-parse", "--verify", f"origin/{BRANCH}")
     need(remote.returncode == 0, errors, f"origin/{BRANCH} is missing")
@@ -136,11 +127,17 @@ def check_eval_truth(cases: list[dict[str, Any]], root: Path, errors: list[str])
 
 def check_gepa_truth(root: Path, errors: list[str]) -> None:
     payload = load_json(root / "backend/app/agent/optimized/program.json")
-    need(payload.get("mode") == "dry_run", errors, "optimized program is not dry-run metadata")
+    need(payload.get("mode") == "real", errors, "optimized program is not real metadata")
+    bridge = payload.get("dataset_bridge", {})
+    need(isinstance(bridge, dict), errors, "dataset_bridge is not an object")
+    need(bridge.get("case_count") == 19, errors, "GEPA bridge does not cover 19 cases")
     compile_info = payload.get("gepa_compile", {})
     need(isinstance(compile_info, dict), errors, "gepa_compile is not an object")
-    need(compile_info.get("executed") is False, errors, "GEPA compile should not be marked executed")
-    need("compiled_program_path" not in compile_info, errors, "dry-run metadata points to compiled program")
+    need(compile_info.get("executed") is True, errors, "GEPA compile should be marked executed")
+    need(compile_info.get("compiled_program_path") == "program_compiled", errors, "compiled program path drift")
+    compiled = root / "backend/app/agent/optimized/program_compiled"
+    need((compiled / "metadata.json").is_file(), errors, "compiled metadata missing")
+    need((compiled / "program.pkl").is_file(), errors, "compiled program pickle missing")
 
 
 def check_runtime_truth(root: Path, errors: list[str]) -> None:
@@ -169,14 +166,14 @@ def check_final_review(final_review: str, errors: list[str]) -> None:
     required_phrases = [
         "one-shot",
         "adaptive retrieval is not implemented",
-        "dry-run metadata",
-        "No real compiled DSPy program",
+        "real compiled saved DSPy program",
+        "mode=real",
         "Live vision was not run",
         "no Anthropic/Gemini/Ollama live comparison",
         "not a hosted experiment workflow",
         "did not run provider-backed judges",
         "G7-C did not run new browser-use verification",
-        "This review does not count unmerged G7-A/G7-B branch changes",
+        "G7-A adaptive retrieval remains unmerged and reserved",
         "This is real where integrated, cached where reproducibility matters",
     ]
     for phrase in required_phrases:
@@ -195,37 +192,35 @@ def check_docs(
         "README.md": [
             "one-shot Search/RAG",
             "adaptive retrieval is reserved",
-            "dry-run metadata",
+            "real compiled saved DSPy program",
             "not live vision",
             "not a live multi-provider benchmark",
             "docs/reviews/gate7_final_review.md",
         ],
         "docs/current_handoff.md": [
-            "one-shot integrated route", "codex/g7b-optimization-bonus",
-            "Adaptive retrieval is reserved",
-            "dry-run metadata",
-            "Live vision was not run",
-            "no live Anthropic/Gemini/Ollama benchmark ran",
+            "one-shot integrated route", "codex/g7bc-final-integration", "3a79056",
+            "Adaptive retrieval is reserved", "real compiled metadata",
+            "Live vision was not run", "no live Anthropic/Gemini/Ollama benchmark ran",
             "G7-C did not run a fresh browser-use pass",
         ],
         "docs/requirements_matrix.md": [
             "one-shot, non-adaptive runtime status",
-            "dry-run GEPA metadata",
-            "G7-B commit `3a79056`",
+            "mode=real",
+            "compiled saved DSPy program",
             "no fresh Gate 7 browser-use pass",
             "live vision",
             "no live provider comparison report was generated",
         ],
         "TRANSLATION_LOG.md": [
-            "Gate 7 Search/RAG and adaptive retrieval truth",
-            "Gate 7 GEPA dataset bridge and real compile status",
-            "Gate 7 image understanding truth", "Gate 7 provider comparison truth",
-            "Gate 7 MLflow/Ragas/judge status", "Gate 7 pasted OpenAI key handling",
-            "Gate 7 AGENTS handoff drift", "Gate 7 G7-B branch handoff",
+            "Gate 7 Search/RAG and adaptive retrieval truth", "Gate 7 G7-B/G7-C integration",
+            "Gate 7 B/C integration isolation", "Gate 7 image understanding truth",
+            "Gate 7 provider comparison truth", "Gate 7 MLflow/Ragas/judge status",
+            "Gate 7 pasted OpenAI key handling", "Gate 7 G7-B branch handoff",
         ],
         "AGENTS.md": [
-            "Gate 7 G7-C final truth/docs", "make gate7-final-truth-audit",
-            "adaptive retrieval is reserved", "GEPA is dry-run metadata", "not live vision",
+            "Gate 7 G7-B + G7-C integration", "make gate7-final-truth-audit",
+            "scripts/verify_dev_G7_BC_isolation.sh", "adaptive retrieval is reserved",
+            "real compiled saved DSPy program", "not a full UI vision",
         ],
     }
     documents = {
@@ -249,6 +244,7 @@ def check_matrix_status(matrix: str, errors: list[str]) -> None:
     need(row_status(rows, "R032") == "reserved", errors, "R032 must remain reserved")
     need(row_status(rows, "R033") == "reserved", errors, "R033 must remain reserved")
     need(row_status(rows, "R026") == "implemented", errors, "R026 status drift")
+    need("mode=real" in row_text(rows, "R026"), errors, "R026 does not record real GEPA")
     need("no fresh Gate 7 browser-use pass" in row_text(rows, "R008"), errors, "R008 overclaims browser verification")
     need("no live provider comparison report was generated" in row_text(rows, "R039"), errors, "R039 overclaims provider report")
 
@@ -265,7 +261,6 @@ def check_no_overclaim_phrases(
         "adaptive retrieval is implemented",
         "live vision ran",
         "live multi-provider benchmark ran",
-        "real compiled optimized program was produced",
         "provider-backed judges ran in G7-C",
     ]
     combined = "\n".join((readme, handoff, matrix, agents, final_truth_only(translation_log))).lower()
@@ -282,6 +277,10 @@ def requirement_rows(matrix: str) -> dict[str, list[str]]:
         if cells:
             rows[cells[0]] = cells
     return rows
+
+
+def allowed_delta_path(path: str) -> bool:
+    return path in ALLOWED_DELTA_PATHS or any(path.startswith(prefix) for prefix in ALLOWED_DELTA_PREFIXES)
 
 
 def row_status(rows: dict[str, list[str]], row_id: str) -> str | None:

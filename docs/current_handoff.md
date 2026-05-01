@@ -2,33 +2,32 @@
 
 Updated: 2026-05-01
 Repository: `andreichiro/RapidCanvas`
-Current baseline: Gate 7 final truth branch
-`codex/g7-c-final-truth-docs-submission` from `origin/main` Gate 6 integration
-commit `4728cc3`.
-Active lane owner: Dev G7-C final truth/docs/submission.
+Current baseline: Gate 7 G7-B + G7-C integration branch
+`codex/g7bc-final-integration` from `origin/main` Gate 6 integration commit
+`4728cc3`.
+Active lane owner: Dev G7-C final truth/docs/submission consuming G7-B evidence.
 
 ## Gate 7 Final Truth Snapshot
 
-- Gate 6 is landed and reproducible in the G7-C clone: `make setup`,
+- Gate 6 is landed and reproducible in the G7-B/G7-C integration clone: `make setup`,
   `make eval`, `make requirements-review`, `make check-secrets`, and
   `make deep-review` all passed.
-- `make gate7-final-truth-audit` now checks the final truth table, dry-run and
-  reserved wording, eval counts, GEPA metadata, allowed G7-C file scope, and
-  generated-artifact hygiene.
+- `make gate7-final-truth-audit` now checks the final truth table, real GEPA
+  metadata, compiled artifact presence, partial/reserved wording, eval counts,
+  allowed Gate 7 integration file scope, and generated-artifact hygiene.
 - Default eval is fixture-backed and offline: 19 cached cases, 10
   fixture-backed public Bluesky URLs, and 9 marked synthetic attack/edge
   fixtures. Expected key points remain the curated truth layer.
 - Runtime Search/RAG is a real one-shot integrated route when modules and
   providers are available. `ThreadContextEvidenceRetriever` remains only an
   explicit fallback/injected path. Adaptive retrieval is reserved.
-- GEPA in the submitted base is dry-run metadata at
-  `backend/app/agent/optimized/program.json`; no real compiled optimized program
-  was produced in this branch. G7-B remote branch
-  `origin/codex/g7b-optimization-bonus` at commit `3a79056` now contains the
-  eval-dataset GEPA bridge and a real compiled saved DSPy program; merge that
-  branch before claiming real GEPA compile in the submitted base.
-- Image support in the submitted base is Bluesky image URL/alt-text context
-  evidence. Live vision was not run.
+- GEPA in this integration branch is real compiled metadata at
+  `backend/app/agent/optimized/program.json` with a saved DSPy program under
+  `backend/app/agent/optimized/program_compiled/`. The examples come from
+  finalized cached Gate 6 eval fixtures.
+- Image support includes Bluesky image URL/alt-text context evidence plus G7-B's
+  helper-level vision path with untrusted alt-text fallback. This is not a full
+  browser/UI live vision claim.
 - Provider comparison is provider registry and skipped-provider visibility
   through `GET /api/providers`; no live Anthropic/Gemini/Ollama benchmark ran.
 - MLflow local file-backed logging was verified with `make mlflow-log`; generated
@@ -36,17 +35,14 @@ Active lane owner: Dev G7-C final truth/docs/submission.
 - Ragas/DSPy judge provider-backed runs were not launched by G7-C. Default eval
   stays deterministic/no-network; Gate 6 records explicit optional offline judge
   smokes.
-- The OpenAI key pasted in chat was not written to disk or commands by G7-C.
-  Rotate it before real use.
+- The OpenAI key pasted in chat was not written to disk or commands by G7-C;
+  the integration shell did not have `OPENAI_API_KEY` available. Rotate it
+  before real use.
 - Final review: `docs/reviews/gate7_final_review.md`.
-- Final branch/push status: branch
-  `codex/g7-c-final-truth-docs-submission` pushed to GitHub. Initial final truth
-  commit: `e9f1500`; latest audit follow-up is visible with `git log`, and the
-  Gate 7 audit checks that the tracked tree is clean and
-  `origin/codex/g7-c-final-truth-docs-submission` matches local `HEAD`.
-- G7-B follow-up branch: `codex/g7b-optimization-bonus` at commit `3a79056`
-  is ready for submitter/release integration; it is not merged into this G7-C
-  docs branch.
+- Final branch/push status: branch `codex/g7bc-final-integration` contains the
+  G7-C docs branch and G7-B commit `3a79056`. The Gate 7 audit checks that the
+  tracked tree is clean and `origin/codex/g7bc-final-integration` matches local
+  `HEAD`.
 
 ## Current State
 

@@ -1,0 +1,60 @@
+{
+  "lane": "dev_G7_BC",
+  "developer": "Dev G7-B + Dev G7-C integration",
+  "plan": "Gate 7 optimization/bonus evidence plus final truth/docs/submission",
+  "required_branch": "codex/g7bc-final-integration",
+  "protocol": "Isolated Lane Protocol 2026-04-17",
+  "execution_roots": [
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/rapidcanvas_g7bc_final_integration",
+      "checkout_kind": "standalone_clone",
+      "role": "gate7_b_c_final_integration"
+    }
+  ],
+  "shared_read_only_roots": [
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/New project",
+      "role": "shared_read_only_context"
+    },
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/rapidcanvas_dev_g7c_final_truth",
+      "role": "g7_c_final_truth_read_only"
+    },
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/rapidcanvas_dev_g7b_optimization/RapidCanvas",
+      "role": "g7_b_optimization_read_only"
+    },
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/rapidcanvas_dev_g7a_runtime",
+      "role": "g7_a_runtime_handoff_read_only"
+    }
+  ],
+  "forbidden_operations": [
+    "linked_worktree_for_live_lane",
+    "shared_checkout_branch_switch",
+    "shared_checkout_commit",
+    "shared_checkout_clean",
+    "shared_checkout_reset",
+    "shared_checkout_stash",
+    "shared_checkout_stage",
+    "runtime_search_rag_edits",
+    "adaptive_retrieval_edits",
+    "frontend_edits",
+    "eval_fixture_edits",
+    "generated_artifact_tracking",
+    "secret_file_tracking"
+  ],
+  "verification": [
+    "every_execution_root_exists",
+    "every_execution_root_has_real_git_directory",
+    "every_execution_root_is_on_required_branch",
+    "shared_roots_are_not_on_required_branch",
+    "shared_roots_do_not_own_required_branch_in_worktree_list",
+    "current_execution_root_is_approved"
+  ]
+}

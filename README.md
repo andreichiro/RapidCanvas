@@ -23,7 +23,7 @@ matrix honesty, and final review notes.
 - Gate 4 Dev E frontend lane: implemented and merged into the integration baseline.
 - Gate 5 C5 integration: Dev B retrieval is connected into Dev C `AgentExplainerService` through Dev A dependency wiring, Dev E PR #7 polished the C5 response UI, and Dev D records the final review in `docs/reviews/gate5_final_review.md`.
 - Gate 6 Dev D rapid eval/reporting: `make eval` runs 19 cached cases, including 10 fixture-backed public Bluesky URLs and 9 marked synthetic attack/edge fixtures, then writes reviewer-facing reports under ignored `reports/eval/`.
-- Gate 7 final truth/docs: the landed runtime uses one-shot Search/RAG with trace-visible fallbacks; adaptive retrieval is reserved. GEPA is dry-run metadata in this branch, while G7-B commit `3a79056` has a real compiled program pending merge. Image support is image URL/alt-text context evidence, not live vision. Provider comparison is registry/skip visibility, not a live multi-provider benchmark.
+- Gate 7 final integration: the runtime uses one-shot Search/RAG with trace-visible fallbacks; adaptive retrieval is reserved. G7-B's eval-dataset GEPA bridge and real compiled saved DSPy program are merged in this branch. Image support is URL/alt-text context plus helper-level vision fallback, not a full browser/UI live vision claim. Provider comparison is registry/skip visibility, not a live multi-provider benchmark.
 - The assignment API key must be placed only in local `.env`; do not commit it.
 - Because the key was shared in plain text during intake, rotate it before real use.
 - Current handoff snapshot: `docs/current_handoff.md`.
@@ -206,11 +206,11 @@ Implemented behavior includes:
   failures.
 - Live DSPy provider/auth/runtime failures degrade to visible guarded fallback
   output instead of crashing `/api/explain`.
-- `make optimize` writes GEPA dry-run metadata in
-  `backend/app/agent/optimized/program.json`. A real compiled optimized program
-  is not included by default; `--real` requires valid provider credentials, uses
-  a reflection LM, rejects all-failed rollouts, and persists a loadable compiled
-  DSPy program directory only when the real compile succeeds.
+- `make optimize` preserves the merged real GEPA metadata in
+  `backend/app/agent/optimized/program.json` when the compiled program is present.
+  The saved program was built from finalized cached eval fixtures and points to
+  `backend/app/agent/optimized/program_compiled/`; future `--real` runs still
+  require valid provider credentials and must reject all-failed rollouts.
 - `make mlflow-log` creates a local file-backed MLflow run and exercises
   `mlflow.dspy.log_model` against the live DSPy runner path. It is local ops
   plumbing, not a hosted experiment workflow.
@@ -241,17 +241,16 @@ cases with runtime credentials before treating live-route quality as final.
 ## Bonus And Optional Surfaces
 
 - Image understanding: Bluesky images are normalized with URLs and alt text, and
-  alt text can become cited image evidence. Live OpenAI vision was not run in the
-  landed Gate 7 base.
+  G7-B adds a helper-level OpenAI vision path with untrusted alt-text fallback.
+  This is not a full browser/UI live vision claim.
 - Provider comparison: `GET /api/providers` exposes OpenAI configuration and
   skipped reasons for Anthropic, Gemini, and Ollama. No live multi-provider
   benchmark was run.
 - Ragas/DSPy judge: default `make eval` is deterministic and no-network.
   Optional judge commands are explicit and should be run only when the local
   environment is configured.
-- GEPA: final submitted artifact is dry-run metadata. Do not treat it as a real
-  optimized compiled program unless a successful `--real` run produces and
-  loader-verifies a compiled program directory.
+- GEPA: final submitted artifact is real compiled metadata plus a DSPy saved
+  program directory. Loader use still depends on DSPy and provider credentials.
 
 ## Commands
 
@@ -267,7 +266,7 @@ make user-smoke         # exercise backend/frontend as a user-facing scaffold
 make eval               # run cached offline eval fixtures and reports
 make gate6-shipping-audit # verify Gate 6 eval/report/docs/artifact truth layer
 make gate7-final-truth-audit # verify Gate 7 final truth docs do not overclaim
-make optimize           # run GEPA dry-run metadata save
+make optimize           # verify/preserve GEPA saved program metadata
 make mlflow-log         # create a local MLflow run and package the DSPy program
 make deep-review        # full local review gate used before handoff/push
 ```

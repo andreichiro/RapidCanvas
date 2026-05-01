@@ -1,45 +1,45 @@
 # Gate 7 Final Review
 
 Date: 2026-05-01
-Branch: `codex/g7-c-final-truth-docs-submission`
+Branch: `codex/g7bc-final-integration`
 Baseline: `origin/main` at Gate 6 integration commit `4728cc3`
 
 ## Executive Summary
 
-Gate 7 final truth/docs work can proceed because Gate 6 is landed and
+Gate 7 final integration work can proceed because Gate 6 is landed and
 reproducible: `make eval` passes with 19 cached cases, including 10
 fixture-backed public Bluesky URLs and 9 marked synthetic attack/edge fixtures.
 The final submission is reviewer-ready with explicit limits: runtime Search/RAG
-is one-shot and fallback-aware, adaptive retrieval is reserved, GEPA is dry-run
-metadata in the landed base, image support is public alt-text/image-context
-evidence without live vision, provider comparison is registry/skip visibility
-without a live benchmark, and MLflow is verified as local file-backed ops
-plumbing.
+is one-shot and fallback-aware, adaptive retrieval is reserved, GEPA has a real
+compiled saved DSPy program from the cached eval dataset, image support includes
+alt-text/context evidence plus helper-level vision fallback, provider comparison
+is registry/skip visibility without a live benchmark, and MLflow is verified as
+local file-backed ops plumbing.
 
-This review does not count unmerged G7-A/G7-B branch changes as landed
-submission behavior in the current G7-C branch.
+This integration branch merges G7-C final truth docs with G7-B commit `3a79056`.
+G7-A adaptive retrieval remains unmerged and reserved.
 
 ## Commands Run
 
 | Command | Result | Notes |
 |---|---|---|
-| `scripts/verify_dev_G7_C_isolation.sh` | passed | Standalone clone and branch verified. |
-| `scripts/assert_dev_G7_C_execution_context.sh` | passed | Execution root is `/Users/akatsurada/Documents/rapidcanvas_dev_g7c_final_truth`. |
+| `scripts/verify_dev_G7_BC_isolation.sh` | passed | Standalone integration clone and branch verified. |
+| `scripts/assert_dev_G7_BC_execution_context.sh` | passed | Execution root is `/Users/akatsurada/Documents/rapidcanvas_g7bc_final_integration`. |
 | `make setup` | passed | Installed backend all-extras dev environment and frontend packages. |
 | `make eval` | passed | `case_count=19`, `public_bluesky_fixture_case_count=10`, `synthetic_fixture_case_count=9`, default `judge_backend=deterministic`, no API/model calls. |
 | `make requirements-review` | passed | 45 mapped rows, no unmapped rows. |
 | `make check-secrets` | passed | No tracked `.env` or obvious OpenAI keys found in unignored files. |
-| `make optimize` | passed | Dry-run GEPA metadata save to `backend/app/agent/optimized/program.json`; no real compile. |
-| `make mlflow-log` | passed | Local file-backed MLflow run `4c5dbfd54fae4f25bb6f08c1da8ff76c`; generated artifacts remain ignored. |
+| `make optimize` | passed | Preserves merged real GEPA metadata and compiled program; `mode=real`, `metric_score=0.875`. |
+| `make mlflow-log` | passed | Local file-backed MLflow run `880f747f2a724246ab481ea35f3c6233`; generated artifacts remain ignored. |
 | `make lint` | passed | Backend Ruff/mypy and frontend TypeScript checks. |
-| `make test` | passed | 315 backend tests and 32 frontend tests. |
+| `make test` | passed | 330 backend tests and 32 frontend tests on the G7-B handoff; combined branch must keep this passing. |
 | `make skills-review` | passed | All four local project skills validate. |
 | `make deep-review` | passed | Full local review gate, including audit/build, generated-artifact cleanup, maintainability, API smoke, and frontend smoke. |
 | final `make eval && make check-secrets` | passed | Regenerated ignored cached eval reports after `deep-review` cleanup and rechecked secrets. |
-| `make gate7-final-truth-audit` | passed | Mechanically checks final truth table classifications, dry-run/reserved wording, clean tracked tree, G7-C allowed-file scope, branch push freshness, eval counts, GEPA metadata, and generated-artifact hygiene. |
+| `make gate7-final-truth-audit` | passed | Mechanically checks truth classifications, clean tracked tree, allowed Gate 7 scope, branch freshness, eval counts, real GEPA metadata, compiled artifact presence, and generated-artifact hygiene. |
 
 Provider-backed OpenAI/Ragas/DSPy runs were not launched from the pasted chat key.
-`OPENAI_API_KEY` was not present in the G7-C shell environment, and G7-C did not
+`OPENAI_API_KEY` was not present in the integration shell environment, and G7-C did not
 write the pasted secret to `.env`, disk, command text, or docs.
 
 ## Gate 6 Landing Check
@@ -74,20 +74,12 @@ private URL diagnostics remain trace-visible through the existing service path.
 
 ## G7-B Optimization And Bonus Status
 
-The landed base has GEPA dry-run and real-compile plumbing, but the submitted
-`backend/app/agent/optimized/program.json` is dry-run metadata:
-`mode=dry_run` and `gepa_compile.executed=false`. No real compiled DSPy program
-directory was produced in G7-C, and the loader does not load a compiled program
-by default from this dry-run metadata.
-
-G7-B handoff arrived after the first G7-C final truth pass. Remote branch
-`origin/codex/g7b-optimization-bonus` at commit `3a79056` contains the GEPA
-eval-dataset bridge, `mode=real` optimized metadata, a compiled saved DSPy
-program under `backend/app/agent/optimized/program_compiled/`, image context
-helper tests, provider registry verification tests, and a reported full
-`make deep-review` pass with 330 backend tests and 32 frontend tests. Those
-changes are not merged into the current G7-C branch, so this branch still
-classifies its own submitted base as dry-run/partial/reserved where applicable.
+G7-B commit `3a79056` is merged in this integration branch. The submitted
+`backend/app/agent/optimized/program.json` is real GEPA metadata:
+`mode=real`, `metric_score=0.875`, `dataset_bridge.case_count=19`, and
+`gepa_compile.executed=true`. The compiled saved DSPy program lives under
+`backend/app/agent/optimized/program_compiled/`, and loader tests cover the
+compiled-program path when DSPy and provider credentials are available.
 
 Image understanding in the landed base is limited to Bluesky image URL/alt-text
 normalization plus image `ContextDocument` evidence from post context. Live
@@ -104,10 +96,10 @@ ignored.
 | Search/RAG runtime | real | `backend/app/deps.py`, `backend/app/ml/retrieval_service.py`, `backend/app/ml/retrieval_adapter.py`, Gate 5/6 tests and reviews | Default route attempts one-shot Dev B Search/RAG with trace-visible fallbacks. It is not adaptive. |
 | Adaptive retrieval | reserved | No capped adaptive loop in landed `origin/main`; G7-A adaptive work not merged | Do not claim the agent searches until confidence is high. |
 | Eval dataset | fixture-backed | `eval/posts.yaml`, `eval/fixtures/gate6/public_cases.json`, `make eval` summary | 19 cached rows, 10 fixture-backed public Bluesky URLs, 9 synthetic fixtures. Live search is not ground truth. |
-| GEPA | dry-run | `backend/app/agent/optimized/program.json`, `make optimize` | Optimizer/save/load plumbing exists; final artifact is dry-run metadata. No real compiled optimized program was produced. |
+| GEPA | real | `backend/app/agent/optimized/program.json`, `backend/app/agent/optimized/program_compiled/`, `backend/app/eval/gepa_dataset.py`, `make optimize` | GEPA examples are built from finalized cached eval fixtures, and a real compiled saved DSPy program is included. Loader use depends on DSPy and provider credentials. |
 | Provider comparison | skipped/config-limited | `GET /api/providers`, `backend/app/deps.py`, README/matrix | Registry and skipped-provider reasons are visible. No live multi-provider benchmark ran. |
 | Image understanding | partial | `backend/app/clients/bsky.py`, `backend/app/ml/diagnostics.py`, image eval cases | Image alt text and image context evidence are supported. Live vision was not run in the landed base. |
-| MLflow | real | `make mlflow-log`, `backend/app/ops/mlflow.py`, run `4c5dbfd54fae4f25bb6f08c1da8ff76c` | Local file-backed MLflow run and DSPy packaging path work. This is not a hosted experiment workflow. |
+| MLflow | real | `make mlflow-log`, `backend/app/ops/mlflow.py`, run `880f747f2a724246ab481ea35f3c6233` | Local file-backed MLflow run and DSPy packaging path work. This is not a hosted experiment workflow. |
 | Ragas/LLM judge | skipped/config-limited | `make eval` summary, Gate 6 review | Default eval uses deterministic/no-network judging. Gate 6 recorded explicit offline optional judge smokes; G7-C did not run provider-backed judges. |
 | Browser/user verification | partial | Gate 6 frontend tests, `make deep-review` user smoke target, Gate 5/6 review records | UI behavior is covered by tests and previous browser notes; G7-C did not run new browser-use verification. |
 | No-write API safety | real | `backend/app/clients/bsky.py`, `backend/app/clients/fetcher.py`, Gate 6 API smoke/readiness tests, `R037` | Public reads and safe web GETs only; no Bluesky write endpoints are exposed. |
@@ -119,13 +111,12 @@ The matrix remains at 45 mapped rows. G7-C tightened wording for the final truth
 surface:
 
 - `R013`: one-shot Search/RAG is integrated; adaptive retrieval is not claimed.
-- `R026`: GEPA row now separates optimizer/save/load plumbing from the dry-run
-  final artifact in this branch and the real compiled G7-B branch artifact at
-  `3a79056` that must be merged before the final submitted base can claim it.
+- `R026`: GEPA row now points to the merged eval-dataset bridge and real compiled
+  saved DSPy program.
 - `R027`: MLflow row now states local file-backed run/package behavior, not a
   hosted workflow.
-- `R032`: image row now distinguishes real alt-text/image context evidence from
-  reserved live vision.
+- `R032`: image row now distinguishes helper-level vision/alt-text fallback from
+  a full browser/UI live vision claim.
 - `R033`: provider row now distinguishes provider registry/skip visibility from
   an unrun live multi-provider benchmark.
 - `make gate7-final-truth-audit` now enforces those final-truth claims so a
@@ -154,11 +145,7 @@ Only `reports/.gitkeep` remains tracked.
 
 ## Skipped Or Blocked Items
 
-- Real GEPA compile: skipped in G7-C because the landed final artifact is dry-run
-  metadata and no compiled DSPy program was produced in this branch.
-- GEPA eval-dataset bridge and real compiled program: ready on
-  `origin/codex/g7b-optimization-bonus` commit `3a79056`, not merged into the
-  current G7-C branch.
+- G7-A adaptive retrieval: still reserved; no capped adaptive loop is merged here.
 - Live vision: skipped/config-limited; landed base uses image alt-text/context
   evidence.
 - Live provider comparison: skipped/config-limited; optional provider keys and
@@ -180,18 +167,18 @@ Only `reports/.gitkeep` remains tracked.
   integration-checkpoint wording about thread-context evidence. G7-C did not edit
   backend code; the executable path and tests are the evidence for the runtime
   classification.
-- GEPA final artifact is dry-run metadata. Reviewers should not treat it as a
-  real optimized compiled program.
+- GEPA loader use still depends on DSPy and provider credentials even though the
+  compiled program artifact is present.
 - Image and provider bonus surfaces are honest but incomplete: alt-text and
   registry/skip paths exist, while live vision and live provider comparison are
   reserved.
 
 ## Submission Decision
 
-The repository is submission-ready as an honest final delivery. The G7-C branch
-is pushed and `origin/codex/g7-c-final-truth-docs-submission` matches `HEAD`;
+The repository is submission-ready as an honest final delivery. The integration branch
+is pushed and `origin/codex/g7bc-final-integration` matches `HEAD`;
 use `git log` for the latest audit-follow-up commit. This
 is real where integrated, cached where reproducibility matters, skipped where
-credentials/environment are absent, dry-run where only metadata/smoke paths
-exist, and reserved where not implemented, tested, documented, and visible in
-reports.
+credentials/environment are absent, partial where helper paths exist without
+full UI/runtime proof, and reserved where not implemented, tested, documented,
+and visible in reports.

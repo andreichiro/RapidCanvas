@@ -25,7 +25,7 @@ help:
 	@echo "  make eval                 Run cached eval fixtures and write ignored reports"
 	@echo "  make gate6-shipping-audit Regenerate eval reports and verify Gate 6 truth layer"
 	@echo "  make gate7-final-truth-audit Verify final truth docs do not overclaim"
-	@echo "  make optimize             Run GEPA dry-run metadata save"
+	@echo "  make optimize             Verify/preserve GEPA saved program metadata"
 	@echo "  make mlflow-log           Create a local MLflow run"
 	@echo "  make mlflow-ui            Start the local MLflow UI"
 
