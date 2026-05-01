@@ -19,7 +19,7 @@ EXPECTED_TRUTH = {
     "Search/RAG runtime": "real", "Adaptive retrieval": "real",
     "Eval dataset": "fixture-backed", "GEPA": "real",
     "Provider comparison": "skipped/config-limited", "Image understanding": "partial",
-    "MLflow": "real", "Ragas/LLM judge": "skipped/config-limited",
+    "MLflow": "real", "Ragas/LLM judge": "skipped/config-limited", "Public live answer usefulness": "partial",
     "Browser/user verification": "partial", "No-write API safety": "real",
     "No-secrets hygiene": "real",
 }

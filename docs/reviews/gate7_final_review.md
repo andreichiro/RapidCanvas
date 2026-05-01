@@ -35,6 +35,7 @@ and G7-A commit `fc4dff4`.
 | `make lint` | passed | Backend Ruff/mypy and frontend TypeScript checks. |
 | `make test` | passed | 342 backend tests and 32 frontend tests on the merged A/B/C integration branch. |
 | focused G7-A runtime tests | passed | 16 targeted Search/RAG, adaptive retrieval, query-planning, source-order, no-credential, and service tests. |
+| `--mode api` public smoke | passed with limitation | 10 fixture-backed public Bluesky URLs hit the live route; all returned cited 3-bullet `abstain` fallbacks because this shell had no provider key. |
 | `make skills-review` | passed | All four local project skills validate. |
 | `make deep-review` | passed | Full local review gate, including audit/build, generated-artifact cleanup, maintainability, API smoke, and frontend smoke. |
 | final `make eval && make check-secrets` | passed | Regenerated ignored cached eval reports after `deep-review` cleanup and rechecked secrets. |
@@ -96,6 +97,7 @@ ignored.
 |---|---|---|---|
 | Search/RAG runtime | real | `backend/app/deps.py`, `backend/app/ml/retrieval_service.py`, `backend/app/ml/retrieval_adapter.py`, G7-A tests | Default route uses Dev B Search/RAG with trace-visible fallbacks when runtime modules are present. |
 | Adaptive retrieval | real | `backend/app/agent/adaptive_retrieval.py`, `backend/app/agent/query_planning.py`, `backend/app/tests/integration/test_gate7_adaptive_retrieval.py`, forced live adaptive smoke from G7-A | Bounded adaptive path is integrated: max one extra safe query and no unbounded confidence-search loop. Organic public round-two trigger was not observed before shipping. |
+| Public live answer usefulness | partial | `/tmp/rapidcanvas_gate7_all_public_api_eval/summary.json`, direct TestClient sample | Without a local provider key, 10/10 public API-mode cases were safe cited abstentions, not the assignment-style rich context answer. Cached eval remains the quality proof. |
 | Eval dataset | fixture-backed | `eval/posts.yaml`, `eval/fixtures/gate6/public_cases.json`, `make eval` summary | 19 cached rows, 10 fixture-backed public Bluesky URLs, 9 synthetic fixtures. Live search is not ground truth. |
 | GEPA | real | `backend/app/agent/optimized/program.json`, `backend/app/agent/optimized/program_compiled/`, `backend/app/eval/gepa_dataset.py`, `make optimize` | GEPA examples are built from finalized cached eval fixtures, and a real compiled saved DSPy program is included. Loader use depends on DSPy and provider credentials. |
 | Provider comparison | skipped/config-limited | `GET /api/providers`, `backend/app/deps.py`, README/matrix | Registry and skipped-provider reasons are visible. No live multi-provider benchmark ran. |
@@ -148,6 +150,9 @@ Only `reports/.gitkeep` remains tracked.
 
 - Organic public adaptive trigger: not observed before G7-A shipped; deterministic
   tests and forced live adaptive smoke cover second-round entry.
+- Provider-backed live answer quality: not verified in this shell. API-mode smoke
+  over all 10 public fixture-backed URLs returned schema-valid cited 3-bullet
+  abstentions because `OPENAI_API_KEY` was unavailable locally.
 - Live vision: skipped/config-limited; landed base uses image alt-text/context
   evidence.
 - Live provider comparison: skipped/config-limited; optional provider keys and
@@ -164,6 +169,8 @@ Only `reports/.gitkeep` remains tracked.
 - Live route quality still depends on external provider credentials, Bluesky/web
   availability, embeddings, and optional provider behavior. Gate 6 cached scores
   are the reproducible quality proof, not a guarantee for drifting live posts.
+- No-key live public smoke proves safety and output shape, but not rich
+  assignment-style contextual usefulness.
 - Adaptive retrieval is bounded, not open-ended: max one extra safe query, and it
   does not search until confidence is high.
 - The backend `build_gate3_explainer()` docstring still contains older

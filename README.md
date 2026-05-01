@@ -179,6 +179,8 @@ cases. `dspy` and `ragas` modes require the listed optional extras; when
 they use `dspy_judge_model` for provider-backed judging. The default `make eval`
 path stays offline and deterministic for reproducible review.
 
+G7-C also ran API mode over the 10 fixture-backed public URLs after the final A/B/C merge. In the no-key local shell, every live response stayed schema-valid, cited, and 3 bullets, but fell back to `abstain`; provider-backed live answer quality should be rerun with `OPENAI_API_KEY` configured locally.
+
 For the Gate 6 release-captain audit, run:
 
 ```bash
@@ -310,10 +312,8 @@ reserved rows to be deliberately explained in the Gate 7 final truth review.
 
 ## Handoff Spine
 
-Research docs live under `docs/research/`, task packets live at
-`docs/task_packets.md`, and local project skills live under `.codex/skills/`.
-Run `make skills-review` or each skill's local `quick_validate.py` before
-handoff.
+Research docs live under `docs/research/`, task packets at `docs/task_packets.md`,
+and local project skills under `.codex/skills/`; run `make skills-review` before handoff.
 Gate 7 and release-captain integration should rerun selected API-mode public
 cases with runtime credentials, complete reserved image/provider evidence,
 watch for organic adaptive second-round cases, and preserve the cached/offline

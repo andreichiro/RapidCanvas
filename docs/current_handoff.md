@@ -37,6 +37,9 @@ Active lane owner: Dev G7-C final truth/docs/submission consuming G7-A/G7-B evid
 - Ragas/DSPy judge provider-backed runs were not launched by G7-C. Default eval
   stays deterministic/no-network; Gate 6 records explicit optional offline judge
   smokes.
+- G7-C API-mode smoke over all 10 fixture-backed public Bluesky URLs hit the
+  live route and returned schema-valid cited 3-bullet responses, but all were
+  `abstain` fallbacks because no provider key was available in the local shell.
 - The OpenAI key pasted in chat was not written to disk or commands by G7-C;
   the integration shell did not have `OPENAI_API_KEY` available. Rotate it
   before real use.
