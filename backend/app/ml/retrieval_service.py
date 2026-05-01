@@ -14,6 +14,7 @@ from app.config import Settings, get_settings
 from app.guardrails.identifiers import safe_identifier
 from app.guardrails.prompt_injection import PromptInjectionScanner, sanitize_context_documents
 from app.ml import diagnostics as d
+from app.ml import image as img
 from app.ml.boundary import boundary_attr as ba
 from app.ml.boundary import boundary_text, bounded_items, safe_limit
 from app.ml.c2_policy import unique_documents_by_id
@@ -46,6 +47,7 @@ class RetrievalService:
         search_providers: Sequence[sc.SearchProvider] = (),
         linked_page_fetcher: LinkedPageFetcher | None = None,
         settings: RetrievalSettings | None = None,
+        app_settings: Settings | None = None,
         scanner: PromptInjectionScanner | None = None,
         startup_warnings: Sequence[str] = (),
     ) -> None:
@@ -56,6 +58,7 @@ class RetrievalService:
         self._search_providers = [cast(sc.SearchProvider, provider) for provider in provider_items]
         self._linked_page_fetcher = linked_page_fetcher or LinkedPageFetcher()
         self._settings = settings or RetrievalSettings()
+        self._app_settings = app_settings or get_settings()
         self._scanner = scanner or PromptInjectionScanner()
         self._startup_warnings = tuple([*warning_strings(startup_warnings), *provider_warnings])
 
@@ -113,6 +116,15 @@ class RetrievalService:
             else ([], [])
         )
         warnings.extend(context_warnings)
+        if (
+            settings.include_thread_context
+            and self._app_settings.enable_image_understanding
+            and self._app_settings.openai_api_key is not None
+        ):
+            documents = img.without_basic_image_alt_documents(documents)
+            image_documents, image_warnings = self._image_context_documents(post)
+            documents.extend(image_documents)
+            warnings.extend(image_warnings)
         blocks = d.private_blocks_from_warnings(warnings)
         if settings.include_linked_pages:
             linked_documents, link_warnings, link_blocks = await self._linked_page_documents(
@@ -133,6 +145,28 @@ class RetrievalService:
             warnings.extend(search_warnings)
             blocks.extend(d.private_blocks_from_warnings(search_warnings))
         return documents, warnings, blocks
+
+    def _image_context_documents(
+        self,
+        post: PostContext,
+    ) -> tuple[list[ContextDocument], list[str]]:
+        images, image_iter_warnings = bounded_items(
+            ba(post, "images", "post_images_field_failed"), 20, "image_iter_failed"
+        )
+        image_refs, coercion_warnings = img.coerce_image_refs(images)
+        result = img.build_image_context_documents(
+            image_refs,
+            vision_enabled=True,
+            describe_image=lambda image: img.describe_image_with_openai(
+                image,
+                settings=self._app_settings,
+            ),
+        )
+        return img.runtime_image_documents(result.documents), [
+            *image_iter_warnings,
+            *coercion_warnings,
+            *result.warnings,
+        ]
 
     def _sanitize(
         self, documents: Sequence[ContextDocument]
@@ -292,6 +326,7 @@ def build_retrieval_service(
         linked_page_fetcher=fetcher,
         settings=active_retrieval_settings,
         startup_warnings=startup_warnings,
+        app_settings=app_settings,
     )
 
 

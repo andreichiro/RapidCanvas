@@ -2,26 +2,21 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Sequence
 from importlib import import_module
-from math import isfinite
-from typing import Any, cast
+from typing import Any
 
+from app.agent import dspy_parsing as parsed
 from app.agent.runner import AdapterMode, ClassificationResult, HeuristicSignatureRunner
 from app.agent.signatures import build_dspy_signature_classes
-from app.agent.untrusted import evidence_untrusted_label
 from app.guardrails.output import (
-    BulletDraft,
     ExplanationDraft,
     ValidationResult,
     text_appears_non_english,
 )
-from app.guardrails.policies import compact_text
 from app.schemas.domain import (
     ContextDocument,
     Evidence,
-    FallbackMode,
     PostContext,
     SourceType,
     TrustAssessment,
@@ -55,8 +50,8 @@ class DspySignatureRunner:
         prediction = self._predict(
             "classify",
             self._classify,
-            post_text=_label("UNTRUSTED_POST_TEXT", post.text),
-            thread_context=_label("UNTRUSTED_THREAD_CONTEXT", _thread_context(post)),
+            post_text=parsed.label("UNTRUSTED_POST_TEXT", post.text),
+            thread_context=parsed.label("UNTRUSTED_THREAD_CONTEXT", parsed.thread_context(post)),
         )
         if prediction is None:
             return self._fallback.classify(post)
@@ -69,13 +64,13 @@ class DspySignatureRunner:
         prediction = self._predict(
             "query_generation",
             self._queries,
-            post_text=_label("UNTRUSTED_POST_TEXT", post.text),
+            post_text=parsed.label("UNTRUSTED_POST_TEXT", post.text),
             category=category,
-            known_context=_label("UNTRUSTED_THREAD_CONTEXT", _thread_context(post)),
+            known_context=parsed.label("UNTRUSTED_THREAD_CONTEXT", parsed.thread_context(post)),
         )
         if prediction is None:
             return self._fallback.generate_queries(post, category)
-        return _json_list(str(getattr(prediction, "queries_json", "[]")))[:4]
+        return parsed.json_list(str(getattr(prediction, "queries_json", "[]")))[:4]
 
     def detect_prompt_injection(
         self,
@@ -85,13 +80,13 @@ class DspySignatureRunner:
         prediction = self._predict(
             "prompt_injection_detection",
             self._detect,
-            content=_label(label, content),
+            content=parsed.label(label, content),
         )
         if prediction is None:
             fallback_flags = self._fallback.detect_prompt_injection(content, label)
             return list(dict.fromkeys(["dspy_provider_error", *fallback_flags]))
         risk = str(getattr(prediction, "risk", "none")).lower()
-        reasons = _json_list(str(getattr(prediction, "reasons_json", "[]")))
+        reasons = parsed.json_list(str(getattr(prediction, "reasons_json", "[]")))
         if risk in {"medium", "high"} or reasons:
             return ["prompt_injection_risk"]
         return []
@@ -100,12 +95,12 @@ class DspySignatureRunner:
         prediction = self._predict(
             "rerank",
             self._rerank,
-            post_text=_label("UNTRUSTED_POST_TEXT", post.text),
-            candidate_evidence=_evidence_json(evidence, self._document_source_types),
+            post_text=parsed.label("UNTRUSTED_POST_TEXT", post.text),
+            candidate_evidence=parsed.evidence_json(evidence, self._document_source_types),
         )
         if prediction is None:
             return self._fallback.rerank_evidence(post, evidence)
-        ranked_ids = _json_list(str(getattr(prediction, "ranked_evidence_json", "[]")))
+        ranked_ids = parsed.json_list(str(getattr(prediction, "ranked_evidence_json", "[]")))
         by_id = {item.id: item for item in evidence}
         ranked = [by_id[item_id] for item_id in ranked_ids if item_id in by_id]
         ranked_id_set = {ranked_item.id for ranked_item in ranked}
@@ -120,8 +115,8 @@ class DspySignatureRunner:
         prediction = self._predict(
             "trust_assessment",
             self._assess,
-            post_text=_label("UNTRUSTED_POST_TEXT", post.text),
-            evidence=_evidence_json(evidence, self._document_source_types),
+            post_text=parsed.label("UNTRUSTED_POST_TEXT", post.text),
+            evidence=parsed.evidence_json(evidence, self._document_source_types),
         )
         if prediction is None:
             assessment = self._fallback.assess_evidence_trust(post, evidence)
@@ -134,19 +129,19 @@ class DspySignatureRunner:
                     "DSPy provider call failed; guarded fallback was used.",
                 ],
             )
-        score = _float_or_default(str(getattr(prediction, "trust_score", "0.0")), 0.0)
-        fallback = _fallback_mode(str(getattr(prediction, "fallback_mode", "abstain")))
+        score = parsed.float_or_default(str(getattr(prediction, "trust_score", "0.0")), 0.0)
+        fallback = parsed.fallback_mode(str(getattr(prediction, "fallback_mode", "abstain")))
         return TrustAssessment(
             score=max(0.0, min(1.0, score)),
             fallback_mode=fallback,
             flags=[] if fallback == "none" else [f"dspy_trust_{fallback}"],
-            reasons=_json_list(str(getattr(prediction, "reasons_json", "[]"))),
+            reasons=parsed.json_list(str(getattr(prediction, "reasons_json", "[]"))),
         )
 
     def explain(self, post: PostContext, evidence: Sequence[Evidence]) -> ExplanationDraft:
         inputs = {
-            "post_text": _label("UNTRUSTED_POST_TEXT", post.text),
-            "evidence": _evidence_json(evidence, self._document_source_types),
+            "post_text": parsed.label("UNTRUSTED_POST_TEXT", post.text),
+            "evidence": parsed.evidence_json(evidence, self._document_source_types),
         }
         if self._optimized_explain_program is not None:
             prediction = self._predict(
@@ -159,8 +154,8 @@ class DspySignatureRunner:
             prediction = self._predict("explain", self._explain, **inputs)
         if prediction is None:
             return self._fallback.explain(post, evidence)
-        return _normalize_draft_source_ids(
-            _draft_from_json(str(getattr(prediction, "bullets_json", "[]"))),
+        return parsed.normalize_draft_source_ids(
+            parsed.draft_from_json(str(getattr(prediction, "bullets_json", "[]"))),
             evidence,
         )
 
@@ -173,19 +168,19 @@ class DspySignatureRunner:
         prediction = self._predict(
             "validate",
             self._validate,
-            post_text=_label("UNTRUSTED_POST_TEXT", post.text),
+            post_text=parsed.label("UNTRUSTED_POST_TEXT", post.text),
             bullets_json=draft.model_dump_json(),
-            evidence=_evidence_json(evidence, self._document_source_types),
+            evidence=parsed.evidence_json(evidence, self._document_source_types),
         )
         if prediction is None:
             return self._fallback.validate(post, draft, evidence)
-        revised_draft = _normalize_draft_source_ids(
-            _draft_from_json(str(getattr(prediction, "revised_bullets_json", "[]"))),
+        revised_draft = parsed.normalize_draft_source_ids(
+            parsed.draft_from_json(str(getattr(prediction, "revised_bullets_json", "[]"))),
             evidence,
         )
         return ValidationResult(
             is_valid=str(getattr(prediction, "is_valid", "false")).lower() == "true",
-            issues=_json_list(str(getattr(prediction, "issues_json", "[]"))),
+            issues=parsed.json_list(str(getattr(prediction, "issues_json", "[]"))),
             revised_bullets=revised_draft.bullets,
         )
 
@@ -214,13 +209,13 @@ class DspySignatureRunner:
             self._judge,
             expected=expected,
             prediction=prediction,
-            evidence=_evidence_json(evidence, self._document_source_types),
+            evidence=parsed.evidence_json(evidence, self._document_source_types),
         )
         if judged is None:
             return self._fallback.judge_evaluation_case(expected, prediction, evidence)
-        scores = _json_mapping(str(getattr(judged, "scores_json", "{}")))
-        labels = _json_list(str(getattr(judged, "error_labels_json", "[]")))
-        score = _float_or_default(str(scores.get("score", 0.0)), 0.0)
+        scores = parsed.json_mapping(str(getattr(judged, "scores_json", "{}")))
+        labels = parsed.json_list(str(getattr(judged, "error_labels_json", "[]")))
+        score = parsed.float_or_default(str(scores.get("score", 0.0)), 0.0)
         return {"score": score, "error_labels": labels}
 
     def runtime_guardrail_flags(self) -> list[str]:
@@ -258,120 +253,12 @@ class DspySignatureRunner:
         )
         if prediction is None:
             return None
-        return _normalize_draft_source_ids(
-            _draft_from_json(str(getattr(prediction, "translated_bullets_json", "[]"))),
+        return parsed.normalize_draft_source_ids(
+            parsed.draft_from_json(str(getattr(prediction, "translated_bullets_json", "[]"))),
             evidence,
         )
 
 
-def _thread_context(post: PostContext) -> str:
-    parts = [*post.parent_texts, *post.quoted_texts]
-    return "\n".join(compact_text(part, limit=400) for part in parts)
-
-
-def _label(label: str, text: str) -> str:
-    return f"{label}:\n{text}"
-
-
-def _evidence_json(
-    evidence: Sequence[Evidence],
-    document_source_types: dict[str, SourceType] | None = None,
-) -> str:
-    source_types = document_source_types or {}
-    payload = [
-        {
-            "id": item.id,
-            "source_id": item.source_id,
-            "score": round(_float_or_default(str(item.score), 0.0), 4),
-            "text": _label(
-                evidence_untrusted_label(item, source_types),
-                compact_text(item.text, limit=800),
-            ),
-        }
-        for item in evidence
-    ]
-    return json.dumps(payload, allow_nan=False)
-
-
-def _draft_from_json(value: str) -> ExplanationDraft:
-    return ExplanationDraft(bullets=[_bullet_from_mapping(item) for item in _bullet_items(value)])
-
-
-def _normalize_draft_source_ids(
-    draft: ExplanationDraft,
-    evidence: Sequence[Evidence],
-) -> ExplanationDraft:
-    """Accept evidence ids from model output and convert them to public source ids."""
-
-    evidence_to_source = {item.id: item.source_id for item in evidence}
-    source_ids = {item.source_id for item in evidence}
-    normalized: list[BulletDraft] = []
-    for bullet in draft.bullets:
-        mapped_ids = [
-            evidence_to_source.get(source_id, source_id)
-            for source_id in bullet.source_ids
-            if source_id in source_ids or source_id in evidence_to_source
-        ]
-        normalized.append(
-            BulletDraft(
-                text=bullet.text,
-                source_ids=list(dict.fromkeys(mapped_ids)),
-            )
-        )
-    return ExplanationDraft(bullets=normalized)
-
-
-def _bullet_items(value: str) -> list[dict[str, object]]:
-    parsed = _parse_json(value)
-    if isinstance(parsed, dict):
-        bullets = parsed.get("bullets", [])
-        if isinstance(bullets, list):
-            return [item for item in bullets if isinstance(item, dict)]
-        return []
-    if isinstance(parsed, list):
-        return [item for item in parsed if isinstance(item, dict)]
-    return []
-
-
-def _bullet_from_mapping(item: dict[str, object]) -> BulletDraft:
-    text = item.get("text")
-    source_ids = item.get("source_ids", [])
-    if not isinstance(text, str):
-        text = ""
-    if not isinstance(source_ids, list):
-        source_ids = []
-    return BulletDraft(
-        text=text or "Empty model bullet.",
-        source_ids=[str(source) for source in source_ids],
-    )
-
-
-def _fallback_mode(value: str) -> FallbackMode:
-    if value in {"none", "partial", "abstain", "safe_summary"}:
-        return cast(FallbackMode, value)
-    return "abstain"
-
-
-def _json_list(value: str) -> list[str]:
-    parsed = _parse_json(value)
-    return [str(item) for item in parsed] if isinstance(parsed, list) else []
-
-
-def _json_mapping(value: str) -> dict[str, object]:
-    parsed = _parse_json(value)
-    return parsed if isinstance(parsed, dict) else {}
-
-
-def _float_or_default(value: str, default: float) -> float:
-    try:
-        parsed = float(value)
-    except ValueError:
-        return default
-    return parsed if isfinite(parsed) else default
-
-
-def _parse_json(value: str) -> object:
-    try:
-        return json.loads(value)
-    except json.JSONDecodeError:
-        return None
+_evidence_json = parsed.evidence_json
+_float_or_default = parsed.float_or_default
+_normalize_draft_source_ids = parsed.normalize_draft_source_ids

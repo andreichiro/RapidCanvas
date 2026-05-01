@@ -14,6 +14,13 @@ const DEFAULT_PROVIDER: ProviderInfo = {
 
 type RequestState = "idle" | "loading" | "success" | "error";
 
+const LOADING_MESSAGES = [
+  "Reading the Bluesky post and thread",
+  "Searching for relevant context",
+  "Ranking evidence and checking citations",
+  "Writing the English explanation",
+];
+
 export default function App() {
   const [postUrl, setPostUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -23,6 +30,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [providerWarning, setProviderWarning] = useState<string | null>(null);
   const [requestState, setRequestState] = useState<RequestState>("idle");
+  const [loadingStep, setLoadingStep] = useState(0);
 
   useEffect(() => {
     let ignore = false;
@@ -47,6 +55,17 @@ export default function App() {
       ignore = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (requestState !== "loading") {
+      return;
+    }
+    setLoadingStep(0);
+    const timer = window.setInterval(() => {
+      setLoadingStep((current) => (current + 1) % LOADING_MESSAGES.length);
+    }, 2200);
+    return () => window.clearInterval(timer);
+  }, [requestState]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -104,7 +123,14 @@ export default function App() {
         {error ? <ErrorBanner message={error} /> : null}
 
         <section className="result-region" aria-live="polite" aria-busy={requestState === "loading"}>
-          {requestState === "loading" ? <div className="loading-state">Fetching context...</div> : null}
+          {requestState === "loading" ? (
+            <div className="loading-state">
+              <span className="loading-icon" aria-hidden="true">
+                ...
+              </span>
+              <span>{LOADING_MESSAGES[loadingStep]}</span>
+            </div>
+          ) : null}
           {result ? <ResultView result={result} /> : null}
         </section>
       </section>

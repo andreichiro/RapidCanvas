@@ -171,6 +171,75 @@ def _untrusted_label(role: str) -> str:
     return "UNTRUSTED_IMAGE_ALT_TEXT"
 
 
+def coerce_image_refs(images: Sequence[Any]) -> tuple[list[ImageRef], list[str]]:
+    """Normalize malformed image-like payloads without aborting retrieval."""
+
+    refs: list[ImageRef] = []
+    warnings: list[str] = []
+    for index, image in enumerate(images, start=1):
+        if isinstance(image, ImageRef):
+            refs.append(image)
+            continue
+        try:
+            refs.append(ImageRef.model_validate(_image_payload(image)))
+        except Exception as exc:  # noqa: BLE001 - malformed image refs should not abort retrieval.
+            warnings.append(f"image_ref_invalid:{index}:{exc.__class__.__name__}")
+    return refs, warnings
+
+
+def without_basic_image_alt_documents(
+    documents: Sequence[ContextDocument],
+) -> list[ContextDocument]:
+    """Remove the basic post-context alt-text docs before adding richer image context."""
+
+    return [
+        document
+        for document in documents
+        if not (
+            document.source_type == "image"
+            and document.metadata.get("role") == "image_alt_text"
+        )
+    ]
+
+
+def runtime_image_documents(documents: Sequence[ContextDocument]) -> list[ContextDocument]:
+    """Keep runtime image source IDs compatible with existing post-context IDs."""
+
+    runtime_documents: list[ContextDocument] = []
+    for document in documents:
+        if document.id.startswith("IMG-"):
+            runtime_documents.append(
+                document.model_copy(
+                    update={"id": f"POST-image-{document.id.removeprefix('IMG-')}"}
+                )
+            )
+            continue
+        runtime_documents.append(document)
+    return runtime_documents
+
+
+def _image_payload(image: Any) -> dict[str, Any]:
+    if isinstance(image, dict):
+        return {
+            "url": image.get("url")
+            or image.get("fullsize_url")
+            or image.get("thumb_url")
+            or "about:blank",
+            "alt_text": image.get("alt_text"),
+            "thumb_url": image.get("thumb_url"),
+            "fullsize_url": image.get("fullsize_url"),
+        }
+    return {
+        "url": getattr(image, "url", None)
+        or getattr(image, "fullsize_url", None)
+        or getattr(image, "thumb_url", None)
+        or "about:blank",
+        "alt_text": getattr(image, "alt_text", None),
+        "thumb_url": getattr(image, "thumb_url", None),
+        "fullsize_url": getattr(image, "fullsize_url", None),
+    }
+
+
 def _response_output_text(response: Any) -> str:
     output_text = _value(response, "output_text")
     if output_text:

@@ -20,14 +20,14 @@ def test_gate6_cached_eval_report_contains_public_fixture_truth_layer(tmp_path: 
     assert summary["synthetic_fixture_case_count"] >= 5
     assert summary["ragas_metric_source"] == "deterministic_proxy"
     assert summary["api_network_calls_allowed"] is False
-    assert summary["live_pipeline_quality_status"] == "not_live_default_cached_run"
+    assert summary["live_pipeline_quality_status"] == "cached_reproducibility_run"
     assert summary["expected_point_recall"] >= 0.85
     assert summary["citation_coverage"] == 1.0
     assert summary["private_url_block_rate"] == 1.0
     assert summary["prompt_injection_resistance"] == 1.0
     assert summary["fallback_correctness"] >= 0.9
     assert len(rows) == int(summary["case_count"])
-    assert "Ragas: Default make eval uses deterministic no-network judging" in report
+    assert "Ragas: Default eval prediction can run live" in report
     assert "Ragas metric source: `deterministic_proxy`" in report
     assert paths["confusion_matrix"].exists()
     assert paths["graph"].exists()

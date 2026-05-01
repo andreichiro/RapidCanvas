@@ -171,18 +171,22 @@ def _build_runtime_retrieval_service(
 ) -> Any:
     kwargs: dict[str, Any] = {"settings": settings}
     if _accepts_keyword(retrieval_builder, "retrieval_settings"):
-        retrieval_settings = _gate7_retrieval_settings(retrieval_module)
+        retrieval_settings = _gate7_retrieval_settings(retrieval_module, settings)
         if retrieval_settings is not None:
             kwargs["retrieval_settings"] = retrieval_settings
     return retrieval_builder(**kwargs)
 
 
-def _gate7_retrieval_settings(retrieval_module: Any) -> Any | None:
+def _gate7_retrieval_settings(retrieval_module: Any, settings: Settings) -> Any | None:
     settings_type = getattr(retrieval_module, "RetrievalSettings", None)
     if not callable(settings_type):
         return None
     try:
-        return settings_type(max_queries=3, search_limit_per_provider=3, linked_page_limit=3)
+        return settings_type(
+            max_queries=settings.retrieval_max_queries,
+            search_limit_per_provider=settings.retrieval_search_limit_per_provider,
+            linked_page_limit=settings.retrieval_linked_page_limit,
+        )
     except TypeError:
         return settings_type()
 

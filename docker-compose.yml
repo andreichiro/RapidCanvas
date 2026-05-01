@@ -1,4 +1,4 @@
-# One-command local stack: UI, API, Qdrant, and MLflow.
+# One-command Docker stack: UI, API, Qdrant, and MLflow.
 services:
   qdrant:
     image: qdrant/qdrant:v1.15.5

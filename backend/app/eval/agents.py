@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
-from typing import Any, Protocol
+from copy import deepcopy
+from typing import Any, Literal, Protocol
 
 from app.eval.dataset import CachedFixture, EvalCase, load_cached_fixture
 
@@ -51,6 +53,9 @@ class CallableEvalAgent:
         return CachedFixture.model_validate(result)
 
 
+CachePolicy = Literal["none", "exact-post"]
+
+
 class FastApiEvalAgent:
     """Evaluate the currently wired FastAPI explainer through `/api/explain`.
 
@@ -58,34 +63,47 @@ class FastApiEvalAgent:
     3 is still the default app implementation.
     """
 
-    def __init__(self, provider: str = "openai", client: HttpClient | None = None) -> None:
+    def __init__(
+        self,
+        provider: str = "openai",
+        client: HttpClient | None = None,
+        cache_policy: CachePolicy = "none",
+    ) -> None:
         self._client = client or _build_test_client()
         self._provider = provider
+        self._cache_policy = cache_policy
 
     def predict(self, case: EvalCase) -> CachedFixture:
+        payload: dict[str, object] = {
+            "post_url": case.url,
+            "provider": self._provider,
+            "include_trace": True,
+        }
+        if api_key := os.getenv("OPENAI_API_KEY"):
+            payload["api_key"] = api_key
         try:
             response = self._client.post(
                 "/api/explain",
-                json={"post_url": case.url, "provider": self._provider, "include_trace": True},
+                json=payload,
             )
         except Exception as exc:  # noqa: BLE001 - one failed API case should not abort eval.
-            return _error_fixture(
+            return self._fallback_or_error(
                 case,
                 status_code=0,
                 message=f"API client exception: {type(exc).__name__}: {exc}",
             )
         if response.status_code >= 400:
-            return _response_error_fixture(case, response)
+            return self._response_fallback_or_error(case, response)
         try:
             prediction = response.json()
         except Exception as exc:  # noqa: BLE001 - preserve the failure as a scored eval row.
-            return _error_fixture(
+            return self._fallback_or_error(
                 case,
                 status_code=response.status_code,
                 message=f"API returned non-JSON success body: {type(exc).__name__}: {exc}",
             )
         if not isinstance(prediction, dict):
-            return _error_fixture(
+            return self._fallback_or_error(
                 case,
                 status_code=response.status_code,
                 message=f"API returned non-object JSON payload: {type(prediction).__name__}",
@@ -97,6 +115,33 @@ class FastApiEvalAgent:
             unsupported_claims=[],
         )
 
+    def _response_fallback_or_error(self, case: EvalCase, response: HttpResponse) -> CachedFixture:
+        error_fixture = _response_error_fixture(case, response)
+        return self._exact_post_cache_fallback(case, error_fixture.notes or "") or error_fixture
+
+    def _fallback_or_error(
+        self,
+        case: EvalCase,
+        *,
+        status_code: int,
+        message: str,
+    ) -> CachedFixture:
+        error_fixture = _error_fixture(case, status_code=status_code, message=message)
+        return self._exact_post_cache_fallback(case, message) or error_fixture
+
+    def _exact_post_cache_fallback(self, case: EvalCase, reason: str) -> CachedFixture | None:
+        if self._cache_policy != "exact-post":
+            return None
+        try:
+            fixture = load_cached_fixture(case)
+        except Exception:  # noqa: BLE001 - live eval should keep the original API error.
+            return None
+        post_payload = fixture.prediction.get("post", {})
+        cached_url = str(post_payload.get("url", "")) if isinstance(post_payload, dict) else ""
+        if _normalize_url(cached_url) != _normalize_url(case.url):
+            return None
+        return _with_exact_cache_note(fixture, reason)
+
 
 def _build_test_client() -> HttpClient:
     from fastapi.testclient import TestClient
@@ -106,13 +151,13 @@ def _build_test_client() -> HttpClient:
     return TestClient(create_app())
 
 
-def build_eval_agent(mode: str) -> EvalAgent:
+def build_eval_agent(mode: str, cache_policy: CachePolicy = "none") -> EvalAgent:
     """Build the requested runner agent."""
 
     if mode in {"cached", "fake-agent"}:
         return FixtureEvalAgent()
     if mode == "api":
-        return FastApiEvalAgent()
+        return FastApiEvalAgent(cache_policy=cache_policy)
     raise ValueError(f"unsupported eval mode: {mode}")
 
 
@@ -160,6 +205,29 @@ def _error_fixture(case: EvalCase, status_code: int, message: str) -> CachedFixt
         unsupported_claims=[f"{case.id}: API eval failed with {status_label}"],
         notes=message,
     )
+
+
+def _with_exact_cache_note(fixture: CachedFixture, reason: str) -> CachedFixture:
+    payload = deepcopy(fixture.model_dump())
+    prediction = payload.get("prediction")
+    if not isinstance(prediction, dict):
+        prediction = {}
+        payload["prediction"] = prediction
+    trace = prediction.get("trace")
+    if not isinstance(trace, dict):
+        trace = {}
+        prediction["trace"] = trace
+    warnings = trace.get("warnings")
+    if isinstance(warnings, list):
+        warnings.append(f"exact_post_cache_fallback:{reason[:120]}")
+    else:
+        trace["warnings"] = [f"exact_post_cache_fallback:{reason[:120]}"]
+    payload["notes"] = f"exact_post_cache_fallback:{reason[:240]}"
+    return CachedFixture.model_validate(payload)
+
+
+def _normalize_url(value: str) -> str:
+    return value.rstrip("/")
 
 
 def _source_hints(prediction: dict[str, object]) -> list[str]:

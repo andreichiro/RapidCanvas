@@ -44,13 +44,16 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
     vision_model: str = "gpt-4.1-mini"
 
-    enable_image_understanding: bool = False
+    enable_image_understanding: bool = True
     enable_hf_reranker: bool = False
 
     mlflow_tracking_uri: str = "file:./mlruns"
     qdrant_url: str | None = None
     qdrant_path: str = ".cache/qdrant"
     reports_dir: str = "reports"
+    retrieval_max_queries: int = 3
+    retrieval_search_limit_per_provider: int = 3
+    retrieval_linked_page_limit: int = 3
 
     anthropic_api_key: SecretStr | None = None
     gemini_api_key: SecretStr | None = None

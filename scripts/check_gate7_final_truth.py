@@ -18,7 +18,7 @@ EXPECTED_SYNTHETIC = 9
 EXPECTED_TRUTH = {
     "Search/RAG runtime": "real", "Adaptive retrieval": "real",
     "Eval dataset": "fixture-backed", "GEPA": "real",
-    "Provider comparison": "skipped/config-limited", "Image understanding": "partial",
+    "Provider comparison": "partial", "Image understanding": "real",
     "MLflow": "real", "Ragas/LLM judge": "skipped/config-limited", "Public live answer usefulness": "partial",
     "Browser/user verification": "partial", "No-write API safety": "real",
     "No-secrets hygiene": "real",
@@ -28,19 +28,29 @@ ALLOWED_DELTA_PATHS = {
     "assets/dev_G7_C_WORKSPACE_CONTRACT.json", "assets/dev_G7_BC_WORKSPACE_CONTRACT.json",
     "assets/dev_G7_A_WORKSPACE_CONTRACT.json", "backend/app/deps.py", "backend/app/agent/service.py",
     "backend/app/api/routes.py", "backend/app/schemas/api.py",
-    "backend/app/agent/dspy_runner.py", "backend/app/agent/program.py",
+    "backend/app/agent/dspy_runner.py", "backend/app/agent/dspy_parsing.py",
+    "backend/app/agent/program.py",
     "backend/app/agent/signatures.py",
     "backend/app/clients/bsky.py", "backend/app/config.py",
-    "backend/app/guardrails/output.py", "backend/app/guardrails/trust.py",
-    "backend/app/ml/retrieval_service.py", "backend/app/ml/vector_store.py",
+    "backend/app/guardrails/output.py", "backend/app/guardrails/prompt_injection.py",
+    "backend/app/guardrails/trust.py",
+    "backend/app/eval/agents.py", "backend/app/eval/metrics.py",
+    "backend/app/eval/provider_comparison.py", "backend/app/eval/report.py",
+    "backend/app/eval/runner.py", "backend/app/ml/retrieval_service.py",
+    "backend/app/ml/vector_store.py",
     "backend/Dockerfile", "docker-compose.yml", "frontend/Dockerfile",
     "frontend/package-lock.json", "frontend/vite.config.ts",
     "backend/app/tests/integration/test_api_contracts.py",
+    "backend/app/tests/integration/test_gate6_eval_runner.py",
     "backend/app/tests/unit/test_bsky_client.py",
+    "backend/app/tests/unit/test_config.py",
     "backend/app/tests/unit/test_gate6_dev_c_quality_contract_review.py",
     "backend/app/tests/unit/test_guardrails.py",
+    "backend/app/tests/unit/test_eval_runner.py", "backend/app/tests/unit/test_provider_comparison.py",
     "backend/app/tests/unit/test_qdrant_remote_config.py",
-    "docs/current_handoff.md", "docs/requirements_matrix.md", "docs/reviews/gate7_final_review.md",
+    "docs/current_handoff.md", "docs/comprehensive_testing_strategy.md",
+    "docs/requirements_matrix.md", "docs/research/testing_eval.md",
+    "docs/reviews/gate7_final_review.md",
     "scripts/assert_dev_G7_C_execution_context.sh", "scripts/verify_dev_G7_C_isolation.sh",
     "scripts/assert_dev_G7_BC_execution_context.sh", "scripts/verify_dev_G7_BC_isolation.sh",
     "scripts/check_gate7_final_truth.py", "scripts/review_quality.py",
@@ -65,24 +75,36 @@ DOC_REQUIREMENTS = {
         "Video embeds are explicitly marked as unparsed",
         "Bounded adaptive retrieval",
         "masked field",
-        "make docker-up",
+        "make run",
+        "make eval-cached",
         "Qdrant",
         "MLflow",
-        "Optional providers require",
+        "make provider-comparison",
         "docs/requirements_matrix.md",
     ],
     "docs/current_handoff.md": [
         "one-shot integrated route", "codex/g7bc-final-integration", "3a79056", "fc4dff4",
         "Capped adaptive retrieval is enabled", "real compiled metadata",
         "masked OpenAI API-key field", "video_embed_unparsed", "4 English cited bullets",
-        "live helper smoke", "no live Anthropic/Gemini/Ollama benchmark ran",
+        "default-enabled runtime vision", "make provider-comparison",
+        "exact-post cache fallback",
+        "no live Anthropic/Gemini/Ollama benchmark ran",
         "G7-C did not run a fresh browser-use pass",
+        "docs/comprehensive_testing_strategy.md",
+    ],
+    "docs/comprehensive_testing_strategy.md": [
+        "first-class live quality path",
+        "exact-post cache fallback",
+        "masked UI",
+        "video_embed_unparsed",
+        "make provider-comparison",
     ],
     "docs/requirements_matrix.md": [
         "one-shot plus capped adaptive runtime status", "mode=real",
         "compiled saved DSPy program", "no fresh Gate 7 browser-use pass",
-        "transient-key live route smoke", "video_embed_unparsed", "live vision",
-        "no live provider comparison report was generated",
+        "transient-key live route smoke", "video_embed_unparsed", "OpenAI vision",
+        "exact-post cache fallback",
+        "generated provider-comparison report",
     ],
     "TRANSLATION_LOG.md": [
         "Gate 7 Search/RAG and adaptive retrieval truth", "Gate 7 G7-B/G7-C integration",
@@ -91,11 +113,12 @@ DOC_REQUIREMENTS = {
         "Gate 7 MLflow/Ragas/judge status", "Gate 7 pasted OpenAI key handling",
         "Gate 7 G7-B branch handoff", "Gate 7 closure API-key UI/default behavior",
         "Gate 7 reported video post behavior", "Gate 7 non-English response quality",
+        "Gate 7 first-class live eval default",
     ],
     "AGENTS.md": [
         "Gate 7 final A/B/C integration", "make gate7-final-truth-audit",
         "scripts/verify_dev_G7_BC_isolation.sh", "capped adaptive retrieval is enabled",
-        "real compiled saved DSPy program", "not a full UI vision",
+        "real compiled saved DSPy program", "default-enabled runtime vision",
     ],
 }
 
@@ -108,6 +131,7 @@ def main() -> int:
     readme = read(root / "README.md")
     agents = read(root / "AGENTS.md")
     matrix = read(root / "docs/requirements_matrix.md")
+    strategy = read(root / "docs/comprehensive_testing_strategy.md")
     translation_log = read(root / "TRANSLATION_LOG.md")
 
     check_git_scope(root, errors)
@@ -115,7 +139,7 @@ def main() -> int:
     check_gepa_truth(root, errors)
     check_runtime_truth(root, errors)
     check_final_review(final_review, errors)
-    check_docs(readme, handoff, matrix, translation_log, agents, errors)
+    check_docs(readme, handoff, matrix, strategy, translation_log, agents, errors)
     check_generated_artifact_hygiene(root, errors)
 
     print(json.dumps({"errors": errors, "checked": "gate7_final_truth"}, indent=2))
@@ -212,7 +236,8 @@ def check_runtime_truth(root: Path, errors: list[str]) -> None:
     need("api_key: SecretStr" in schema, errors, "request API key is not secret typed")
     need("written in English" in read(root / "backend/app/agent/signatures.py"), errors, "English output instruction missing")
     need("video_embed_unparsed" in read(root / "backend/app/clients/bsky.py"), errors, "video warning missing")
-    need("_normalize_draft_source_ids" in read(root / "backend/app/agent/dspy_runner.py"), errors, "citation id normalization missing")
+    parsing = read(root / "backend/app/agent/dspy_parsing.py")
+    need("normalize_draft_source_ids" in parsing, errors, "citation id normalization missing")
     need('type="password"' in form, errors, "UI API key input is not masked")
     need("noValidate" in form, errors, "form no-reload guard missing")
     need("api_key: trimmedApiKey" in app, errors, "UI does not send transient request key")
@@ -231,8 +256,9 @@ def check_final_review(final_review: str, errors: list[str]) -> None:
         "Video embeds",
         "reported Spanish video post smoke",
         "mode=real",
-        "live helper smoke",
-        "no Anthropic/Gemini/Ollama live comparison",
+        "default-enabled runtime vision",
+        "make live-quality-smoke",
+        "missing Anthropic/Gemini/Ollama credentials remain config-limited",
         "not a hosted experiment workflow",
         "did not run provider-backed judges",
         "G7-C did not run new browser-use verification",
@@ -241,10 +267,11 @@ def check_final_review(final_review: str, errors: list[str]) -> None:
     for phrase in required_phrases:
         need(phrase in normalized_review, errors, f"final review missing phrase: {phrase}")
 
-def check_docs(readme: str, handoff: str, matrix: str, translation_log: str, agents: str, errors: list[str]) -> None:
+def check_docs(readme: str, handoff: str, matrix: str, strategy: str, translation_log: str, agents: str, errors: list[str]) -> None:
     documents = {
         "README.md": readme,
         "docs/current_handoff.md": handoff,
+        "docs/comprehensive_testing_strategy.md": strategy,
         "docs/requirements_matrix.md": matrix,
         "TRANSLATION_LOG.md": translation_log,
         "AGENTS.md": agents,
@@ -259,13 +286,13 @@ def check_docs(readme: str, handoff: str, matrix: str, translation_log: str, age
 
 def check_matrix_status(matrix: str, errors: list[str]) -> None:
     rows = requirement_rows(matrix)
-    need(row_status(rows, "R032") == "reserved", errors, "R032 must remain reserved")
-    need(row_status(rows, "R033") == "reserved", errors, "R033 must remain reserved")
+    need(row_status(rows, "R032") == "implemented", errors, "R032 status drift")
+    need(row_status(rows, "R033") == "implemented", errors, "R033 status drift")
     need(row_status(rows, "R026") == "implemented", errors, "R026 status drift")
     need("mode=real" in row_text(rows, "R026"), errors, "R026 does not record real GEPA")
     need("capped adaptive" in row_text(rows, "R013"), errors, "R013 missing adaptive evidence")
     need("no fresh Gate 7 browser-use pass" in row_text(rows, "R008"), errors, "R008 overclaims browser verification")
-    need("no live provider comparison report was generated" in row_text(rows, "R039"), errors, "R039 overclaims provider report")
+    need("generated provider-comparison report" in row_text(rows, "R039"), errors, "R039 missing provider report")
 
 def check_no_overclaim_phrases(
     readme: str,

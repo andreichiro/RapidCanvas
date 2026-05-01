@@ -21,12 +21,21 @@
 }
 
 .loading-state {
+  display: inline-flex;
   width: fit-content;
+  align-items: center;
+  gap: 8px;
   border: 1px solid #d8dfdc;
   border-radius: 6px;
   background: #ffffff;
   padding: 10px 12px;
   color: #52625e;
+}
+
+.loading-icon {
+  min-width: 18px;
+  color: #1d6552;
+  font-weight: 900;
 }
 
 .result-view {

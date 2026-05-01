@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import NoReturn
 
+import pytest
+
 from app.eval.agents import FastApiEvalAgent
 from app.eval.dataset import CachedFixture, EvalCase
 from app.eval.runner import run_cached_eval, run_eval
@@ -75,6 +77,84 @@ def test_api_eval_agent_records_http_failures_without_crashing() -> None:
     assert fixture.unsupported_claims
 
 
+def test_api_eval_agent_passes_openai_key_from_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-env-key")
+
+    class Response:
+        status_code = 200
+
+        def json(self) -> dict[str, object]:
+            return {
+                "post": {"url": _api_case("api_key").url},
+                "bullets": [{"text": "supported point", "source_ids": ["S1"]}],
+                "sources": [{"id": "S1", "title": "source", "snippet": "supported point"}],
+                "trace": {"events": []},
+            }
+
+    class Client:
+        payload: object | None = None
+
+        def post(self, url: str, *, json: object) -> Response:
+            self.payload = json
+            return Response()
+
+    client = Client()
+
+    FastApiEvalAgent(client=client).predict(_api_case("api_key"))
+
+    assert isinstance(client.payload, dict)
+    assert client.payload["api_key"] == "sk-test-env-key"
+
+
+def test_api_eval_agent_uses_exact_post_cache_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = _api_case("exact_cache")
+    cached = _cached_fixture_for_url(case.url)
+
+    class Response:
+        status_code = 502
+
+        def json(self) -> dict[str, object]:
+            return {"detail": "upstream failed"}
+
+    class Client:
+        def post(self, url: str, *, json: object) -> Response:
+            return Response()
+
+    monkeypatch.setattr("app.eval.agents.load_cached_fixture", lambda _: cached)
+
+    fixture = FastApiEvalAgent(client=Client(), cache_policy="exact-post").predict(case)
+
+    assert fixture.prediction["post"]["url"] == case.url
+    assert "exact_post_cache_fallback" in str(fixture.prediction["trace"]["warnings"])
+    assert fixture.notes and fixture.notes.startswith("exact_post_cache_fallback:")
+
+
+def test_api_eval_agent_does_not_use_cache_for_different_post(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = _api_case("cache_mismatch")
+    cached = _cached_fixture_for_url("https://bsky.app/profile/example.com/post/different")
+
+    class Response:
+        status_code = 502
+
+        def json(self) -> dict[str, object]:
+            return {"detail": "upstream failed"}
+
+    class Client:
+        def post(self, url: str, *, json: object) -> Response:
+            return Response()
+
+    monkeypatch.setattr("app.eval.agents.load_cached_fixture", lambda _: cached)
+
+    fixture = FastApiEvalAgent(client=Client(), cache_policy="exact-post").predict(case)
+
+    assert fixture.prediction["trace"]["category"] == "api_error"
+    assert fixture.prediction["trace"]["adapter_mode"] == "api_eval_error"
+
+
 def test_api_eval_agent_records_client_exceptions_without_crashing() -> None:
     class Client:
         def post(self, url: str, *, json: object) -> NoReturn:
@@ -121,6 +201,35 @@ def test_api_mode_report_metadata_is_not_labeled_cached_only(tmp_path: Path) -> 
     assert "performs no network or model calls" not in report
 
 
+def test_api_mode_can_parallelize_case_predictions(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    built_cache_policies: list[str] = []
+
+    class Agent:
+        def predict(self, case: EvalCase) -> CachedFixture:
+            return make_fixture()
+
+    def build_agent(mode: str, cache_policy: str = "none") -> Agent:
+        assert mode == "api"
+        built_cache_policies.append(cache_policy)
+        return Agent()
+
+    monkeypatch.setattr("app.eval.runner.build_eval_agent", build_agent)
+
+    result = run_eval(
+        output_dir=tmp_path,
+        mode="api",
+        cache_policy="exact-post",
+        parallelism=4,
+    )
+
+    assert len(built_cache_policies) == int(result["summary"]["case_count"])
+    assert set(built_cache_policies) == {"exact-post"}
+    assert result["summary"]["live_case_count"] == result["summary"]["case_count"]
+
+
 def test_model_judge_report_metadata_marks_model_calls(tmp_path: Path) -> None:
     class Agent:
         def predict(self, case: EvalCase) -> CachedFixture:
@@ -155,4 +264,48 @@ def _api_case(case_id: str) -> EvalCase:
         expected_key_points=["safe failure"],
         expected_context_channels=["thread"],
         fixture_paths=["eval/fixtures/cached_eval_cases.json"],
+    )
+
+
+def _cached_fixture_for_url(url: str) -> CachedFixture:
+    return CachedFixture(
+        prediction={
+            "post": {
+                "url": url,
+                "author": "example.com",
+                "text": "cached",
+                "created_at": "2026-05-01T00:00:00Z",
+            },
+            "bullets": [
+                {"text": "supported point", "source_ids": ["S1"]},
+                {"text": "second point", "source_ids": ["S1"]},
+                {"text": "extra context", "source_ids": ["S1"]},
+            ],
+            "sources": [
+                {
+                    "id": "S1",
+                    "title": "cached source",
+                    "url": url,
+                    "type": "thread",
+                    "snippet": "cached",
+                }
+            ],
+            "trace": {
+                "category": "normal",
+                "fallback_mode": "none",
+                "guardrail_flags": [],
+                "warnings": [],
+                "latency_ms": 1,
+                "trust_score": 0.9,
+            },
+        },
+        retrieved_source_hints=["cached source"],
+        trace_sequence=[
+            "fetch_post",
+            "scan_input",
+            "classify",
+            "retrieve",
+            "assess_trust",
+            "validate",
+        ],
     )

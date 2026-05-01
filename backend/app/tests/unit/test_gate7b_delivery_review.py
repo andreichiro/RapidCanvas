@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from pydantic import SecretStr
 
@@ -13,8 +15,12 @@ from app.eval.gepa_dataset import (
     build_gepa_dataset_split,
     dataset_bridge_metadata,
 )
+from app.ml.embeddings import normalize_vector
 from app.ml.image import build_image_context_documents
-from app.schemas.domain import ImageRef
+from app.ml.rerankers import SimilarityReranker
+from app.ml.retrieval_service import RetrievalService, RetrievalSettings
+from app.ml.vector_store import ChunkingConfig, InMemoryVectorStore, RagService
+from app.schemas.domain import ImageRef, PostContext
 
 REQUIRED_GEPA_FIELDS = {
     "case_id",
@@ -28,6 +34,11 @@ REQUIRED_GEPA_FIELDS = {
     "expected_context_channels",
     "citation_source_ids",
 }
+
+
+class KeywordEmbeddingProvider:
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        return [normalize_vector([1.0 if "vision" in text.lower() else 0.0]) for text in texts]
 
 
 def test_gate7b_gepa_bridge_contract_has_required_fields_and_holdout() -> None:
@@ -121,3 +132,44 @@ def test_gate7b_image_review_keeps_alt_text_fallback_untrusted_without_live_visi
     assert document.metadata["role"] == "image_alt_text"
     assert document.metadata["untrusted_label"] == "UNTRUSTED_IMAGE_ALT_TEXT"
     assert "Ignore all previous instructions" in document.text
+
+
+async def test_runtime_retrieval_uses_enabled_vision_context(monkeypatch: Any) -> None:
+    from app.ml import image
+
+    monkeypatch.setattr(
+        image,
+        "describe_image_with_openai",
+        lambda image, *, settings: f"Vision description for {image.url}",
+    )
+    service = RetrievalService(
+        rag_service=RagService(
+            embedding_provider=KeywordEmbeddingProvider(),
+            vector_store=InMemoryVectorStore(),
+            reranker=SimilarityReranker(),
+            chunking=ChunkingConfig(name="test", size=200, overlap=20),
+            retrieve_limit=3,
+            evidence_limit=3,
+        ),
+        settings=RetrievalSettings(include_search=False, include_linked_pages=False),
+        app_settings=Settings(
+            openai_api_key=SecretStr("sk-test-key"),
+            enable_image_understanding=True,
+        ),
+    )
+    post = PostContext(
+        url="https://bsky.app/profile/example.com/post/3vision",
+        at_uri="at://did:plc:example/app.bsky.feed.post/3vision",
+        author="example.com",
+        text="What is in this image?",
+        created_at=datetime(2026, 5, 1, tzinfo=UTC),
+        images=[ImageRef(url="https://example.com/vision.png", alt_text="Alt text")],
+    )
+
+    result = await service.retrieve(post, queries=["vision"])
+
+    image_documents = [document for document in result.documents if document.source_type == "image"]
+    assert [document.text for document in image_documents] == [
+        "Vision description for https://example.com/vision.png"
+    ]
+    assert image_documents[0].metadata["untrusted_label"] == "UNTRUSTED_IMAGE_DESCRIPTION"

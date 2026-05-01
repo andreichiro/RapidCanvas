@@ -137,6 +137,33 @@ test("submits a Bluesky URL through the typed API client", async () => {
   });
 });
 
+test("shows detailed loading progress while the explanation is running", async () => {
+  const pendingExplain: Array<() => void> = [];
+  vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+    const url = String(input);
+    if (url.endsWith("/api/providers")) {
+      return Promise.resolve(jsonResponse(providersPayload));
+    }
+    if (url.endsWith("/api/explain")) {
+      return new Promise<Response>((resolve) => {
+        pendingExplain.push(() => resolve(jsonResponse(baseResponse)));
+      });
+    }
+    return Promise.reject(new Error(`Unexpected request: ${url}`));
+  });
+  render(<App />);
+
+  await fillRequiredFields();
+  fireEvent.click(screen.getByRole("button", { name: "Explain" }));
+
+  expect(await screen.findByText("Reading the Bluesky post and thread")).toBeVisible();
+  expect(screen.getByText("...")).toBeVisible();
+
+  expect(pendingExplain).toHaveLength(1);
+  pendingExplain[0]();
+  expect(await screen.findByText("Fetched post text is available.")).toBeVisible();
+});
+
 test("prevents native form navigation and handles submission in React", async () => {
   mockFetch();
   const { container } = render(<App />);

@@ -36,19 +36,20 @@ product behavior.
 
 Gate 6 Dev D rapid eval/reporting is implemented on the Gate 6 branch. It adds
 10 fixture-backed public Bluesky URLs, keeps 9 synthetic attack/edge fixtures
-clearly marked, reports public/synthetic provenance in `make eval`, and writes
+clearly marked, reports public/synthetic provenance in `make eval-cached`, and writes
 JSONL, Markdown, summary JSON, confusion matrix CSV, and SVG graph artifacts
-under ignored `reports/eval/`. Default eval is still offline; live API quality,
-provider-backed judges, and MLflow remain explicit commands.
+under ignored `reports/eval/`. `make eval` is now the live API quality path with
+exact-post cache fallback; `make eval-cached` is the offline reproducibility path.
 
 Gate 7 final A/B/C integration is implemented on the final integration branch.
 It keeps `docs/reviews/gate7_final_review.md`, README, matrix, and handoff
 claims honest and exposes `make gate7-final-truth-audit`. The submitted runtime
 truth is real Search/RAG by default; capped adaptive retrieval is enabled,
 GEPA has a real compiled saved DSPy program from cached eval fixtures, image
-support is helper-level vision/alt-text evidence with one live helper smoke and
-not a full UI vision claim, and provider comparison is registry/skip visibility
-rather than a live multi-provider benchmark. The one-command product path is
+support is default-enabled runtime vision evidence with untrusted alt-text
+fallback and no fresh browser/UI vision pass, and provider comparison has a
+report generator plus configured-provider live smoke command while optional
+providers still require their own credentials/services. The one-command product path is
 `make run`, which starts the Docker UI, API, Qdrant, and MLflow stack without
 baking in API keys.
 
@@ -69,7 +70,7 @@ make deep-review
 For Dev D eval/docs changes, also run:
 
 ```bash
-make eval
+make eval-cached
 make gate6-shipping-audit
 ```
 
@@ -112,6 +113,7 @@ make maintainability-review
 make user-smoke
 make run
 make eval
+make eval-cached
 make gate6-shipping-audit
 make gate7-final-truth-audit
 make dev
@@ -132,8 +134,8 @@ manifest parity, report-summary labels, documentation claims, Dev D ownership
 boundaries, and ignored generated artifacts.
 `make gate7-final-truth-audit` regenerates cached eval artifacts and verifies the
 Gate 7 truth table, real GEPA compiled-program metadata, Search/RAG plus capped
-adaptive retrieval wording, reserved bonus surfaces, no-live-provider-report
-wording, and generated-artifact hygiene.
+adaptive retrieval wording, default-enabled runtime vision wording,
+provider-comparison report wording, and generated-artifact hygiene.
 
 ## Ownership Boundaries
 
@@ -162,8 +164,9 @@ workflow edit in `TRANSLATION_LOG.md`.
    GEPA, and MLflow artifact logging.
 4. Dev E aligns the React UI with final source, citation, trust, fallback, and
    trace fields.
-5. Final integration runs `make deep-review`, `make eval`, live/browser checks,
-   and secret scans before submission.
+5. Final integration runs `make deep-review`, `make eval-cached`,
+   `OPENAI_API_KEY=... make eval`, live/browser checks, and secret scans before
+   submission.
 
 ## Project Skill Usage
 
@@ -180,25 +183,27 @@ Use the local skills under `.codex/skills/` when working in their areas:
 
 ## Eval Modes And Judge Backends
 
-`make eval` runs the default cached offline fixture path. The runner also exposes
-explicit modes for later integration:
+`make eval` runs the first-class live FastAPI eval path and requires
+`OPENAI_API_KEY`. It uses exact-post cache fallback only when the cached
+prediction URL matches the case URL. `make eval-cached` runs the offline fixture
+path for reproducibility. The runner also exposes explicit modes:
 
 ```bash
+cd backend && uv run python -m app.eval.runner --mode api --cache-policy exact-post --require-live-key --judge deterministic
 cd backend && uv run python -m app.eval.runner --mode cached --judge deterministic
 cd backend && uv run python -m app.eval.runner --mode fake-agent --judge deterministic
-cd backend && uv run python -m app.eval.runner --mode api --judge deterministic
 cd backend && uv run --extra ai python -m app.eval.runner --mode cached --judge dspy
 cd backend && uv run --extra eval python -m app.eval.runner --mode cached --judge ragas
 cd backend && uv run --all-extras python -m app.eval.runner --mode cached --judge composite
 ```
 
-`--mode api` may perform live Bluesky reads through the currently wired FastAPI
-app. `--judge dspy` uses `OPENAI_API_KEY` plus `dspy_judge_model` when
+`--mode api` performs live Bluesky/model/retrieval work through the currently
+wired FastAPI app. `--judge dspy` uses `OPENAI_API_KEY` plus `dspy_judge_model` when
 configured, and otherwise runs a no-network DSPy `BaseLM` so the DSPy program
 path is still executable in local review. `--judge ragas` calls
 `ragas.evaluate`; with `OPENAI_API_KEY` it uses the Ragas LLM metrics, and
 without a key it uses Ragas non-LLM context metrics plus local faithfulness
-scoring. The default deterministic judge remains the reproducible CI-safe path.
+scoring. The default deterministic judge remains the fast CI-safe scoring path.
 
 ## Coding Rules
 

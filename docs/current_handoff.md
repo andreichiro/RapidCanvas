@@ -11,14 +11,18 @@ GitHub file-list labels were refreshed with the final beyond-scope note commit.
 ## Gate 7 Final Truth Snapshot
 
 - Gate 6 is landed and reproducible in the Gate 7 integration clone: `make setup`,
-  `make eval`, `make requirements-review`, `make check-secrets`, and
+  `make eval-cached`, `make requirements-review`, `make check-secrets`, and
   `make deep-review` all passed.
 - `make gate7-final-truth-audit` now checks the final truth table, real GEPA
   metadata, compiled artifact presence, partial/reserved wording, eval counts,
   allowed Gate 7 integration file scope, and generated-artifact hygiene.
-- Default eval is fixture-backed and offline: 19 cached cases, 10
-  fixture-backed public Bluesky URLs, and 9 marked synthetic attack/edge
-  fixtures. Expected key points remain the curated truth layer.
+- Default `make eval` is now the first-class live API quality path and requires
+  `OPENAI_API_KEY`. It uses bounded retrieval limits, parallel case execution,
+  and exact-post cache fallback only when the cached prediction URL matches the
+  eval case URL. `make eval-cached` remains the fixture-backed offline audit
+  path with 19 cached cases, 10 fixture-backed public Bluesky URLs, and 9 marked
+  synthetic attack/edge fixtures. Expected key points remain the curated truth
+  layer.
 - Runtime Search/RAG is a real one-shot integrated route when modules and
   providers are available. `ThreadContextEvidenceRetriever` remains only an
   explicit fallback/injected path. Capped adaptive retrieval is enabled with max
@@ -42,17 +46,17 @@ GitHub file-list labels were refreshed with the final beyond-scope note commit.
   `backend/app/agent/optimized/program.json` with a saved DSPy program under
   `backend/app/agent/optimized/program_compiled/`. The examples come from
   finalized cached Gate 6 eval fixtures.
-- Image support includes Bluesky image URL/alt-text context evidence plus G7-B's
-  helper-level vision path with untrusted alt-text fallback. G7-C ran a live
-  helper smoke: one upstream image URL failed to download, and a second public
-  image succeeded in 3.3s. This is not a full browser/UI live vision claim.
-- Provider comparison is provider registry and skipped-provider visibility
-  through `GET /api/providers`; selecting Anthropic with only the OpenAI request
-  key was smoke-tested and fell back to OpenAI with trace warnings. no live
-  Anthropic/Gemini/Ollama benchmark ran.
-- Docker Compose config passed and includes backend, frontend, Qdrant, and
-  MLflow. Full container boot was blocked locally because the Docker daemon was
-  not running.
+- Image support is default-enabled runtime vision evidence for image posts when
+  a request key or local `OPENAI_API_KEY` is available, with untrusted alt-text
+  fallback when vision is unavailable. G7-C ran a live helper smoke: one
+  upstream image URL failed to download, and a second public image succeeded in
+  3.3s. This is not a full browser/UI visual QA pass.
+- Provider comparison now has a generated report path through
+  `make provider-comparison` plus a configured-provider live smoke command
+  through `make live-quality-smoke`; selecting Anthropic with only the OpenAI
+  request key was smoke-tested and fell back to OpenAI with trace warnings. no
+  live Anthropic/Gemini/Ollama benchmark ran.
+- Docker Compose build and startup were verified locally: backend health, frontend, Qdrant, and MLflow all responded. Test volumes were removed afterward.
 - MLflow local file-backed logging was verified with `make mlflow-log`; generated
   `backend/mlruns/` and report manifests remain ignored.
 - Ragas/DSPy judge provider-backed runs were not launched by G7-C. Default eval
@@ -100,14 +104,14 @@ GitHub file-list labels were refreshed with the final beyond-scope note commit.
   Gate 5 service path, trace fields are present, source IDs validate, invalid
   URLs are clean, and errors are sanitized.
 - Gate 6 Dev D rapid quality layer is implemented in this branch:
-  `make eval` now runs 19 cached cases, including 10 fixture-backed public
+  `make eval-cached` now runs 19 cached cases, including 10 fixture-backed public
   Bluesky URLs verified on 2026-05-01 and 9 clearly marked synthetic attack or
   edge fixtures.
 - Gate 6 readiness automation now checks case mix, public/synthetic provenance,
   fixture API shape, citation references, and report-summary honesty fields.
 - The Gate 6 default report writes JSONL, Markdown, summary JSON, confusion
   matrix CSV, and SVG graph artifacts under ignored `reports/eval/`.
-- Default `make eval` remains deterministic/offline. It records explicit skip
+- `make eval-cached` remains deterministic/offline. It records explicit skip
   reasons for Ragas, DSPy judge, and MLflow. Explicit offline DSPy, Ragas, and
   MLflow runs were also verified after `make setup`.
 - Isolated Lane Protocol is instantiated for Dev D through `assets/dev_D_gate6_WORKSPACE_CONTRACT.json` and wrapper scripts in `scripts/`.
@@ -143,7 +147,8 @@ Detailed Gate 4-6 lane history is preserved in `TRANSLATION_LOG.md`,
 - Preserve Dev A's `BlueskyClient.search_posts()` and `PostContext.warnings` while wiring Dev B retrieval.
 - Preserve Dev B's retrieval diagnostics and optional dependency fallback behavior while integrating with Dev C trace/guardrails.
 - Preserve Dev E's public API client contract and visible adapter/trust/fallback trace fields while the real pipeline replaces temporary evidence sources.
-- Preserve Dev D's default offline eval contract while reusing the same runner for explicit API/model-backed integration checks.
+- Preserve Dev D's offline `make eval-cached` contract while making `make eval`
+  the live API quality path with exact-post cache fallback.
 - Preserve Dev C's provider-error fallback behavior so bad live model
   credentials produce schema-valid safe-summary/abstain responses rather than
   route crashes. Missing credentials on the default public route should fail
@@ -158,6 +163,8 @@ make deep-review
 ```
 
 The current passing gate covers linting, typing, backend tests, frontend tests, secret scan, config validation, frontend audit/build, optional backend dependency dry-run, skill validation, requirement matrix validation, generated artifact cleanup, maintainability review, and user smoke checks.
+The full live/cached/user-flow review strategy is recorded in
+`docs/comprehensive_testing_strategy.md`.
 
 Gate 6 integration checks performed in the standalone integration clone:
 
@@ -175,8 +182,8 @@ Additional merged-main checks retained from previous lanes:
 Dev A live Bluesky fetch_context and /api/explain smokes with a public bsky.app post.
 Dev B optional `--extra bluesky` fetch/search checks and `--extra ai` Qdrant retrieval check.
 Prior Dev E browser-use verification at http://127.0.0.1:5173/; G7-C did not
-run a fresh browser-use pass.
-Dev D `make eval`, fake-agent/API eval modes, and optional DSPy/Ragas/composite judge smokes.
+  run a fresh browser-use pass.
+Dev D `make eval-cached`, fake-agent/API eval modes, and optional DSPy/Ragas/composite judge smokes.
 Gate 7 closure transient-key route smoke: two public Bluesky URLs returned 200,
 `adapter_mode=none`, web/thread sources, and 3-4 cited bullets; no generated
 live report was tracked.
@@ -189,20 +196,20 @@ helper passed on a public image in 3.3s.
 ## Important Boundaries
 
 - Do not replace trace-marked temporary evidence/adapters with unmarked fake explanation bullets.
-- Do not claim live vision or a live provider benchmark. Gate 6 public eval is
-  fixture-backed and cached, not a live refetch benchmark.
+- Do not claim a broad live vision benchmark, a full browser/UI vision pass, or
+  a live multi-provider benchmark. Gate 6 public eval is fixture-backed and
+  cached, not a live refetch benchmark.
 - Real Bluesky post fetch is required and implemented.
 - The C5 route attempts the integrated real Search/RAG plus DSPy path by default; fallback/dev adapter use is acceptable only when `trace` marks the retrieval/provider downgrade.
 - `R045` is satisfied by C5/G7 enforcement artifacts, not by no-key fallback
   output. The default UI/API path now requires a key before embeddings/model
   calls; no-key abstain output remains only historical limitation evidence.
-- Gate 6 public eval coverage is fixture-backed and cached by default. It
+- Gate 6 public eval coverage is fixture-backed through `make eval-cached`. It
   closes the 10+ public Bluesky eval-case requirement without pretending that
-  synthetic `example.com` URLs are public posts or that default eval refetched
-  live posts.
+  synthetic `example.com` URLs are public posts.
 - Live provider-backed quality is partially smoke-tested for wiring on two
-  public posts, but broader API-mode benchmarking remains outside default
-  `make eval`.
+  public posts. Broader API-mode benchmarking now belongs to default
+  `OPENAI_API_KEY=... make eval`.
 - Preserve the no-fake-product-behavior rule: fallback/safe-summary output is allowed only when trace and guardrail fields say so.
 - Generated artifacts under `reports/`, `mlruns/`, Qdrant cache, and local secret files must stay ignored.
 - Shared repo `/Users/akatsurada/Documents/New project` remains inspection-only for isolated lane work.
@@ -214,18 +221,16 @@ The standalone lane clone and branch are
 `codex/dev-d-gate6-eval-reports`; isolation passed before implementation.
 The concise Gate 6 evidence package lives in
 `docs/reviews/gate6_final_review.md` and `docs/gate6_eval_methodology.md`.
-Default `make eval` writes ignored artifacts under `reports/eval/` and reports
+Default `make eval-cached` writes ignored artifacts under `reports/eval/` and reports
 19 cached rows: 10 fixture-backed public Bluesky URLs and 9 synthetic attack or
 edge fixtures. The summary exposes `public_bluesky_fixture_case_count` and
 `ragas_metric_source`; DSPy judge, Ragas, and MLflow were also run explicitly.
 Raw attack payloads are inventoried in `eval/fixtures/prompt_injection/manifest.json`
 and enforced by the Gate 6 readiness test.
-Default eval remains offline and reports those optional paths separately. An
-explicit API-mode eval against the local FastAPI route completed without aborting,
-but the no-credential/live-service posture abstained on all 19 rows. Gate 7
-closure later added the required transient key path and verified two
-provider-backed public route smokes; treat that as wiring proof, not as a broad
-live benchmark.
+Cached eval remains offline and reports those optional paths separately. Gate 7
+closure added the required transient key path and verified two provider-backed
+public route smokes; default `make eval` now uses the same live route with an
+exact-post cache fallback policy.
 
 ## Review Records
 

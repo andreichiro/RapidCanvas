@@ -186,7 +186,6 @@ def sanitize_context_document(
 ) -> tuple[ContextDocument, PromptInjectionScanResult]:
     active_scanner = scanner or PromptInjectionScanner()
     source_type = _coerce_source_type(ba(document, "source_type", "source_type_field_failed"))
-    label = UNTRUSTED_LABEL_BY_SOURCE_TYPE[source_type]
     sanitized_id = safe_identifier(ba(document, "id", "document_id_field_failed"), prefix="DOC")
     url_text = _coerce_text(ba(document, "url", "document_url_field_failed"))
     sanitized_url = sanitize_untrusted_text(url_text, max_chars=1200) or "about:blank"
@@ -203,6 +202,7 @@ def sanitize_context_document(
     )
     metadata = _sanitize_metadata(ba(document, "metadata", "metadata_field_failed"))
     sanitized_metadata = dict(metadata) if isinstance(metadata, Mapping) else {"metadata": metadata}
+    label = _context_label(source_type, sanitized_metadata)
     metadata_scan_text = "\n".join(_metadata_scan_parts(sanitized_metadata))
     scan_input = "\n".join(
         part for part in (sanitized_title, sanitized_text, metadata_scan_text) if part
@@ -237,6 +237,12 @@ def _sanitize_metadata(value: object, *, depth: int = 0) -> object:
     if isinstance(value, Iterable):
         return _sanitize_iterable_metadata(value, depth=depth)
     return sanitize_untrusted_text(boundary_text(value), max_chars=1200)
+
+
+def _context_label(source_type: SourceType, metadata: Mapping[str, object]) -> str:
+    if source_type == "image" and metadata.get("role") == "image_description":
+        return "UNTRUSTED_IMAGE_DESCRIPTION"
+    return UNTRUSTED_LABEL_BY_SOURCE_TYPE[source_type]
 
 
 def _sanitize_mapping_metadata(value: Mapping[object, object], *, depth: int) -> dict[str, object]:

@@ -11,7 +11,10 @@ def test_settings_defaults_load_without_env() -> None:
     assert settings.app_name == "Bluesky Contextual Post Explainer"
     assert settings.api_prefix == "/api"
     assert settings.embedding_model == "text-embedding-3-small"
-    assert settings.enable_image_understanding is False
+    assert settings.enable_image_understanding is True
+    assert settings.retrieval_max_queries == 3
+    assert settings.retrieval_search_limit_per_provider == 3
+    assert settings.retrieval_linked_page_limit == 3
 
 
 def test_safe_dump_masks_secrets() -> None:

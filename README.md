@@ -31,15 +31,15 @@ show where it came from, when to trust it, and when to say less.
   Qdrant or in-memory retrieval, and reranking.
 - Done: **English explanations.** User-facing bullets are generated and
   validated in English, including for non-English Bluesky posts.
-- Done: **Evaluation harness.** `make eval` runs 19 cached cases: 10
-  fixture-backed public Bluesky URLs and 9 marked synthetic attack/edge cases.
-- Done: **Image understanding path.** Image URLs and alt text are evidence; the
-  backend includes a vision helper with untrusted alt-text fallback when image
-  understanding is enabled.
-- Done: **Multi-provider comparison path.** OpenAI runs with the transient
-  request key. Optional providers require their own credentials or services:
-  Anthropic, Gemini, and Ollama appear with configured/skipped status before
-  comparison runs.
+- Done: **Evaluation harness.** `make eval` runs the live FastAPI route over 19
+  cases with exact-post cache fallback only when a matching cached prediction
+  already exists; `make eval-cached` keeps the reproducible offline audit path.
+- Done: **Image understanding path.** Image URLs and alt text are evidence;
+  image understanding is enabled by default and uses OpenAI vision when image
+  posts and a request key are available, with untrusted alt-text fallback.
+- Done: **Multi-provider comparison path.** `make provider-comparison` writes a
+  provider report with configured/skipped status; `make live-quality-smoke` runs
+  configured live providers when credentials are available.
 - Done: **ML-powered modules.** Classification, embeddings, retrieval,
   reranking, evaluation, GEPA, and MLflow paths are implemented as separate
   capabilities.
@@ -99,6 +99,8 @@ Useful checks:
 ```bash
 make test
 make eval
+make eval-cached
+make provider-comparison
 make requirements-review
 make check-secrets
 ```
@@ -234,8 +236,9 @@ parse video frames.
 
 ## Evaluation Strategy
 
-`make eval` is the reproducible quality proof. It performs no network/model
-calls by default and writes ignored artifacts under `reports/eval/`:
+`make eval` is the first-class live quality path. It runs the FastAPI route over
+the eval suite with bounded retrieval limits and parallel case execution,
+requires `OPENAI_API_KEY`, and writes ignored artifacts under `reports/eval/`:
 
 ```text
 eval_results.jsonl
@@ -245,7 +248,12 @@ metric_bars.svg
 summary.json
 ```
 
-The 19 cases cover public Bluesky fixtures, memes/slang, current-event context,
+If a live API case cannot complete, it may use cached output only when the
+cached prediction is for the exact same Bluesky URL. That keeps useful prior
+answers available without letting unrelated fixtures masquerade as live quality.
+
+`make eval-cached` is the no-network reproducibility path. The 19 cached cases
+cover public Bluesky fixtures, memes/slang, current-event context,
 reply/quote/link/image context, ambiguous acronyms, sparse context,
 unavailable/deleted posts, prompt injection, contradictory sources, and
 low-evidence behavior.
@@ -295,11 +303,13 @@ ignored.
 make setup                    # install backend and frontend dependencies
 make run                      # one-command Docker UI + API + Qdrant + MLflow
 make dev                      # one-command source deps + backend + frontend
-make docker-up                # Docker stack
-make docker-down              # stop Docker stack
 make lint                     # backend ruff/mypy + frontend TypeScript
 make test                     # backend pytest + frontend Vitest
-make eval                     # cached offline eval reports
+make eval                     # live API eval; requires OPENAI_API_KEY
+make eval-cached              # cached offline eval reports
+make eval-api                 # alias for live API eval
+make provider-comparison      # provider status/skip report
+make live-quality-smoke       # live configured-provider quality smoke
 make optimize                 # GEPA saved-program verification
 make mlflow-log               # local MLflow run/package path
 make requirements-review      # Gate 1 requirement matrix validation

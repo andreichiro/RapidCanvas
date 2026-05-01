@@ -93,6 +93,9 @@ def _markdown_header(
         f"- Judge backend: `{judge}`",
         f"- Cached prediction rows: `{int(float(summary.get('cached_case_count', 0)))}`",
         f"- Live/API prediction rows: `{int(float(summary.get('live_case_count', 0)))}`",
+        "- Exact-post cache fallback rows: "
+        f"`{int(float(summary.get('exact_post_cache_fallback_count', 0)))}`",
+        f"- Cache policy: `{summary.get('cache_policy', 'none')}`",
         f"- API/network calls allowed: `{_yes_no(api_allowed)}`",
         f"- Model judge calls allowed: `{_yes_no(model_allowed)}`",
         f"- Public fixture-backed Bluesky cases: `{public_count}`",
