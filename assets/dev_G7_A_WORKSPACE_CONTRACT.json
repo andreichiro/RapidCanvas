@@ -1,0 +1,41 @@
+{
+  "lane": "dev_G7_A_runtime_finalization",
+  "developer": "Dev G7-A",
+  "plan": "Gate 7 Runtime Finalization",
+  "required_branch": "codex/g7-a-runtime-finalization",
+  "execution_roots": [
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/rapidcanvas_dev_g7a_runtime",
+      "checkout_kind": "standalone_clone",
+      "role": "implementation"
+    }
+  ],
+  "shared_read_only_roots": [
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/New project",
+      "role": "shared_read_only"
+    }
+  ],
+  "forbidden_operations": [
+    "implement_from_shared_root",
+    "switch_shared_repo_to_lane_branch",
+    "linked_git_worktree_for_live_lane",
+    "stage_shared_repo_changes",
+    "clean_or_reset_shared_repo",
+    "modify_frontend",
+    "modify_docs",
+    "modify_eval",
+    "modify_gepa",
+    "modify_mlflow",
+    "modify_image"
+  ],
+  "verification": [
+    "execution_root_exists",
+    "execution_root_is_standalone_clone",
+    "execution_root_on_required_branch",
+    "shared_repo_does_not_own_required_branch",
+    "current_root_is_execution_root"
+  ]
+}

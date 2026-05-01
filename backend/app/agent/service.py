@@ -3,35 +3,23 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass, field
 from inspect import Parameter, signature
 from typing import Any, Protocol
 
-from app.agent.evidence_contract import RetrievalOutput, normalize_retrieval_output
+from app.agent.adaptive_retrieval import merge_bundles, should_run_adaptive_round
+from app.agent.evidence_contract import (
+    EvidenceBundle,
+    RetrievalOutput,
+    normalize_retrieval_output,
+)
 from app.agent.loader import load_program
 from app.agent.program import BlueskyExplainer
 from app.agent.quality_trace import AgentQualityTrace
+from app.agent.query_planning import adaptive_runtime_queries, runtime_queries
 from app.agent.runner import QueryPlan
 from app.config import Settings, get_settings
 from app.schemas.api import ExplainRequest, ExplainResponse
 from app.schemas.domain import ContextDocument, Evidence, PostContext
-
-
-@dataclass(frozen=True)
-class StaticEvidenceRetriever:
-    """Test helper retriever for FastAPI service integration tests."""
-
-    evidence: Sequence[Evidence] = field(default_factory=list)
-    documents: Sequence[ContextDocument] = field(default_factory=list)
-    warnings: Sequence[str] = field(default_factory=list)
-
-    def retrieve(
-        self,
-        post: PostContext,
-        queries: Sequence[str] = (),
-    ) -> tuple[Sequence[Evidence], Sequence[ContextDocument]]:
-        del post, queries
-        return self.evidence, self.documents
 
 
 class ThreadContextEvidenceRetriever:
@@ -117,8 +105,6 @@ class PostContextFetcher(Protocol):
 
 
 class EvidenceRetriever(Protocol):
-    """Protocol for Dev B retrieval without coupling to client modules."""
-
     @property
     def warnings(self) -> Sequence[str]:
         """Non-fatal retrieval warnings for trace output."""
@@ -152,9 +138,10 @@ class AgentExplainerService:
         post = self._fetcher.fetch_context(request.post_url)
         pre_retrieval_flags = program.scan_known_context(post)
         plan, plan_warnings = self._plan_queries(program, post, pre_retrieval_flags)
-        bundle = normalize_retrieval_output(
-            self._retrieve(post, plan.queries),
-            retriever=self._retriever,
+        bundle, retrieval_warnings, trace_queries = self._retrieve_with_optional_adaptive(
+            post,
+            plan,
+            allow_adaptive="prompt_injection_risk" not in pre_retrieval_flags,
         )
         warnings = _dedupe(
             [
@@ -163,6 +150,7 @@ class AgentExplainerService:
                 *bundle.source_safety_diagnostics,
                 *program_warnings,
                 *plan_warnings,
+                *retrieval_warnings,
                 *self._extra_warnings,
             ]
         )
@@ -172,10 +160,13 @@ class AgentExplainerService:
             documents=bundle.documents,
             request=request,
             warnings=warnings,
-            retrieval_guardrail_flags=bundle.guardrail_flags,
+            retrieval_guardrail_flags=[
+                *bundle.guardrail_flags,
+                *_retrieval_warning_flags(bundle.warnings),
+            ],
             pre_retrieval_guardrail_flags=pre_retrieval_flags,
             planned_category=plan.category,
-            planned_queries=plan.queries,
+            planned_queries=trace_queries,
             scan_post_context=False,
             reset_trace=False,
         )
@@ -195,10 +186,49 @@ class AgentExplainerService:
         return cached
 
     def _retrieve(self, post: PostContext, queries: Sequence[str]) -> RetrievalOutput:
+        retrieve_result = getattr(self._retriever, "retrieve_result", None)
+        if callable(retrieve_result):
+            if _accepts_queries(retrieve_result):
+                return retrieve_result(post, queries)
+            return retrieve_result(post)
         retrieve = self._retriever.retrieve
         if _accepts_queries(retrieve):
             return retrieve(post, queries)
         return retrieve(post)
+
+    def _retrieve_with_optional_adaptive(
+        self,
+        post: PostContext,
+        plan: QueryPlan,
+        *,
+        allow_adaptive: bool = True,
+    ) -> tuple[EvidenceBundle, list[str], list[str]]:
+        first_queries = list(plan.queries)
+        first = normalize_retrieval_output(
+            self._retrieve(post, first_queries),
+            retriever=self._retriever,
+        )
+        should_adapt, preliminary_score = should_run_adaptive_round(post, first)
+        if not should_adapt:
+            return first, [], first_queries
+        if not allow_adaptive:
+            return first, ["adaptive_retrieval_skipped_prompt_injection_risk"], first_queries
+
+        second_queries = adaptive_runtime_queries(post, plan.category, first_queries)
+        if not second_queries:
+            return (
+                first,
+                [f"adaptive_retrieval_cut_no_safe_query:{preliminary_score:.3f}"],
+                first_queries,
+            )
+
+        second = normalize_retrieval_output(
+            self._retrieve(post, second_queries),
+            retriever=self._retriever,
+        )
+        merged = merge_bundles(first, second)
+        trace_queries = _dedupe([*first_queries, *second_queries])
+        return merged, [f"adaptive_retrieval_round_2:{preliminary_score:.3f}"], trace_queries
 
     def _plan_queries(
         self,
@@ -211,7 +241,9 @@ class AgentExplainerService:
                 category="guarded_context",
                 queries=[_safe_post_query(post)],
             ), ["query_generation_skipped_prompt_injection_risk"]
-        return program.plan_queries(post, reset_trace=False), []
+        plan = program.plan_queries(post, reset_trace=False)
+        queries = runtime_queries(post, plan.category, plan.queries)
+        return QueryPlan(category=plan.category, queries=queries), []
 
 
 def build_agent_explainer_service(
@@ -267,6 +299,13 @@ def _accepts_queries(retrieve: Any) -> bool:
 def _safe_post_query(post: PostContext) -> str:
     author = post.author.strip() or "unknown-author"
     return f"{author} Bluesky post context"
+
+
+def _retrieval_warning_flags(warnings: Sequence[str]) -> list[str]:
+    prefixes = ("rag_runtime_failed:", "retrieval_adapter_failed:", "retrieval_failed:")
+    if any(warning.startswith(prefixes) for warning in warnings):
+        return ["retrieval_unavailable"]
+    return []
 
 
 def _dedupe(values: Sequence[str]) -> list[str]:
