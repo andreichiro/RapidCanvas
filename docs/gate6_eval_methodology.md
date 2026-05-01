@@ -1,9 +1,9 @@
 # Gate 6 Eval Methodology
 
 Gate 6 makes `make eval` the deterministic reviewer-facing quality report for
-the Gate 5 pipeline contract. The default run is intentionally cached and
-offline: it does not refetch Bluesky posts, call web search, call provider
-models, or create MLflow runs.
+the Gate 5 pipeline contract. The default run is intentionally cached and offline:
+it does not refetch Bluesky posts, call web search, call provider models, or
+create MLflow runs.
 
 ## Dataset
 
