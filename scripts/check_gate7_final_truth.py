@@ -95,6 +95,8 @@ def need(condition: bool, errors: list[str], message: str) -> None:
 
 
 def check_git_scope(root: Path, errors: list[str]) -> None:
+    need(git(root, "diff", "--quiet").returncode == 0, errors, "unstaged tracked changes present")
+    need(git(root, "diff", "--cached", "--quiet").returncode == 0, errors, "staged changes present")
     ancestry = git(root, "merge-base", "--is-ancestor", GATE6_MAIN, "HEAD")
     need(ancestry.returncode == 0, errors, f"{GATE6_MAIN} is not an ancestor of HEAD")
     changed = set(git(root, "diff", "--name-only", f"{GATE6_MAIN}..HEAD").stdout.splitlines())
@@ -174,7 +176,7 @@ def check_final_review(final_review: str, errors: list[str]) -> None:
         "not a hosted experiment workflow",
         "did not run provider-backed judges",
         "G7-C did not run new browser-use verification",
-        "This review does not count uncommitted G7-A or G7-B clone changes",
+        "This review does not count unmerged G7-A/G7-B branch changes",
         "This is real where integrated, cached where reproducibility matters",
     ]
     for phrase in required_phrases:
@@ -199,7 +201,7 @@ def check_docs(
             "docs/reviews/gate7_final_review.md",
         ],
         "docs/current_handoff.md": [
-            "one-shot integrated route",
+            "one-shot integrated route", "codex/g7b-optimization-bonus",
             "Adaptive retrieval is reserved",
             "dry-run metadata",
             "Live vision was not run",
@@ -209,7 +211,7 @@ def check_docs(
         "docs/requirements_matrix.md": [
             "one-shot, non-adaptive runtime status",
             "dry-run GEPA metadata",
-            "no real compiled program is included by default",
+            "G7-B commit `3a79056`",
             "no fresh Gate 7 browser-use pass",
             "live vision",
             "no live provider comparison report was generated",
@@ -219,7 +221,7 @@ def check_docs(
             "Gate 7 GEPA dataset bridge and real compile status",
             "Gate 7 image understanding truth", "Gate 7 provider comparison truth",
             "Gate 7 MLflow/Ragas/judge status", "Gate 7 pasted OpenAI key handling",
-            "Gate 7 AGENTS handoff drift",
+            "Gate 7 AGENTS handoff drift", "Gate 7 G7-B branch handoff",
         ],
         "AGENTS.md": [
             "Gate 7 G7-C final truth/docs", "make gate7-final-truth-audit",
@@ -313,7 +315,6 @@ def check_generated_artifact_hygiene(root: Path, errors: list[str]) -> None:
     ):
         ignored = git(root, "check-ignore", "-q", target)
         need(ignored.returncode == 0, errors, f"not ignored: {target}")
-
 
 if __name__ == "__main__":
     sys.exit(main())

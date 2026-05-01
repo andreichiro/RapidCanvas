@@ -16,8 +16,8 @@ evidence without live vision, provider comparison is registry/skip visibility
 without a live benchmark, and MLflow is verified as local file-backed ops
 plumbing.
 
-This review does not count uncommitted G7-A or G7-B clone changes as landed
-submission behavior.
+This review does not count unmerged G7-A/G7-B branch changes as landed
+submission behavior in the current G7-C branch.
 
 ## Commands Run
 
@@ -36,7 +36,7 @@ submission behavior.
 | `make skills-review` | passed | All four local project skills validate. |
 | `make deep-review` | passed | Full local review gate, including audit/build, generated-artifact cleanup, maintainability, API smoke, and frontend smoke. |
 | final `make eval && make check-secrets` | passed | Regenerated ignored cached eval reports after `deep-review` cleanup and rechecked secrets. |
-| `make gate7-final-truth-audit` | passed | Mechanically checks final truth table classifications, dry-run/reserved wording, G7-C allowed-file scope, branch push freshness, eval counts, GEPA metadata, and generated-artifact hygiene. |
+| `make gate7-final-truth-audit` | passed | Mechanically checks final truth table classifications, dry-run/reserved wording, clean tracked tree, G7-C allowed-file scope, branch push freshness, eval counts, GEPA metadata, and generated-artifact hygiene. |
 
 Provider-backed OpenAI/Ragas/DSPy runs were not launched from the pasted chat key.
 `OPENAI_API_KEY` was not present in the G7-C shell environment, and G7-C did not
@@ -80,12 +80,14 @@ The landed base has GEPA dry-run and real-compile plumbing, but the submitted
 directory was produced in G7-C, and the loader does not load a compiled program
 by default from this dry-run metadata.
 
-G7-B local clone
-`/Users/akatsurada/Documents/rapidcanvas_dev_g7b_optimization/RapidCanvas` has
-uncommitted changes on `codex/g7b-optimization-bonus` that build GEPA examples
-from `eval/posts.yaml` plus cached fixtures and add an image context helper with
-mocked vision/alt-text tests. Those changes were not merged into the G7-C
-baseline and are not counted as final landed behavior.
+G7-B handoff arrived after the first G7-C final truth pass. Remote branch
+`origin/codex/g7b-optimization-bonus` at commit `3a79056` contains the GEPA
+eval-dataset bridge, `mode=real` optimized metadata, a compiled saved DSPy
+program under `backend/app/agent/optimized/program_compiled/`, image context
+helper tests, provider registry verification tests, and a reported full
+`make deep-review` pass with 330 backend tests and 32 frontend tests. Those
+changes are not merged into the current G7-C branch, so this branch still
+classifies its own submitted base as dry-run/partial/reserved where applicable.
 
 Image understanding in the landed base is limited to Bluesky image URL/alt-text
 normalization plus image `ContextDocument` evidence from post context. Live
@@ -118,7 +120,8 @@ surface:
 
 - `R013`: one-shot Search/RAG is integrated; adaptive retrieval is not claimed.
 - `R026`: GEPA row now separates optimizer/save/load plumbing from the dry-run
-  final artifact and unproduced real compiled program.
+  final artifact in this branch and the real compiled G7-B branch artifact at
+  `3a79056` that must be merged before the final submitted base can claim it.
 - `R027`: MLflow row now states local file-backed run/package behavior, not a
   hosted workflow.
 - `R032`: image row now distinguishes real alt-text/image context evidence from
@@ -152,9 +155,10 @@ Only `reports/.gitkeep` remains tracked.
 ## Skipped Or Blocked Items
 
 - Real GEPA compile: skipped in G7-C because the landed final artifact is dry-run
-  metadata and no compiled DSPy program was produced.
-- GEPA eval-dataset bridge: present only in G7-B uncommitted local diffs, not in
-  the submitted base.
+  metadata and no compiled DSPy program was produced in this branch.
+- GEPA eval-dataset bridge and real compiled program: ready on
+  `origin/codex/g7b-optimization-bonus` commit `3a79056`, not merged into the
+  current G7-C branch.
 - Live vision: skipped/config-limited; landed base uses image alt-text/context
   evidence.
 - Live provider comparison: skipped/config-limited; optional provider keys and

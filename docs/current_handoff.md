@@ -23,8 +23,10 @@ Active lane owner: Dev G7-C final truth/docs/submission.
   explicit fallback/injected path. Adaptive retrieval is reserved.
 - GEPA in the submitted base is dry-run metadata at
   `backend/app/agent/optimized/program.json`; no real compiled optimized program
-  was produced, and the eval-dataset GEPA bridge exists only in unmerged G7-B
-  local diffs.
+  was produced in this branch. G7-B remote branch
+  `origin/codex/g7b-optimization-bonus` at commit `3a79056` now contains the
+  eval-dataset GEPA bridge and a real compiled saved DSPy program; merge that
+  branch before claiming real GEPA compile in the submitted base.
 - Image support in the submitted base is Bluesky image URL/alt-text context
   evidence. Live vision was not run.
 - Provider comparison is provider registry and skipped-provider visibility
@@ -40,8 +42,11 @@ Active lane owner: Dev G7-C final truth/docs/submission.
 - Final branch/push status: branch
   `codex/g7-c-final-truth-docs-submission` pushed to GitHub. Initial final truth
   commit: `e9f1500`; latest audit follow-up is visible with `git log`, and the
-  Gate 7 audit checks that `origin/codex/g7-c-final-truth-docs-submission`
-  matches local `HEAD`.
+  Gate 7 audit checks that the tracked tree is clean and
+  `origin/codex/g7-c-final-truth-docs-submission` matches local `HEAD`.
+- G7-B follow-up branch: `codex/g7b-optimization-bonus` at commit `3a79056`
+  is ready for submitter/release integration; it is not merged into this G7-C
+  docs branch.
 
 ## Current State
 

@@ -23,7 +23,7 @@ matrix honesty, and final review notes.
 - Gate 4 Dev E frontend lane: implemented and merged into the integration baseline.
 - Gate 5 C5 integration: Dev B retrieval is connected into Dev C `AgentExplainerService` through Dev A dependency wiring, Dev E PR #7 polished the C5 response UI, and Dev D records the final review in `docs/reviews/gate5_final_review.md`.
 - Gate 6 Dev D rapid eval/reporting: `make eval` runs 19 cached cases, including 10 fixture-backed public Bluesky URLs and 9 marked synthetic attack/edge fixtures, then writes reviewer-facing reports under ignored `reports/eval/`.
-- Gate 7 final truth/docs: the landed runtime uses one-shot Search/RAG with trace-visible fallbacks; adaptive retrieval is reserved. GEPA is dry-run metadata unless `--real` is run with valid credentials and produces a compiled program. Image support is image URL/alt-text context evidence, not live vision. Provider comparison is registry/skip visibility, not a live multi-provider benchmark.
+- Gate 7 final truth/docs: the landed runtime uses one-shot Search/RAG with trace-visible fallbacks; adaptive retrieval is reserved. GEPA is dry-run metadata in this branch, while G7-B commit `3a79056` has a real compiled program pending merge. Image support is image URL/alt-text context evidence, not live vision. Provider comparison is registry/skip visibility, not a live multi-provider benchmark.
 - The assignment API key must be placed only in local `.env`; do not commit it.
 - Because the key was shared in plain text during intake, rotate it before real use.
 - Current handoff snapshot: `docs/current_handoff.md`.
