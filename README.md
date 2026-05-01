@@ -66,6 +66,10 @@ The Gate 4 UI includes the Dev E surface from Plan Final E:
 - Trust/fallback status for `none`, `partial`, `abstain`, and `safe_summary`.
 - Guardrail flags and a toggleable trace panel with category, queries,
   warnings, latency, trust score, fallback mode, adapter mode, and notes.
+- Gate 6 quality-state checks cover backend-provided fallback, warning,
+  validation-error, unavailable-post, provider-error, citation/source, and trace
+  states; long trace diagnostics wrap and scroll without adding frontend quality
+  decisions.
 
 Focused frontend checks:
 
