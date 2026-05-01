@@ -1,9 +1,10 @@
 # Current Handoff
 
-Updated: 2026-04-30
+Updated: 2026-05-01
 Repository: `andreichiro/RapidCanvas`
-Current baseline: GitHub `main`
-Merged Gate 4 lanes: Dev A, Dev B, Dev C, Dev D, and Dev E.
+Current baseline: Dev A Gate 6 API smoke stability branch `57aefac`
+Active lane: Dev D Gate 6 rapid eval/reporting branch
+`codex/dev-d-gate6-eval-reports`.
 
 ## Current State
 
@@ -23,7 +24,22 @@ Merged Gate 4 lanes: Dev A, Dev B, Dev C, Dev D, and Dev E.
 - Gate 5 C5 integration branch `codex/gate5-c5-integration` now wires the public route through real Bluesky fetch, Dev B `RetrievalEvidenceRetriever`, and Dev C provider-aware `AgentExplainerService`; missing live dependencies or credentials degrade with trace-visible diagnostics.
 - Dev E PR #7 is merged into C5 and verifies real-response rendering, citation/source navigation, trust/fallback badges, guardrail flags, and trace diagnostics in the frontend.
 - `R045` is closed for C5 runtime enforcement only when the real pipeline modules are present and any fallback/dev adapter use is trace-marked; real public eval rows remain Gate 6 work.
-- Isolated Lane Protocol is instantiated for Dev C through `assets/dev_C_gate4_WORKSPACE_CONTRACT.json` and wrapper scripts in `scripts/`.
+- Gate 6 Dev A API smoke stability is the lane baseline at `57aefac`.
+  It proves the public schema is unchanged, `/api/explain` still builds the
+  Gate 5 service path, trace fields are present, source IDs validate, invalid
+  URLs are clean, and errors are sanitized.
+- Gate 6 Dev D rapid quality layer is implemented in this branch:
+  `make eval` now runs 19 cached cases, including 10 fixture-backed public
+  Bluesky URLs verified on 2026-05-01 and 9 clearly marked synthetic attack or
+  edge fixtures.
+- Gate 6 readiness automation now checks case mix, public/synthetic provenance,
+  fixture API shape, citation references, and report-summary honesty fields.
+- The Gate 6 default report writes JSONL, Markdown, summary JSON, confusion
+  matrix CSV, and SVG graph artifacts under ignored `reports/eval/`.
+- Default `make eval` remains deterministic/offline. It records explicit skip
+  reasons for Ragas, DSPy judge, and MLflow. Explicit offline DSPy, Ragas, and
+  MLflow runs were also verified after `make setup`.
+- Isolated Lane Protocol is instantiated for Dev D through `assets/dev_D_gate6_WORKSPACE_CONTRACT.json` and wrapper scripts in `scripts/`.
 
 ## Dev A Gate 4 Lane
 
@@ -209,7 +225,7 @@ Added Dev D-owned behavior:
 Important Dev D notes:
 
 - Default `make eval` remains deterministic/offline and performs no network or model calls.
-- These committed synthetic fixture URLs are not counted as the final 10+ real public Bluesky-post eval set. Gate 6 must add or refresh real/fixture-backed public Bluesky post cases before marking that assignment requirement implemented.
+- The older synthetic fixtures are not counted as public coverage; Gate 6 adds 10 fixture-backed public Bluesky URL cases and reports that count separately.
 - Optional provider-backed judge runs are explicit and generated artifacts remain ignored under `reports/`.
 - Provider-backed full cached eval was verified with an ignored local `.env` key before final shipping: 18-case DSPy and Ragas runs completed, with Ragas rows recording `ragas_mode=ragas_llm`.
 - Dev D did not claim final runtime Search/RAG/DSPy pipeline completion; the eval harness can score API mode and is ready to score the real pipeline when Gate 5 integration lands.
@@ -265,50 +281,28 @@ Dev D `make eval`, fake-agent/API eval modes, and optional DSPy/Ragas/composite 
 - Real Bluesky post fetch is required and implemented.
 - The C5 route attempts the integrated real Search/RAG plus DSPy path by default; fallback/dev adapter use is acceptable only when `trace` marks the retrieval/provider downgrade.
 - `R045` is satisfied by C5 enforcement artifacts, not by no-key fallback output; a local no-key abstain remains a recorded downgrade, not final public-eval proof.
+- Gate 6 public eval coverage is fixture-backed and cached by default. It
+  closes the 10+ public Bluesky eval-case requirement without pretending that
+  synthetic `example.com` URLs are public posts or that default eval refetched
+  live posts.
+- Live provider-backed quality remains an explicit API-mode/integration task
+  for release review, not hidden inside default `make eval`.
 - Preserve the no-fake-product-behavior rule: fallback/safe-summary output is allowed only when trace and guardrail fields say so.
 - Generated artifacts under `reports/`, `mlruns/`, Qdrant cache, and local secret files must stay ignored.
 - Shared repo `/Users/akatsurada/Documents/New project` remains inspection-only for isolated lane work.
 
-## Gate 5 Parallelization Plan
+## Gate 6 Dev D Rapid Handoff
 
-Gate 5 should run on parallel developer branches, then converge through one
-serial end-to-end integration review. Gate 6 starts only after Gate 5 lands and
-may then be parallelized internally. Gate 7 starts only after Gate 6 lands and
-may then be parallelized internally.
-
-The detailed Gate 5 ownership, must-not-edit boundaries, merge order, and final
-review criteria live in `docs/gate5_parallelization_plan.md`.
-
-## Gate 5 C5 Integration Handoff
-
-Integration branch `codex/gate5-c5-integration` combines Dev A PR #5, Dev B PR
-#3, and Dev C PR #4. Dev A still owns only API/dependency composition:
-`backend/app/deps.py` now prefers Dev B `RetrievalEvidenceRetriever` and passes
-it to Dev C `build_agent_explainer_service(...)`; the older query-aware wrapper
-remains a fallback only when the Dev B adapter module is absent.
-
-The final `/api/explain` path is real only when Dev A `PostContext`, Dev B
-retrieval, and Dev C explainer builders are present together. It fetches the
-Bluesky post, plans queries before retrieval, passes planned queries into Dev B,
-normalizes C2 evidence/diagnostics through Dev C, and returns the stable public
-`ExplainResponse`. Missing credentials or provider failures still downgrade
-through trace-visible fallback behavior rather than route crashes.
-
-Dev A C1: `PostContext` contains metadata, parents, quotes, links, image refs,
-and warning strings; live fetch depends on public Bluesky visibility. Dev B C2:
-retrieval returns bounded evidence, documents, warnings, diagnostics, private
-URL blocks, and guardrail flags. Dev C C3: the service consumes Dev B-shaped
-output, scans visible post context before query planning, and cites the stable
-post source for visible-post fallback.
-
-Dev E PR #7 is merged into C5 and is acceptable for integration: it changed only
-frontend-owned files under `frontend/src/*`, fixed C5 response rendering polish,
-covered `thread`, `bluesky`, `web`, and `image` sources plus fallback states, and
-verified browser smoke against local frontend/backend services.
-
-Dev D final bookkeeping is recorded in `docs/reviews/gate5_final_review.md` and
-`docs/gate5_checkpoint_status.md`. Gate 6 begins only after this real integrated
-Gate 5 path lands; see `docs/gate6_parallelization_plan.md`.
+The standalone lane clone and branch are
+`/Users/akatsurada/Documents/rapidcanvas_dev_d_gate6_isolated` and
+`codex/dev-d-gate6-eval-reports`; isolation passed before implementation.
+The concise Gate 6 evidence package lives in
+`docs/reviews/gate6_final_review.md` and `docs/gate6_eval_methodology.md`.
+Default `make eval` writes ignored artifacts under `reports/eval/` and reports
+19 cached rows: 10 fixture-backed public Bluesky URLs and 9 synthetic attack or
+edge fixtures. The summary exposes `public_bluesky_fixture_case_count` and
+`ragas_metric_source`; DSPy judge, Ragas, and MLflow were also run explicitly.
+Default eval remains offline and reports those optional paths separately.
 
 ## Review Records
 
@@ -316,4 +310,5 @@ Gate 5 path lands; see `docs/gate6_parallelization_plan.md`.
 - `docs/reviews/gate2_final_review.md`
 - `docs/reviews/gate3_final_review.md`
 - `docs/reviews/gate5_final_review.md`
+- `docs/reviews/gate6_final_review.md`
 - Dev C Gate 4 verification is recorded in this handoff and `TRANSLATION_LOG.md`.

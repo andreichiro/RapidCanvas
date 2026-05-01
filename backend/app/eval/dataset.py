@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -25,6 +25,16 @@ class EvalCase(BaseModel):
     expected_source_hints: list[str] = Field(default_factory=list)
     fixture_paths: list[str] = Field(min_length=1)
     attack_type: str | None = None
+    provenance: Literal["fixture_backed_public", "synthetic_fixture"] = "synthetic_fixture"
+    live_verified_at: str | None = None
+    live_verification_method: str | None = None
+    limitations: list[str] = Field(default_factory=list)
+
+    @property
+    def is_public_fixture(self) -> bool:
+        """Whether this case points at a live-verified public Bluesky post URL."""
+
+        return self.provenance == "fixture_backed_public"
 
 
 class CachedFixture(BaseModel):

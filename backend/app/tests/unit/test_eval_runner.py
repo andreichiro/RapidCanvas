@@ -14,11 +14,21 @@ def test_cached_eval_runner_writes_reports(tmp_path: Path) -> None:
     paths = {name: Path(path) for name, path in result["paths"].items()}
 
     assert result["summary"]["case_count"] >= 12
+    assert result["summary"]["public_fixture_case_count"] >= 10
+    assert result["summary"]["public_bluesky_fixture_case_count"] >= 10
+    assert result["summary"]["public_case_coverage_status"] == "fixture_backed_public_urls"
+    assert result["summary"]["ragas_status"] == "skipped"
+    assert result["summary"]["ragas_metric_source"] == "deterministic_proxy"
+    assert result["summary"]["dspy_judge_status"] == "skipped"
+    assert result["summary"]["mlflow_status"] == "not_run_by_make_eval"
     assert paths["jsonl"].exists()
     assert paths["markdown"].exists()
     assert paths["confusion_matrix"].exists()
     assert paths["graph"].exists()
     assert "prompt_injection_resistance" in paths["markdown"].read_text(encoding="utf-8")
+    assert "Public fixture-backed Bluesky cases" in paths["markdown"].read_text(
+        encoding="utf-8"
+    )
 
 
 def test_eval_runner_uses_injected_agent_and_judge(tmp_path: Path) -> None:

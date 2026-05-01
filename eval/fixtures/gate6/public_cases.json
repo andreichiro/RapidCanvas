@@ -1,0 +1,320 @@
+{
+  "public_atproto_working_group": {
+    "prediction": {
+      "post": {
+        "url": "https://bsky.app/profile/atproto.com/post/3mik6af7p4k22",
+        "author": "atproto.com",
+        "text": "AT Protocol announced an ATP working group at the IETF.",
+        "created_at": "2026-04-28T00:00:00Z"
+      },
+      "bullets": [
+        {"text": "The post says an ATP working group was created for the AT Protocol, so the key niche reference is standards work rather than a Bluesky product feature.", "source_ids": ["S1", "S2"]},
+        {"text": "The linked AT Protocol source frames the next step as work under an IETF charter, which is the evidence boundary for the announcement.", "source_ids": ["S1"]},
+        {"text": "A useful explanation should connect the public Bluesky post to the AT Protocol context and avoid expanding ATP beyond the cited standards meaning.", "source_ids": ["S2"]}
+      ],
+      "sources": [
+        {"id": "S1", "title": "AT Protocol working group announcement", "url": "https://atproto.com/blog/at-protocol-working-group", "type": "web", "snippet": "Announcement and IETF working-group context."},
+        {"id": "S2", "title": "Public Bluesky post fixture", "url": "https://bsky.app/profile/atproto.com/post/3mik6af7p4k22", "type": "bluesky", "snippet": "Public post announcing the ATP working group."}
+      ],
+      "trace": {
+        "category": "niche_reference",
+        "queries": ["AT Protocol ATP working group IETF charter"],
+        "warnings": ["gate6_cached_public_fixture_not_live_refetch"],
+        "latency_ms": 71,
+        "trust_score": 0.86,
+        "fallback_mode": "none",
+        "guardrail_flags": [],
+        "adapter_mode": "none"
+      }
+    },
+    "retrieved_source_hints": ["AT Protocol", "IETF working group"],
+    "trace_sequence": ["fetch_post", "scan_input", "classify", "plan_queries", "retrieve", "rerank", "assess_trust", "explain", "validate"]
+  },
+  "public_bsky_photo_carousel_reply": {
+    "prediction": {
+      "post": {
+        "url": "https://bsky.app/profile/bsky.app/post/3mk6ipt5iv22y",
+        "author": "bsky.app",
+        "text": "Bluesky says photo carousel feedback means the feature is going back in the oven.",
+        "created_at": "2026-04-22T00:00:00Z"
+      },
+      "bullets": [
+        {"text": "This is reply context: Bluesky is responding to feedback about the photo carousel rather than making a standalone launch announcement.", "source_ids": ["S1"]},
+        {"text": "The post says the carousel may return for posts with more than four photos or videos, so that condition should be cited as tentative.", "source_ids": ["S1"]},
+        {"text": "The safe explanation should say the team is reconsidering the feature and avoid claiming a fixed relaunch date.", "source_ids": ["S1", "S2"]}
+      ],
+      "sources": [
+        {"id": "S1", "title": "Bluesky photo carousel reply", "url": "https://bsky.app/profile/bsky.app/post/3mk6ipt5iv22y", "type": "thread", "snippet": "Public reply about putting the photo carousel back in the oven."},
+        {"id": "S2", "title": "Bluesky release context", "url": "https://bsky.app/profile/bsky.app/post/3mk4lzkrnk22d", "type": "bluesky", "snippet": "Earlier public release post mentioning multiple-photo carousel behavior."}
+      ],
+      "trace": {
+        "category": "reply_context",
+        "queries": ["Bluesky photo carousel feedback more than four photos"],
+        "warnings": ["gate6_cached_public_fixture_not_live_refetch"],
+        "latency_ms": 64,
+        "trust_score": 0.82,
+        "fallback_mode": "none",
+        "guardrail_flags": [],
+        "adapter_mode": "none"
+      }
+    },
+    "retrieved_source_hints": ["photo carousel feedback", "more than four photos"],
+    "trace_sequence": ["fetch_post", "scan_input", "classify", "plan_queries", "retrieve", "rerank", "assess_trust", "explain", "validate"],
+    "unsupported_claims": []
+  },
+  "public_current_event_maryland_pricing": {
+    "prediction": {
+      "post": {
+        "url": "https://bsky.app/profile/nytimes.com/post/3mksju3mvjp2u",
+        "author": "nytimes.com",
+        "text": "Maryland prohibited data-driven grocery price increases.",
+        "created_at": "2026-04-29T00:00:00Z"
+      },
+      "bullets": [
+        {"text": "The current-event claim is that Maryland first state action prohibits using consumer data to boost prices in grocery and delivery contexts.", "source_ids": ["S1", "S2"]},
+        {"text": "Because the Bluesky post summarizes a linked article, the article metadata is the stronger source for the consumer data and boost prices details.", "source_ids": ["S1"]},
+        {"text": "The explanation should preserve uncertainty about implementation effects and avoid adding unsupported enforcement dates beyond the cited source.", "source_ids": ["S1"]}
+      ],
+      "sources": [
+        {"id": "S1", "title": "Linked NYT article fixture", "url": "https://nyti.ms/4t7NAXi", "type": "web", "snippet": "Article metadata describes Maryland as first to ban AI-driven grocery price increases."},
+        {"id": "S2", "title": "NYT Bluesky post fixture", "url": "https://bsky.app/profile/nytimes.com/post/3mksju3mvjp2u", "type": "bluesky", "snippet": "Public post summarizing the Maryland pricing law."}
+      ],
+      "trace": {
+        "category": "current_event",
+        "queries": ["Maryland first state consumer data boost prices grocery delivery"],
+        "warnings": ["gate6_cached_public_fixture_not_live_refetch"],
+        "latency_ms": 83,
+        "trust_score": 0.8,
+        "fallback_mode": "none",
+        "guardrail_flags": [],
+        "adapter_mode": "none"
+      }
+    },
+    "retrieved_source_hints": ["Maryland consumer data", "boost prices"],
+    "trace_sequence": ["fetch_post", "scan_input", "classify", "plan_queries", "retrieve", "rerank", "assess_trust", "explain", "validate"],
+    "unsupported_claims": []
+  },
+  "public_bsky_baseball_quote": {
+    "prediction": {
+      "post": {
+        "url": "https://bsky.app/profile/bsky.app/post/3mjxj5pui322g",
+        "author": "bsky.app",
+        "text": "Bluesky quotes a minor-league baseball starter pack.",
+        "created_at": "2026-04-16T00:00:00Z"
+      },
+      "bullets": [
+        {"text": "This is quote context: the post points readers to a quoted starter pack rather than explaining baseball teams directly.", "source_ids": ["S1", "S2"]},
+        {"text": "The quoted starter pack is about following the minor leagues, so the baseball context comes from the embedded record.", "source_ids": ["S2"]},
+        {"text": "A correct answer should cite both the Bluesky post and the quoted source post before recommending what the post is doing.", "source_ids": ["S1", "S2"]}
+      ],
+      "sources": [
+        {"id": "S1", "title": "Bluesky baseball quote post", "url": "https://bsky.app/profile/bsky.app/post/3mjxj5pui322g", "type": "bluesky", "snippet": "Public post about baseball fever and a starter pack."},
+        {"id": "S2", "title": "Quoted starter pack record", "url": "at://did:plc:2k77kngw6l3q27pitvz7lh2b/app.bsky.feed.post/3mjvec6mhpk2a", "type": "bluesky", "snippet": "Quoted record for following minor-league baseball."}
+      ],
+      "trace": {
+        "category": "quote_context",
+        "queries": ["Bluesky baseball fever starter pack minor leagues quoted post"],
+        "warnings": ["gate6_cached_public_fixture_not_live_refetch"],
+        "latency_ms": 77,
+        "trust_score": 0.79,
+        "fallback_mode": "none",
+        "guardrail_flags": [],
+        "adapter_mode": "none"
+      }
+    },
+    "retrieved_source_hints": ["starter pack minor leagues", "quoted post"],
+    "trace_sequence": ["fetch_post", "scan_input", "classify", "plan_queries", "retrieve", "rerank", "assess_trust", "explain", "validate"],
+    "unsupported_claims": []
+  },
+  "public_atmosphereconf_link": {
+    "prediction": {
+      "post": {
+        "url": "https://bsky.app/profile/bsky.app/post/3mk3sdiixhs2n",
+        "author": "bsky.app",
+        "text": "Bluesky links to a David Imel summary of ATmosphereConf.",
+        "created_at": "2026-04-19T00:00:00Z"
+      },
+      "bullets": [
+        {"text": "The linked article is the main evidence source because the post is recommending David Imel's summary, not fully summarizing it itself.", "source_ids": ["S1", "S2"]},
+        {"text": "The relevant context is ATmosphereConf, a gathering around the AT Protocol community and related builders.", "source_ids": ["S1"]},
+        {"text": "The answer should explain why the link matters while avoiding unsupported claims about conference outcomes not present in the cited sources.", "source_ids": ["S1", "S2"]}
+      ],
+      "sources": [
+        {"id": "S1", "title": "David Imel ATmosphereConf summary", "url": "https://davidimel.substack.com/p/bluesky-is-looking-for-its-myspace", "type": "web", "snippet": "Linked article metadata about ATmosphereConf and Bluesky."},
+        {"id": "S2", "title": "Bluesky ATmosphereConf post", "url": "https://bsky.app/profile/bsky.app/post/3mk3sdiixhs2n", "type": "bluesky", "snippet": "Public post pointing to the linked article."}
+      ],
+      "trace": {
+        "category": "link_context",
+        "queries": ["David Imel ATmosphereConf AT Protocol community"],
+        "warnings": ["gate6_cached_public_fixture_not_live_refetch"],
+        "latency_ms": 69,
+        "trust_score": 0.83,
+        "fallback_mode": "none",
+        "guardrail_flags": [],
+        "adapter_mode": "none"
+      }
+    },
+    "retrieved_source_hints": ["David Imel", "ATmosphereConf"],
+    "trace_sequence": ["fetch_post", "scan_input", "classify", "plan_queries", "retrieve", "rerank", "assess_trust", "explain", "validate"],
+    "unsupported_claims": []
+  },
+  "public_wikipedia_image_puzzle": {
+    "prediction": {
+      "post": {
+        "url": "https://bsky.app/profile/wikipedia.org/post/3mksbkf7voc2z",
+        "author": "wikipedia.org",
+        "text": "Wikipedia starts a May-connections puzzle thread with an image.",
+        "created_at": "2026-04-30T00:00:00Z"
+      },
+      "bullets": [
+        {"text": "The image alt text is useful evidence because it says the graphic introduces a puzzle-style activity.", "source_ids": ["S1"]},
+        {"text": "The visible post asks about May connections, so the explanation should frame the thread as a puzzle rather than a factual article summary.", "source_ids": ["S1", "S2"]},
+        {"text": "The puzzle frame is supported by the image and post text; any guesses about the answers should wait for later thread posts.", "source_ids": ["S1", "S2"]}
+      ],
+      "sources": [
+        {"id": "S1", "title": "Wikipedia image alt text", "url": "https://bsky.app/profile/wikipedia.org/post/3mksbkf7voc2z", "type": "image", "snippet": "Alt text describes a graphic introducing four Wikipedia articles and four May connections."},
+        {"id": "S2", "title": "Wikipedia puzzle post", "url": "https://bsky.app/profile/wikipedia.org/post/3mksbkf7voc2z", "type": "bluesky", "snippet": "Public post starting the puzzle thread."}
+      ],
+      "trace": {
+        "category": "image_context",
+        "queries": ["Wikipedia May connections puzzle image alt text"],
+        "warnings": ["gate6_cached_public_fixture_not_live_refetch"],
+        "latency_ms": 58,
+        "trust_score": 0.81,
+        "fallback_mode": "none",
+        "guardrail_flags": [],
+        "adapter_mode": "none"
+      }
+    },
+    "retrieved_source_hints": ["image alt text May connections", "puzzle frame"],
+    "trace_sequence": ["fetch_post", "scan_input", "classify", "plan_queries", "retrieve", "rerank", "assess_trust", "explain", "validate"],
+    "unsupported_claims": []
+  },
+  "public_atproto_acorn_ambiguous": {
+    "prediction": {
+      "post": {
+        "url": "https://bsky.app/profile/atproto.com/post/3mk6f3hu3ks2l",
+        "author": "atproto.com",
+        "text": "AT Protocol office hours will feature Blacksky to talk about Acorn.",
+        "created_at": "2026-04-23T00:00:00Z"
+      },
+      "bullets": [
+        {"text": "The term is ambiguous Acorn without context, so the explanation should not infer an unrelated product or acronym.", "source_ids": ["S1"]},
+        {"text": "The cited post ties Acorn to Blacksky community tools on atproto, which is the supported interpretation.", "source_ids": ["S1", "S2"]},
+        {"text": "The confidence limit is that the cached sources identify the topic and speaker, but not a full technical definition of Acorn.", "source_ids": ["S1"]}
+      ],
+      "sources": [
+        {"id": "S1", "title": "AT Protocol office-hours post", "url": "https://bsky.app/profile/atproto.com/post/3mk6f3hu3ks2l", "type": "bluesky", "snippet": "Public post mentioning Blacksky, Acorn, and community tools on atproto."},
+        {"id": "S2", "title": "Blacksky context fixture", "url": "https://blacksky.app/", "type": "web", "snippet": "Context for Blacksky as an atproto community project."}
+      ],
+      "trace": {
+        "category": "ambiguous_acronym",
+        "queries": ["Acorn Blacksky community tools atproto"],
+        "warnings": ["gate6_cached_public_fixture_not_live_refetch", "ambiguous_term_requires_context"],
+        "latency_ms": 62,
+        "trust_score": 0.68,
+        "fallback_mode": "partial",
+        "guardrail_flags": ["low_evidence"],
+        "adapter_mode": "none"
+      }
+    },
+    "retrieved_source_hints": ["Blacksky Acorn", "community tools"],
+    "trace_sequence": ["fetch_post", "scan_input", "classify", "plan_queries", "retrieve", "rerank", "assess_trust", "explain", "validate"],
+    "unsupported_claims": []
+  },
+  "public_jay_william_morris_slang": {
+    "prediction": {
+      "post": {
+        "url": "https://bsky.app/profile/jay.bsky.team/post/3mjko6vtdps2b",
+        "author": "jay.bsky.team",
+        "text": "amazon prime william morris vibes",
+        "created_at": "2026-04-11T00:00:00Z"
+      },
+      "bullets": [
+        {"text": "The William Morris reference is supported by the image alt text describing tree of life art, a common cue for the visual comparison.", "source_ids": ["S1"]},
+        {"text": "The phrase is a vibes phrase: it reads as a visual joke about style rather than a literal claim about Amazon Prime or Morris.", "source_ids": ["S1", "S2"]},
+        {"text": "The useful explanation should cite visual evidence and keep the interpretation modest because the post is short and slangy.", "source_ids": ["S1", "S2"]}
+      ],
+      "sources": [
+        {"id": "S1", "title": "Image alt text fixture", "url": "https://bsky.app/profile/jay.bsky.team/post/3mjko6vtdps2b", "type": "image", "snippet": "Alt text says tree of life art."},
+        {"id": "S2", "title": "Jay Bluesky post fixture", "url": "https://bsky.app/profile/jay.bsky.team/post/3mjko6vtdps2b", "type": "bluesky", "snippet": "Public short post using a visual slang comparison."}
+      ],
+      "trace": {
+        "category": "meme_slang",
+        "queries": ["William Morris tree of life art visual slang vibes"],
+        "warnings": ["gate6_cached_public_fixture_not_live_refetch"],
+        "latency_ms": 47,
+        "trust_score": 0.74,
+        "fallback_mode": "none",
+        "guardrail_flags": [],
+        "adapter_mode": "none"
+      }
+    },
+    "retrieved_source_hints": ["tree of life William Morris", "visual evidence"],
+    "trace_sequence": ["fetch_post", "scan_input", "classify", "plan_queries", "retrieve", "rerank", "assess_trust", "explain", "validate"],
+    "unsupported_claims": []
+  },
+  "public_jay_rose_sparse": {
+    "prediction": {
+      "post": {
+        "url": "https://bsky.app/profile/jay.bsky.team/post/3mkkrjbvy7k2a",
+        "author": "jay.bsky.team",
+        "text": "rose",
+        "created_at": "2026-04-25T00:00:00Z"
+      },
+      "bullets": [
+        {"text": "This is sparse context: the visible post only says rose, so there is not enough evidence for a broader explanation.", "source_ids": ["S1"]},
+        {"text": "The correct behavior is a safe summary of the visible post rather than a confident claim about a person, flower, color, or event.", "source_ids": ["S1"]},
+        {"text": "Because there is no broader claim in the fixture, the answer should make no broader claim and cite the visible post only.", "source_ids": ["S1"]}
+      ],
+      "sources": [
+        {"id": "S1", "title": "Sparse public Bluesky post", "url": "https://bsky.app/profile/jay.bsky.team/post/3mkkrjbvy7k2a", "type": "bluesky", "snippet": "Visible post text is only one word."}
+      ],
+      "trace": {
+        "category": "sparse_context",
+        "queries": [],
+        "warnings": ["gate6_cached_public_fixture_not_live_refetch", "low_evidence_visible_post_only"],
+        "latency_ms": 35,
+        "trust_score": 0.39,
+        "fallback_mode": "safe_summary",
+        "guardrail_flags": ["low_evidence"],
+        "adapter_mode": "none"
+      }
+    },
+    "retrieved_source_hints": ["visible post"],
+    "trace_sequence": ["fetch_post", "scan_input", "classify", "plan_queries", "retrieve", "assess_trust", "explain", "validate"],
+    "unsupported_claims": []
+  },
+  "public_github_git_city_video": {
+    "prediction": {
+      "post": {
+        "url": "https://bsky.app/profile/github.com/post/3mkghu6dlky2p",
+        "author": "github.com",
+        "text": "GitHub shares Git City, a project that turns a profile into a pixel art city.",
+        "created_at": "2026-04-24T00:00:00Z"
+      },
+      "bullets": [
+        {"text": "Git City is the linked project being explained, not an official GitHub feature announcement in the post itself.", "source_ids": ["S1", "S2"]},
+        {"text": "The cited post says the project turns a GitHub profile into a pixel art city using commits, repositories, and stars as skyline inputs.", "source_ids": ["S1"]},
+        {"text": "A careful answer should cite the project link and avoid claiming endorsement or production status beyond the public post.", "source_ids": ["S1", "S2"]}
+      ],
+      "sources": [
+        {"id": "S1", "title": "GitHub Git City post", "url": "https://bsky.app/profile/github.com/post/3mkghu6dlky2p", "type": "bluesky", "snippet": "Public post describing Git City and a GitHub profile as a pixel art city."},
+        {"id": "S2", "title": "Git City repository fixture", "url": "https://github.com/srizzon/git-city", "type": "web", "snippet": "Linked open-source project page."}
+      ],
+      "trace": {
+        "category": "link_context",
+        "queries": ["Git City GitHub profile pixel art city"],
+        "warnings": ["gate6_cached_public_fixture_not_live_refetch"],
+        "latency_ms": 55,
+        "trust_score": 0.78,
+        "fallback_mode": "none",
+        "guardrail_flags": [],
+        "adapter_mode": "none"
+      }
+    },
+    "retrieved_source_hints": ["Git City GitHub profile", "pixel art city"],
+    "trace_sequence": ["fetch_post", "scan_input", "classify", "plan_queries", "retrieve", "rerank", "assess_trust", "explain", "validate"],
+    "unsupported_claims": []
+  }
+}

@@ -33,8 +33,9 @@ def run_eval(
 
     active_agent = agent or build_eval_agent(mode)
     active_judge = judge or build_judge(judge_name)
+    cases = load_eval_cases(cases_path)
     rows: list[dict[str, Any]] = []
-    for case in load_eval_cases(cases_path):
+    for case in cases:
         fixture = active_agent.predict(case)
         row = score_case(case, fixture)
         row.update(judge_case(case, fixture, active_judge))
@@ -42,6 +43,8 @@ def run_eval(
 
     summary: dict[str, Any] = aggregate_scores(rows)
     summary.update(_run_metadata(mode, judge_name, len(rows)))
+    summary.update(_case_coverage_metadata(cases, mode))
+    summary.update(_optional_tool_status(mode, judge_name))
     summary["fallback_modes"] = fallback_counts(rows)
     paths = write_reports(rows, summary, resolve_repo_path(output_dir))
     return {
@@ -63,6 +66,56 @@ def _run_metadata(mode: str, judge_name: str, row_count: int) -> dict[str, float
         "live_case_count": float(row_count if api_mode else 0),
         "api_network_calls_allowed": api_mode,
         "model_judge_calls_allowed": model_judge,
+    }
+
+
+def _case_coverage_metadata(cases: list[Any], mode: str) -> dict[str, float | str | bool]:
+    public_fixture_count = sum(1 for case in cases if case.is_public_fixture)
+    synthetic_count = sum(1 for case in cases if case.provenance == "synthetic_fixture")
+    verified_count = sum(1 for case in cases if case.is_public_fixture and case.live_verified_at)
+    cached_fixture_count = sum(1 for case in cases if case.fixture_paths)
+    return {
+        "public_fixture_case_count": float(public_fixture_count),
+        "synthetic_fixture_case_count": float(synthetic_count),
+        "live_verified_public_case_count": float(verified_count),
+        "cached_fixture_available_count": float(cached_fixture_count),
+        "public_bluesky_fixture_case_count": float(public_fixture_count),
+        "public_case_coverage_status": (
+            "fixture_backed_public_urls"
+            if public_fixture_count >= 10
+            else "insufficient_public_fixture_coverage"
+        ),
+        "live_pipeline_quality_status": (
+            "api_mode_live_route"
+            if mode == "api"
+            else "not_live_default_cached_run"
+        ),
+    }
+
+
+def _optional_tool_status(mode: str, judge_name: str) -> dict[str, str]:
+    dspy_ran = judge_name in {"dspy", "composite"}
+    ragas_ran = judge_name in {"ragas", "composite"}
+    dspy_skip = (
+        "Default make eval uses deterministic no-network judging; run --judge dspy "
+        "with backend ai extras to execute the DSPy judge."
+    )
+    ragas_skip = (
+        "Default make eval uses deterministic no-network judging; run --judge ragas "
+        "with backend eval extras to execute Ragas metrics."
+    )
+    mlflow_skip = (
+        "MLflow logging is intentionally isolated behind make mlflow-log so default "
+        "eval remains offline and does not create mlruns artifacts."
+    )
+    return {
+        "dspy_judge_status": "ran" if dspy_ran else "skipped",
+        "dspy_judge_skip_reason": "" if dspy_ran else dspy_skip,
+        "ragas_status": "ran" if ragas_ran else "skipped",
+        "ragas_skip_reason": "" if ragas_ran else ragas_skip,
+        "ragas_metric_source": "ragas_judge" if ragas_ran else "deterministic_proxy",
+        "mlflow_status": "not_run_by_make_eval",
+        "mlflow_skip_reason": mlflow_skip,
     }
 
 

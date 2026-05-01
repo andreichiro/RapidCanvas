@@ -1,0 +1,39 @@
+{
+  "lane": "dev_D_gate6",
+  "developer": "Dev D",
+  "plan": "Gate 6 rapid evaluation, reports, requirement matrix, review evidence, and handoff",
+  "required_branch": "codex/dev-d-gate6-eval-reports",
+  "protocol": "Isolated Lane Protocol 2026-04-17",
+  "execution_roots": [
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/rapidcanvas_dev_d_gate6_isolated",
+      "checkout_kind": "standalone_clone",
+      "role": "dev_d_gate6_eval_reports_truth_layer"
+    }
+  ],
+  "shared_read_only_roots": [
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/New project",
+      "role": "shared_read_only_context"
+    }
+  ],
+  "forbidden_operations": [
+    "linked_worktree_for_live_lane",
+    "shared_checkout_branch_switch",
+    "shared_checkout_commit",
+    "shared_checkout_clean",
+    "shared_checkout_reset",
+    "shared_checkout_stash",
+    "shared_checkout_stage"
+  ],
+  "verification": [
+    "every_execution_root_exists",
+    "every_execution_root_has_real_git_directory",
+    "every_execution_root_is_on_required_branch",
+    "shared_roots_are_not_on_required_branch",
+    "shared_roots_do_not_own_required_branch_in_worktree_list",
+    "current_execution_root_is_approved"
+  ]
+}

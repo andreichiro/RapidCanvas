@@ -34,9 +34,12 @@ metrics, report writers, and `make eval`. The cached eval uses fixture-backed
 predictions only for evaluation and does not replace real Search/RAG or DSPy
 product behavior.
 
-The committed eval cases are synthetic cached fixtures for deterministic review.
-They do not close the final requirement for 10+ real or fixture-backed public
-Bluesky post cases; Gate 6 owns that closure.
+Gate 6 Dev D rapid eval/reporting is implemented on the Gate 6 branch. It adds
+10 fixture-backed public Bluesky URLs, keeps 9 synthetic attack/edge fixtures
+clearly marked, reports public/synthetic provenance in `make eval`, and writes
+JSONL, Markdown, summary JSON, confusion matrix CSV, and SVG graph artifacts
+under ignored `reports/eval/`. Default eval is still offline; live API quality,
+provider-backed judges, and MLflow remain explicit commands.
 
 Do not claim T1-T15 are complete until their files, tests, and requirement
 matrix rows exist.

@@ -21,6 +21,7 @@ public-post eval expansion and quality review.
 - Gate 4 Dev D eval/docs lane: implemented with research docs, task packets, local project skills, cached eval fixtures, deterministic metrics, and report generation.
 - Gate 4 Dev E frontend lane: implemented and merged into the integration baseline.
 - Gate 5 C5 integration: Dev B retrieval is connected into Dev C `AgentExplainerService` through Dev A dependency wiring, Dev E PR #7 polished the C5 response UI, and Dev D records the final review in `docs/reviews/gate5_final_review.md`.
+- Gate 6 Dev D rapid eval/reporting: `make eval` runs 19 cached cases, including 10 fixture-backed public Bluesky URLs and 9 marked synthetic attack/edge fixtures, then writes reviewer-facing reports under ignored `reports/eval/`.
 - Image understanding and provider-comparison bonus surfaces remain reserved for their final integration work.
 - The assignment API key must be placed only in local `.env`; do not commit it.
 - Because the key was shared in plain text during intake, rotate it before real use.
@@ -139,10 +140,12 @@ summary.json
 
 The cached predictions are evaluation fixtures only. They do not replace final
 Search/RAG, DSPy, guardrail, or citation behavior.
-The current committed cases are synthetic cached fixtures for deterministic
-attack and workflow coverage; they are not counted as the final 10+ real public
-Bluesky-post eval set. Gate 6 must add or refresh real/fixture-backed public
-Bluesky post cases before closing that assignment requirement.
+Gate 6 adds fixture-backed public Bluesky coverage while keeping synthetic
+attack fixtures explicit: `summary.json` reports public fixture counts,
+synthetic fixture counts, optional judge status, MLflow status, and live/default
+mode boundaries. Synthetic `example.com` cases are not counted as public
+Bluesky coverage, and Ragas-shaped default metrics are labeled
+`ragas_metric_source=deterministic_proxy`.
 
 Each report records its prediction mode, judge backend, cached/live row counts,
 and whether API or model calls were allowed, so explicit integration runs are
