@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     enable_hf_reranker: bool = False
 
     mlflow_tracking_uri: str = "file:./mlruns"
+    qdrant_url: str | None = None
     qdrant_path: str = ".cache/qdrant"
     reports_dir: str = "reports"
 

@@ -302,7 +302,7 @@ def _vector_store_or_fallback(
     if vector_store is not None:
         return vector_store, []
     try:
-        return vs.QdrantVectorStore(path=settings.qdrant_path), []
+        return vs.QdrantVectorStore(url=settings.qdrant_url, path=settings.qdrant_path), []
     except Exception as exc:
         warning = f"qdrant_unavailable_using_in_memory_vector_store:{exc.__class__.__name__}"
         return vs.InMemoryVectorStore(), [warning]

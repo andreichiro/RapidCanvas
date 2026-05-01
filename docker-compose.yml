@@ -1,0 +1,59 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.15.5
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant-storage:/qdrant/storage
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command:
+      - uv
+      - run
+      - mlflow
+      - ui
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - file:/mlflow/mlruns
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-runs:/mlflow/mlruns
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      QDRANT_URL: http://qdrant:6333
+    volumes:
+      - backend-cache:/app/backend/.cache
+    depends_on:
+      - qdrant
+      - mlflow
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      - backend
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8000
+    ports:
+      - "5173:5173"
+
+volumes:
+  backend-cache:
+  mlflow-runs:
+  qdrant-storage:

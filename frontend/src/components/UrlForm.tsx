@@ -15,9 +15,17 @@ type UrlFormProps = {
   providers: ProviderInfo[];
 };
 
-function providerStatusText(provider?: ProviderInfo): string {
+function providerStatusText(provider: ProviderInfo | undefined, hasRequestKey: boolean): string {
   if (!provider) {
     return "default";
+  }
+
+  if (provider.name === "openai" && hasRequestKey) {
+    const details = ["ready with request key"];
+    if (provider.default_model) {
+      details.push(provider.default_model);
+    }
+    return details.join(" - ");
   }
 
   const details = [provider.configured ? "ready" : "skipped"];
@@ -44,6 +52,7 @@ export default function UrlForm({
   providers,
 }: UrlFormProps) {
   const selectedProvider = providers.find((item) => item.name === provider);
+  const hasRequestKey = apiKey.trim().length > 0;
 
   return (
     <form className="explain-form" onSubmit={onSubmit}>
@@ -84,7 +93,7 @@ export default function UrlForm({
         <label htmlFor="provider">Provider</label>
         <ProviderSelect disabled={isLoading} onChange={onProviderChange} provider={provider} providers={providers} />
         <span className="provider-status" id="provider-status">
-          {providerStatusText(selectedProvider)}
+          {providerStatusText(selectedProvider, hasRequestKey)}
         </span>
       </div>
 

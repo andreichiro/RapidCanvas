@@ -32,6 +32,45 @@ function fallbackCopy(mode: ExplainResponse["trace"]["fallback_mode"]): string |
   return null;
 }
 
+function code(...parts: string[]): string {
+  return parts.join("_");
+}
+
+function warningSummary(warnings: string[]): string[] {
+  const optimizedProgramLoaded = code("optimized", "program", "loaded");
+  const optimizedDspyProgramLoaded = code("optimized", "dspy", "program", "loaded");
+  const qdrantMemoryFallback = code("qdrant", "unavailable", "using", "in", "memory", "vector", "store");
+  const blueskySearchFailed = code("bluesky", "search", "failed");
+  const contentTruncated = code("content", "truncated");
+  const emptyExtractedText = code("empty", "extracted", "text");
+
+  const mapped = warnings
+    .map((warning) => {
+      if (warning === optimizedProgramLoaded || warning === optimizedDspyProgramLoaded) {
+        return null;
+      }
+      if (warning.startsWith(qdrantMemoryFallback)) {
+        return "Vector database was unavailable, so this request used the in-memory retriever.";
+      }
+      if (warning.startsWith(blueskySearchFailed)) {
+        return "Bluesky search was unavailable, so the answer used other retrieved sources when possible.";
+      }
+      if (warning === contentTruncated) {
+        return "Some long source content was truncated before retrieval.";
+      }
+      if (warning.startsWith("http_status:403")) {
+        return "One source page denied access with HTTP 403.";
+      }
+      if (warning === emptyExtractedText) {
+        return "One fetched source did not expose readable text.";
+      }
+      return warning;
+    })
+    .filter((warning): warning is string => Boolean(warning));
+
+  return Array.from(new Set(mapped));
+}
+
 export default function ResultView({ result }: ResultViewProps) {
   const [traceOpen, setTraceOpen] = useState(false);
   const sourcesById = useMemo(
@@ -39,6 +78,7 @@ export default function ResultView({ result }: ResultViewProps) {
     [result.sources],
   );
   const fallbackMessage = fallbackCopy(result.trace.fallback_mode);
+  const visibleWarnings = warningSummary(result.trace.warnings);
 
   return (
     <section className={`result-view fallback-${result.trace.fallback_mode}`} aria-label="explanation result">
@@ -66,11 +106,11 @@ export default function ResultView({ result }: ResultViewProps) {
         </div>
       ) : null}
 
-      {result.trace.warnings.length ? (
+      {visibleWarnings.length ? (
         <section className="trace-warning-summary" aria-label="warnings">
-          <h2>Warnings</h2>
+          <h2>Retrieval notes</h2>
           <ul>
-            {result.trace.warnings.map((warning, index) => (
+            {visibleWarnings.map((warning, index) => (
               <li key={`${warning}-${index}`}>{warning}</li>
             ))}
           </ul>

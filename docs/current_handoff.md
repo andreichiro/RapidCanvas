@@ -26,16 +26,26 @@ Active lane owner: Dev G7-C final truth/docs/submission consuming G7-A/G7-B evid
   backend route requires either that transient `api_key` or local
   `OPENAI_API_KEY` before it runs embeddings/model-backed explanations. The
   field is not stored in the repo or browser local storage.
+- Local startup now has one-command paths: `make run` starts the Docker Compose
+  stack for UI, API, Qdrant, and MLflow; `make dev` starts or reuses fixed-port
+  source dev servers in one terminal. The frontend also falls back from `/api`
+  to `http://127.0.0.1:8000` to avoid generic local `Failed to fetch` errors
+  when the backend is reachable.
 - GEPA in this integration branch is real compiled metadata at
   `backend/app/agent/optimized/program.json` with a saved DSPy program under
   `backend/app/agent/optimized/program_compiled/`. The examples come from
   finalized cached Gate 6 eval fixtures.
 - Image support includes Bluesky image URL/alt-text context evidence plus G7-B's
-  helper-level vision path with untrusted alt-text fallback. This is not a full
-  browser/UI live vision claim. Live vision was not run by G7-C in this
-  integration pass.
+  helper-level vision path with untrusted alt-text fallback. G7-C ran a live
+  helper smoke: one upstream image URL failed to download, and a second public
+  image succeeded in 3.3s. This is not a full browser/UI live vision claim.
 - Provider comparison is provider registry and skipped-provider visibility
-  through `GET /api/providers`; no live Anthropic/Gemini/Ollama benchmark ran.
+  through `GET /api/providers`; selecting Anthropic with only the OpenAI request
+  key was smoke-tested and fell back to OpenAI with trace warnings. no live
+  Anthropic/Gemini/Ollama benchmark ran.
+- Docker Compose config passed and includes backend, frontend, Qdrant, and
+  MLflow. Full container boot was blocked locally because the Docker daemon was
+  not running.
 - MLflow local file-backed logging was verified with `make mlflow-log`; generated
   `backend/mlruns/` and report manifests remain ignored.
 - Ragas/DSPy judge provider-backed runs were not launched by G7-C. Default eval
@@ -158,6 +168,10 @@ Dev D `make eval`, fake-agent/API eval modes, and optional DSPy/Ragas/composite 
 Gate 7 closure transient-key route smoke: two public Bluesky URLs returned 200,
 `adapter_mode=none`, web/thread sources, and 3-4 cited bullets; no generated
 live report was tracked.
+Final Gate 7 local smoke: `make dev` reached healthy API/UI/proxied providers,
+NYTimes public post returned a normal 3-bullet cited answer in 28.62s, Anthropic
+selection fell back to OpenAI with provider warnings in 30.22s, and live vision
+helper passed on a public image in 3.3s.
 ```
 
 ## Important Boundaries

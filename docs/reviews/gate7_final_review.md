@@ -36,9 +36,18 @@ and G7-A commit `fc4dff4`.
 | `make mlflow-log` | passed | Local file-backed MLflow run `210212431e8145deb442a37bff05f1b6`; generated artifacts remain ignored. |
 | `make lint` | passed | Backend Ruff/mypy and frontend TypeScript checks. |
 | `make test` | passed | 345 backend tests and 32 frontend tests on the merged A/B/C integration branch. |
+| `npm --prefix frontend test` | passed | 35 frontend tests after local API fallback, provider-status, and retrieval-note UI fixes. |
+| `npm --prefix frontend run build` | passed | TypeScript and Vite build after API fallback and Docker proxy configuration. |
+| focused Qdrant remote config test | passed | Confirms `QDRANT_URL` config builds a remote Qdrant client for Docker Compose. |
+| `make dev` local source smoke | passed | Reuses healthy fixed-port local API/UI or starts both in one terminal; `/api/health`, UI HTML, and proxied `/api/providers` were reachable. |
+| `docker compose config` | passed | Full-stack Compose config includes backend, frontend, Qdrant, and MLflow services. |
+| `docker compose up --build -d` | blocked | Docker daemon was not running on this machine: `Cannot connect to the Docker daemon`. |
 | focused G7-A runtime tests | passed | 16 targeted Search/RAG, adaptive retrieval, query-planning, source-order, no-credential, and service tests. |
 | `--mode api` public smoke | passed with limitation | 10 fixture-backed public Bluesky URLs hit the live route; all returned cited 3-bullet `abstain` fallbacks because this shell had no provider key. |
 | transient-key live route smoke | passed | Two public Bluesky URLs returned 200 with `adapter_mode=none`, web/thread sources, and 3-4 cited bullets; one normal answer and one guarded `partial`. |
+| final transient-key usefulness smoke | passed | NYTimes public post returned 200 in 28.62s with 3 cited bullets, `fallback_mode=none`, `adapter_mode=none`, and web/thread sources. |
+| provider selector fallback smoke | passed | Selecting Anthropic with only the OpenAI transient key returned 200 in 30.22s and surfaced `provider_anthropic_skipped` plus `provider_openai_default_used`. No Anthropic benchmark ran. |
+| live vision helper smoke | passed with scoped proof | First public image URL failed OpenAI download; second public image URL succeeded in 3.3s through `describe_image_with_openai`. This proves helper path only, not full UI vision. |
 | transient API-key UI/backend tests | passed | Backend rejects keyless default explain requests, trims/masks request keys, and frontend sends a masked required key without storing it. |
 | `make skills-review` | passed | All four local project skills validate. |
 | `make deep-review` | passed | Full local review gate, including audit/build, generated-artifact cleanup, maintainability, API smoke, and frontend smoke. |
@@ -88,11 +97,14 @@ G7-B commit `3a79056` is merged in this integration branch. The submitted
 `backend/app/agent/optimized/program_compiled/`, and loader tests cover the
 compiled-program path when DSPy and provider credentials are available.
 
-Image understanding in the landed base is limited to Bluesky image URL/alt-text
-normalization plus image `ContextDocument` evidence from post context. Live
-vision was not run. Provider comparison is limited to provider registry/skip
-visibility through `GET /api/providers`; no Anthropic/Gemini/Ollama live
-comparison or benchmark was run. MLflow local logging did run through
+Image understanding in the landed base includes Bluesky image URL/alt-text
+normalization plus image `ContextDocument` evidence from post context. G7-C also
+ran a live helper smoke through `describe_image_with_openai`: one image URL was
+blocked by upstream download, and a second public image URL succeeded in 3.3s.
+This remains helper-level evidence, not a full browser/UI vision proof. Provider
+comparison is limited to provider registry/skip visibility through
+`GET /api/providers`; no Anthropic/Gemini/Ollama live comparison or benchmark
+was run. MLflow local logging did run through
 `make mlflow-log`; generated `backend/mlruns/` and report manifest files remain
 ignored.
 
@@ -102,11 +114,11 @@ ignored.
 |---|---|---|---|
 | Search/RAG runtime | real | `backend/app/deps.py`, `backend/app/ml/retrieval_service.py`, `backend/app/ml/retrieval_adapter.py`, G7-A tests | Default route uses Dev B Search/RAG with trace-visible fallbacks when runtime modules are present. |
 | Adaptive retrieval | real | `backend/app/agent/adaptive_retrieval.py`, `backend/app/agent/query_planning.py`, `backend/app/tests/integration/test_gate7_adaptive_retrieval.py`, forced live adaptive smoke from G7-A | Bounded adaptive path is integrated: max one extra safe query and no unbounded confidence-search loop. Organic public round-two trigger was not observed before shipping. |
-| Public live answer usefulness | partial | `/tmp/rapidcanvas_gate7_all_public_api_eval/summary.json`, transient-key direct TestClient sample | No-key API-mode cases now remain a documented degraded baseline; the transient-key smoke proves provider-backed live route wiring on two public posts, including one normal contextual answer and one safe partial. Cached eval remains the quality proof. |
+| Public live answer usefulness | partial | `/tmp/rapidcanvas_gate7_all_public_api_eval/summary.json`, transient-key direct TestClient sample | No-key API-mode cases now remain a documented degraded baseline; the final transient-key smoke returned a normal 3-bullet cited answer in 28.62s on a public NYTimes post. This proves usefulness on a small sample, not a broad live benchmark. Cached eval remains the quality proof. |
 | Eval dataset | fixture-backed | `eval/posts.yaml`, `eval/fixtures/gate6/public_cases.json`, `make eval` summary | 19 cached rows, 10 fixture-backed public Bluesky URLs, 9 synthetic fixtures. Live search is not ground truth. |
 | GEPA | real | `backend/app/agent/optimized/program.json`, `backend/app/agent/optimized/program_compiled/`, `backend/app/eval/gepa_dataset.py`, `make optimize` | GEPA examples are built from finalized cached eval fixtures, and a real compiled saved DSPy program is included. Loader use depends on DSPy and provider credentials. |
-| Provider comparison | skipped/config-limited | `GET /api/providers`, `backend/app/deps.py`, README/matrix | Registry and skipped-provider reasons are visible. No live multi-provider benchmark ran. |
-| Image understanding | partial | `backend/app/clients/bsky.py`, `backend/app/ml/diagnostics.py`, image eval cases | Image alt text and image context evidence are supported. Live vision was not run in the landed base. |
+| Provider comparison | skipped/config-limited | `GET /api/providers`, `backend/app/deps.py`, README/matrix, provider selector fallback smoke | Registry and skipped-provider reasons are visible. Selecting Anthropic with only the OpenAI key falls back to OpenAI with trace warnings. No live multi-provider benchmark ran. |
+| Image understanding | partial | `backend/app/clients/bsky.py`, `backend/app/ml/diagnostics.py`, `backend/app/ml/image.py`, image eval cases, live helper smoke | Image alt text and image context evidence are supported. Live vision helper smoke passed on one public image, but no full browser/UI vision proof ran. |
 | MLflow | real | `make mlflow-log`, `backend/app/ops/mlflow.py`, run `210212431e8145deb442a37bff05f1b6` | Local file-backed MLflow run and DSPy packaging path work. This is not a hosted experiment workflow. |
 | Ragas/LLM judge | skipped/config-limited | `make eval` summary, Gate 6 review | Default eval uses deterministic/no-network judging. Gate 6 recorded explicit offline optional judge smokes; G7-C did not run provider-backed judges. |
 | Browser/user verification | partial | Gate 6 frontend tests, `make deep-review` user smoke target, Gate 5/6 review records | UI behavior is covered by tests and previous browser notes; G7-C did not run new browser-use verification. |
@@ -124,11 +136,14 @@ surface:
 - `R026`: GEPA row now points to the merged eval-dataset bridge and real compiled
   saved DSPy program.
 - `R027`: MLflow row now states local file-backed run/package behavior, not a
-  hosted workflow.
+  hosted workflow, and Docker Compose starts a local MLflow UI service.
+- `R028`: Qdrant row now records `QDRANT_URL`/Compose support plus embedded
+  local fallback.
 - `R032`: image row now distinguishes helper-level vision/alt-text fallback from
-  a full browser/UI live vision claim.
+  a full browser/UI live vision claim, with a live helper smoke.
 - `R033`: provider row now distinguishes provider registry/skip visibility from
-  an unrun live multi-provider benchmark.
+  an unrun live multi-provider benchmark, with OpenAI fallback verified when an
+  optional provider is selected without its own key.
 - `R045`: no-key fallback is no longer the default browser behavior; the UI and
   default API route require a transient request key or local `OPENAI_API_KEY`.
 - `make gate7-final-truth-audit` now enforces those final-truth claims so a
@@ -160,12 +175,15 @@ Only `reports/.gitkeep` remains tracked.
 - Organic public adaptive trigger: not observed before G7-A shipped; deterministic
   tests and forced live adaptive smoke cover second-round entry.
 - Provider-backed live answer quality: partially verified with two transient-key
-  public route smokes. This is enough to prove wiring, citations, and useful
-  output shape, but not a broad live public-post benchmark.
-- Live vision: skipped/config-limited; landed base uses image alt-text/context
-  evidence.
+  public route smokes plus a final NYTimes usefulness smoke. This is enough to
+  prove wiring, citations, and useful output shape, but not a broad live
+  public-post benchmark.
+- Live vision: helper-level smoke passed on a public image, but full browser/UI
+  vision proof remains partial/reserved.
 - Live provider comparison: skipped/config-limited; optional provider keys and
   benchmark runs were not available in G7-C.
+- Full Docker boot: Compose config passed, but the local Docker daemon was not
+  running, so container startup could not be executed in this shell.
 - Provider-backed Ragas/DSPy judge: skipped in G7-C; default eval remains
   deterministic and no-network.
 - G7 browser-use pass: not rerun by G7-C; frontend closure is covered by

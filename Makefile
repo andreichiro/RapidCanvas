@@ -3,7 +3,7 @@ SHELL := /bin/bash
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 
-.PHONY: help setup setup-backend setup-backend-full setup-frontend lint backend-lint frontend-lint test backend-test frontend-test dev dev-backend dev-frontend eval gate6-shipping-audit gate7-final-truth-audit optimize mlflow-log mlflow-ui clean clean-generated check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review skills-review maintainability-review api-smoke frontend-smoke user-smoke deep-review
+.PHONY: help setup setup-backend setup-backend-full setup-frontend lint backend-lint frontend-lint test backend-test frontend-test run dev start dev-backend dev-frontend docker-config docker-up docker-down eval gate6-shipping-audit gate7-final-truth-audit optimize mlflow-log mlflow-ui clean clean-generated check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review skills-review maintainability-review api-smoke frontend-smoke user-smoke deep-review
 
 help:
 	@echo "Bluesky Contextual Post Explainer"
@@ -17,8 +17,11 @@ help:
 	@echo "  make requirements-review Validate Gate 1 requirement mappings"
 	@echo "  make skills-review      Validate local project skills"
 	@echo "  make user-smoke         Exercise the scaffold as a user would"
-	@echo "  make dev-backend        Start FastAPI scaffold"
-	@echo "  make dev-frontend       Start Vite scaffold"
+	@echo "  make run                One-command full Docker stack: UI, API, Qdrant, MLflow"
+	@echo "  make dev                Start FastAPI + Vite in one terminal"
+	@echo "  make dev-backend        Start only FastAPI"
+	@echo "  make dev-frontend       Start only Vite"
+	@echo "  make docker-up          Build and start backend + frontend with Docker"
 	@echo "  make check-secrets      Check that local secrets are not tracked"
 	@echo ""
 	@echo "Evaluation and later-phase commands:"
@@ -118,16 +121,82 @@ user-smoke: api-smoke frontend-smoke
 
 deep-review: lint test check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review skills-review clean-generated maintainability-review user-smoke
 
+run: docker-up
+
 dev:
-	@echo "Run backend and frontend in separate terminals:"
-	@echo "  make dev-backend"
-	@echo "  make dev-frontend"
+	@bash -lc 'set -euo pipefail; \
+		BACKEND_LOG="/tmp/rapidcanvas_dev_backend.log"; \
+		FRONTEND_LOG="/tmp/rapidcanvas_dev_frontend.log"; \
+		BACKEND_PID=""; \
+		FRONTEND_PID=""; \
+		cleanup() { \
+			if [[ -n "$$BACKEND_PID" ]]; then kill "$$BACKEND_PID" >/dev/null 2>&1 || true; fi; \
+			if [[ -n "$$FRONTEND_PID" ]]; then kill "$$FRONTEND_PID" >/dev/null 2>&1 || true; fi; \
+		}; \
+		trap cleanup INT TERM EXIT; \
+		if curl -fsS http://127.0.0.1:8000/api/health >/dev/null 2>&1; then \
+			echo "Reusing healthy FastAPI on http://127.0.0.1:8000"; \
+		else \
+			echo "Starting FastAPI on http://127.0.0.1:8000"; \
+			cd "$(BACKEND_DIR)" && uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload >"$$BACKEND_LOG" 2>&1 & \
+			BACKEND_PID=$$!; \
+			for _ in {1..60}; do \
+				if ! kill -0 "$$BACKEND_PID" >/dev/null 2>&1; then break; fi; \
+				curl -fsS http://127.0.0.1:8000/api/health >/dev/null 2>&1 && break; \
+				sleep 0.5; \
+			done; \
+			if ! curl -fsS http://127.0.0.1:8000/api/health >/dev/null 2>&1; then \
+				echo "FastAPI did not become healthy. Backend log:"; \
+				tail -80 "$$BACKEND_LOG"; \
+				exit 1; \
+			fi; \
+		fi; \
+		if curl -fsS http://127.0.0.1:5173 >/dev/null 2>&1; then \
+			echo "Reusing React UI on http://localhost:5173"; \
+		else \
+			echo "Starting React UI on http://localhost:5173"; \
+			npm --prefix "$(FRONTEND_DIR)" run dev -- --host 0.0.0.0 --port 5173 --strictPort >"$$FRONTEND_LOG" 2>&1 & \
+			FRONTEND_PID=$$!; \
+			for _ in {1..60}; do \
+				if ! kill -0 "$$FRONTEND_PID" >/dev/null 2>&1; then break; fi; \
+				curl -fsS http://127.0.0.1:5173 >/dev/null 2>&1 && break; \
+				sleep 0.5; \
+			done; \
+			if ! curl -fsS http://127.0.0.1:5173 >/dev/null 2>&1; then \
+				echo "React UI did not become reachable on port 5173. Frontend log:"; \
+				tail -80 "$$FRONTEND_LOG"; \
+				exit 1; \
+			fi; \
+		fi; \
+		echo "Ready: open http://localhost:5173"; \
+		echo "Paste a Bluesky post URL and your OpenAI key into the masked field."; \
+		if [[ -z "$$BACKEND_PID$$FRONTEND_PID" ]]; then exit 0; fi; \
+		while true; do \
+			if [[ -n "$$BACKEND_PID" ]] && ! kill -0 "$$BACKEND_PID" >/dev/null 2>&1; then \
+				echo "FastAPI exited. Recent backend log:"; tail -40 "$$BACKEND_LOG"; exit 1; \
+			fi; \
+			if [[ -n "$$FRONTEND_PID" ]] && ! kill -0 "$$FRONTEND_PID" >/dev/null 2>&1; then \
+				echo "React UI exited. Recent frontend log:"; tail -40 "$$FRONTEND_LOG"; exit 1; \
+			fi; \
+			sleep 1; \
+		done'
+
+start: dev
 
 dev-backend:
 	cd $(BACKEND_DIR) && uv run uvicorn app.main:app --reload
 
 dev-frontend:
 	npm --prefix $(FRONTEND_DIR) run dev
+
+docker-config:
+	docker compose config
+
+docker-up:
+	docker compose up --build
+
+docker-down:
+	docker compose down
 
 eval:
 	cd $(BACKEND_DIR) && uv run python -m app.eval.runner --cases eval/posts.yaml --out reports/eval

@@ -82,6 +82,13 @@ function mockFetch(response: ExplainResponse = baseResponse) {
   });
 }
 
+function htmlResponse(): Response {
+  return new Response("<!doctype html><title>Preview</title>", {
+    status: 200,
+    headers: { "Content-Type": "text/html" },
+  });
+}
+
 async function fillRequiredFields(apiKey = "sk-ui-test-key") {
   const urlInput = await screen.findByLabelText("Bluesky post URL");
   const keyInput = await screen.findByLabelText("OpenAI API key");
@@ -116,6 +123,7 @@ test("submits a Bluesky URL through the typed API client", async () => {
   render(<App />);
 
   await fillRequiredFields();
+  expect(screen.getByText("ready with request key - openai/gpt-4.1-mini")).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Explain" }));
 
   expect(await screen.findByText("Fetched post text is available.")).toBeVisible();
@@ -127,6 +135,44 @@ test("submits a Bluesky URL through the typed API client", async () => {
     include_trace: true,
     api_key: "sk-ui-test-key",
   });
+});
+
+test("keeps optional provider skip reasons visible when only OpenAI request key is present", async () => {
+  mockFetch();
+  render(<App />);
+
+  await fillRequiredFields();
+  const providerSelect = await screen.findByRole("combobox", { name: "Provider" });
+  fireEvent.change(providerSelect, { target: { value: "ollama" } });
+
+  expect(screen.getByText("ready - llama3.2")).toBeVisible();
+});
+
+test("falls back to the local backend when same-origin preview is not the API", async () => {
+  const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+    const url = String(input);
+    if (url === "/api/providers") {
+      return Promise.resolve(htmlResponse());
+    }
+    if (url === "http://127.0.0.1:8000/api/providers") {
+      return Promise.resolve(jsonResponse(providersPayload));
+    }
+    if (url === "/api/explain") {
+      return Promise.resolve(jsonResponse({ detail: "not found" }, 404));
+    }
+    if (url === "http://127.0.0.1:8000/api/explain") {
+      return Promise.resolve(jsonResponse(baseResponse));
+    }
+    return Promise.reject(new Error(`Unexpected request: ${url} ${init?.method ?? "GET"}`));
+  });
+  render(<App />);
+
+  await fillRequiredFields();
+  fireEvent.click(screen.getByRole("button", { name: "Explain" }));
+
+  expect(await screen.findByText("Fetched post text is available.")).toBeVisible();
+  expect(fetchMock).toHaveBeenCalledWith("http://127.0.0.1:8000/api/providers", undefined);
+  expect(fetchMock.mock.calls.some(([input]) => String(input) === "http://127.0.0.1:8000/api/explain")).toBe(true);
 });
 
 test("submits the selected provider", async () => {
@@ -177,6 +223,35 @@ test("toggles trace details with trust, fallback, warnings, and guardrail flags"
     expect(screen.getAllByText("real_bluesky_fetch_enabled")[0]).toBeVisible();
     expect(screen.getByText("deterministic dev")).toBeVisible();
   });
+});
+
+test("summarizes common retrieval diagnostics without making successful load notes look like errors", async () => {
+  mockFetch({
+    ...baseResponse,
+    trace: {
+      ...baseResponse.trace,
+      warnings: [
+        "qdrant_unavailable_using_in_memory_vector_store:RuntimeError",
+        "bluesky_search_failed:BlueskyClientError",
+        "content_truncated",
+        "http_status:403",
+        "empty_extracted_text",
+        "optimized_dspy_program_loaded",
+        "optimized_program_loaded",
+      ],
+    },
+  });
+  render(<App />);
+
+  await fillRequiredFields();
+  fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
+
+  expect(await screen.findByText("Retrieval notes")).toBeVisible();
+  expect(screen.getByLabelText("warnings")).toHaveTextContent("Vector database was unavailable");
+  expect(screen.getByLabelText("warnings")).toHaveTextContent("Bluesky search was unavailable");
+  expect(screen.getByLabelText("warnings")).not.toHaveTextContent("optimized_dspy_program_loaded");
+  fireEvent.click(screen.getByRole("button", { name: "Show trace" }));
+  expect(screen.getByText("optimized_dspy_program_loaded")).toBeVisible();
 });
 
 test("renders a partial-success state distinctly", async () => {

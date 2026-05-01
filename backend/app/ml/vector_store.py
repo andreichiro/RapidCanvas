@@ -83,7 +83,6 @@ class InMemoryVectorStore:
         self._items: list[tuple[DocumentChunk, list[float]]] = []
 
     def recreate_collection(self, vector_size: int) -> None:
-        del vector_size
         self._items = []
 
     def upsert(self, chunks: Sequence[DocumentChunk], embeddings: Sequence[list[float]]) -> None:
@@ -107,6 +106,7 @@ class QdrantVectorStore:
     def __init__(
         self,
         *,
+        url: str | None = None,
         path: str | Path = ".cache/qdrant",
         collection_name: str = "rapidcanvas_context",
         client: Any | None = None,
@@ -116,7 +116,8 @@ class QdrantVectorStore:
             self._client = client
         else:
             qdrant_client = importlib.import_module("qdrant_client")
-            self._client = qdrant_client.QdrantClient(path=str(path))
+            client_kwargs = {"url": url} if url else {"path": str(path)}
+            self._client = qdrant_client.QdrantClient(**client_kwargs)
 
     def recreate_collection(self, vector_size: int) -> None:
         models = importlib.import_module("qdrant_client.models")
