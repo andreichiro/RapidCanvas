@@ -198,7 +198,13 @@ def _guardrail_quality(
     reasons = dedupe(response.trace.warnings)
     unsupported = dedupe([item for item in [*issues, *flags] if item in _UNSUPPORTED_ISSUES])
     unsafe = dedupe([item for item in [*issues, *flags] if item in _UNSAFE_ISSUES])
-    source_issues = dedupe([item for item in issues if item in _SOURCE_SUPPORT_ISSUES])
+    source_issues = dedupe(
+        [
+            item
+            for item in [*issues, *flags]
+            if item in _SOURCE_SUPPORT_ISSUES or item in _UNSUPPORTED_ISSUES
+        ]
+    )
     return GuardrailQualityOutput(
         fallback_mode=response.trace.fallback_mode,
         fallback_reasons=reasons if response.trace.fallback_mode != "none" else [],

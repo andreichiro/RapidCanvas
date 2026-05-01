@@ -55,3 +55,26 @@ def test_quality_mlflow_payload_is_structured_and_secret_free() -> None:
     assert payload["metrics"] == {"citation_coverage": 1.0}
     assert payload["artifacts"] == ["reports/eval/summary.json"]
     assert "api_key" not in str(payload).lower()
+
+
+def test_mlflow_log_local_run_falls_back_with_skip_reason(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    class BrokenMlflow:
+        def set_tracking_uri(self, uri: str) -> None:
+            del uri
+            raise RuntimeError("tracking store unavailable")
+
+    artifact = tmp_path / "artifact.json"
+    artifact.write_text("{}")
+    monkeypatch.setattr(mlflow_ops, "import_module", lambda name: BrokenMlflow())
+
+    run = mlflow_ops.log_local_run(
+        Settings(openai_api_key=None, reports_dir=str(tmp_path)),
+        params={"provider": "openai"},
+        metrics={"citation_coverage": 1.0},
+        artifacts=[artifact],
+        run_name="test-run",
+    )
+
+    assert run.used_mlflow is False
+    assert run.skip_reason == "mlflow_run_failed:RuntimeError"
+    assert "mlflow_run_failed:RuntimeError" in run.artifacts[0].read_text()

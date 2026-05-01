@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from math import isfinite
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -162,9 +163,12 @@ def _score(result: Any) -> float:
     else:
         raw_score = getattr(result, "score", 0.0)
     try:
-        return max(0.0, min(1.0, float(raw_score)))
+        score = float(raw_score)
     except (TypeError, ValueError):
         return 0.0
+    if not isfinite(score):
+        return 0.0
+    return max(0.0, min(1.0, score))
 
 
 def _labels(result: Any) -> list[str]:

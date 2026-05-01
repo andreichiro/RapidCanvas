@@ -81,6 +81,7 @@ def _summary_payload(run: MlflowRunSummary) -> dict[str, object]:
         "used_mlflow": run.used_mlflow,
         "artifacts": [str(path) for path in run.artifacts],
         "package": run.model_package,
+        "skip_reason": run.skip_reason,
     }
 
 

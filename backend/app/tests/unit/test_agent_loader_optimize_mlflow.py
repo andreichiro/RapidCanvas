@@ -153,14 +153,12 @@ def test_mlflow_param_payload_includes_required_dev_c_fields() -> None:
 
 
 def test_mlflow_fallback_run_writes_manifest_when_mlflow_missing(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    real_import = __import__
-
-    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):  # type: ignore[no-untyped-def]
+    def fake_import_module(name: str) -> object:
         if name == "mlflow":
-            raise ImportError("No module named mlflow")
-        return real_import(name, globals, locals, fromlist, level)
+            raise ImportError(name=name)
+        return object()
 
-    monkeypatch.setattr("builtins.__import__", fake_import)
+    monkeypatch.setattr(mlflow_ops, "import_module", fake_import_module)
     artifact = tmp_path / "artifact.json"
     artifact.write_text("{}")
     settings = Settings(openai_api_key=None, reports_dir=str(tmp_path))
@@ -175,6 +173,7 @@ def test_mlflow_fallback_run_writes_manifest_when_mlflow_missing(tmp_path, monke
     )
 
     assert run.used_mlflow is False
+    assert run.skip_reason == "mlflow_unavailable:mlflow"
     assert run.artifacts[0].exists()
     assert "test-run" in run.artifacts[0].read_text()
 

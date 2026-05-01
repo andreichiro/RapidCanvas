@@ -24,6 +24,7 @@ class MlflowRunSummary:
     used_mlflow: bool
     artifacts: list[Path]
     model_package: dict[str, Any] | None = None
+    skip_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -140,24 +141,36 @@ def log_local_run(
 ) -> MlflowRunSummary:
     """Create a local MLflow run, falling back to a manifest when MLflow is absent."""
 
-    try:
-        mlflow = import_module("mlflow")
-    except ImportError:
-        return _write_fallback_run(settings, params, metrics, artifacts, run_name)
+    mlflow, import_skip_reason = _import_mlflow_for_run()
+    if import_skip_reason:
+        return _write_fallback_run(
+            settings,
+            params,
+            metrics,
+            artifacts,
+            run_name,
+            skip_reason=import_skip_reason,
+        )
 
-    mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
-    mlflow.set_experiment(EXPERIMENT_NAME)
-    with mlflow.start_run(run_name=run_name) as active_run:
-        run_id = active_run.info.run_id
-        mlflow.log_params({key: str(value) for key, value in params.items()})
-        for key, value in metrics.items():
-            mlflow.log_metric(key, value)
-        logged_artifacts: list[Path] = []
-        for artifact in artifacts:
-            if artifact.exists():
-                mlflow.log_artifact(str(artifact))
-                logged_artifacts.append(artifact)
-        model_package = model_logger() if model_logger else None
+    try:
+        run_id, logged_artifacts, model_package = _run_mlflow_tracking(
+            mlflow,
+            settings,
+            params=params,
+            metrics=metrics,
+            artifacts=artifacts,
+            run_name=run_name,
+            model_logger=model_logger,
+        )
+    except Exception as exc:
+        return _write_fallback_run(
+            settings,
+            params,
+            metrics,
+            artifacts,
+            run_name,
+            skip_reason=f"mlflow_run_failed:{exc.__class__.__name__}",
+        )
     return MlflowRunSummary(
         run_id=run_id,
         tracking_uri=settings.mlflow_tracking_uri,
@@ -167,6 +180,46 @@ def log_local_run(
     )
 
 
+def _import_mlflow_for_run() -> tuple[Any | None, str | None]:
+    try:
+        return import_module("mlflow"), None
+    except ImportError as exc:
+        return None, f"mlflow_unavailable:{exc.name}"
+    except Exception as exc:
+        return None, f"mlflow_import_failed:{exc.__class__.__name__}"
+
+
+def _run_mlflow_tracking(
+    mlflow: Any,
+    settings: Settings,
+    *,
+    params: Mapping[str, str | int | float | bool],
+    metrics: dict[str, float],
+    artifacts: list[Path],
+    run_name: str,
+    model_logger: Callable[[], Any] | None,
+) -> tuple[str, list[Path], Any]:
+    mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
+    mlflow.set_experiment(EXPERIMENT_NAME)
+    with mlflow.start_run(run_name=run_name) as active_run:
+        run_id = active_run.info.run_id
+        mlflow.log_params({key: str(value) for key, value in params.items()})
+        for key, value in metrics.items():
+            mlflow.log_metric(key, value)
+        logged_artifacts = _log_existing_artifacts(mlflow, artifacts)
+        model_package = model_logger() if model_logger else None
+    return run_id, logged_artifacts, model_package
+
+
+def _log_existing_artifacts(mlflow: Any, artifacts: list[Path]) -> list[Path]:
+    logged_artifacts: list[Path] = []
+    for artifact in artifacts:
+        if artifact.exists():
+            mlflow.log_artifact(str(artifact))
+            logged_artifacts.append(artifact)
+    return logged_artifacts
+
+
 def _write_fallback_run(
     settings: Settings,
     params: Mapping[str, str | int | float | bool],
@@ -174,6 +227,7 @@ def _write_fallback_run(
     artifacts: list[Path],
     run_name: str,
     model_logger: Callable[[], Any] | None = None,
+    skip_reason: str | None = None,
 ) -> MlflowRunSummary:
     del model_logger
     reports_dir = Path(settings.reports_dir)
@@ -188,6 +242,7 @@ def _write_fallback_run(
         "params": dict(params),
         "metrics": metrics,
         "artifacts": [str(artifact) for artifact in artifacts if artifact.exists()],
+        "skip_reason": skip_reason,
     }
     fallback_path.write_text(json.dumps(payload, indent=2, sort_keys=True))
     return MlflowRunSummary(
@@ -195,6 +250,7 @@ def _write_fallback_run(
         tracking_uri=settings.mlflow_tracking_uri,
         used_mlflow=False,
         artifacts=[fallback_path],
+        skip_reason=skip_reason,
     )
 
 
