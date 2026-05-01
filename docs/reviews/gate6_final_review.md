@@ -28,11 +28,12 @@ them.
 | 10+ cached cases without network | Passed: 19 cached fixture rows. |
 | Public Bluesky fixture coverage | Passed for fixture-backed coverage: 10 public Bluesky URLs verified by read-only AppView calls on 2026-05-01. |
 | Synthetic cases marked | Passed: 9 `synthetic_fixture` rows remain for prompt-injection, private URL, unavailable/deleted, contradiction, false premise, low evidence, and non-English coverage. |
+| Attack fixture manifest | Passed: raw prompt-injection/private URL payloads are inventoried in `eval/fixtures/prompt_injection/manifest.json` and checked against cached attack rows. |
 | Core metrics | Passed: expected-point recall, citation coverage, unsupported/hallucination count, fallback correctness, prompt-injection resistance, private URL block rate, latency p50/p95, and production taxonomy metrics. |
 | Report artifacts | Passed: JSONL, Markdown, summary JSON, confusion matrix CSV, and SVG metric graph are generated under ignored `reports/eval/`. |
 | Explicit API-mode eval | Completed as a live-route smoke, but the local no-credential setup abstained on all 19 rows; this is recorded as a limitation, not final live quality closure. |
 | Ragas / DSPy judge | Default `make eval` skips both with explicit reasons; explicit offline DSPy, Ragas, and composite judge commands ran after `make setup`. |
-| Automated readiness review | Passed: `test_gate6_eval_readiness.py` checks case mix, public/synthetic provenance, API-shaped fixtures, source/citation references, report artifacts, optional-tool labels, and no synthetic public coverage. |
+| Automated readiness review | Passed: `test_gate6_eval_readiness.py` checks case mix, public/synthetic provenance, raw attack-fixture manifest parity, API-shaped fixtures, source/citation references, report artifacts, optional-tool labels, and no synthetic public coverage. |
 | MLflow | Kept out of default eval; explicit `make mlflow-log` ran and created local ignored run `7a2d704cf7304735bb725ed3926b66e9`; `make deep-review` cleans `backend/mlruns/`. |
 | Requirement matrix | Updated with no unmapped rows and no synthetic cases counted as public coverage. |
 | Generated artifacts | `reports/*`, `mlruns/`, Qdrant/cache output, `.env`, and live outputs remain ignored. |

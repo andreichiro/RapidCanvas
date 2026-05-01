@@ -16,10 +16,13 @@ models, or create MLflow runs.
   `synthetic_fixture` and do not count toward public-post coverage.
 - Public fixture metadata is recorded in
   `eval/fixtures/gate6_live_manifest.json`.
+- Raw prompt-injection and private/local URL attack payloads are inventoried in
+  `eval/fixtures/prompt_injection/manifest.json`; default eval scores the cached
+  predictions, and the raw files stay available for future live replay.
 - `backend/app/tests/integration/test_gate6_eval_readiness.py` automatically
-  checks the case mix, public/synthetic provenance, fixture API shape, citation
-  references, source-object shape, optional-tool labels, and report-summary
-  honesty fields.
+  checks the case mix, public/synthetic provenance, raw attack-fixture manifest,
+  fixture API shape, citation references, source-object shape, optional-tool
+  labels, and report-summary honesty fields.
 
 ## Default Metrics
 

@@ -142,6 +142,38 @@ def test_gate6_attack_fixtures_expose_guardrail_evidence() -> None:
             assert fallback in conservative_fallbacks
 
 
+def test_gate6_prompt_injection_manifest_matches_attack_cases() -> None:
+    cases = {case.id: case for case in load_eval_cases()}
+    manifest = json.loads(
+        (REPO_ROOT / "eval" / "fixtures" / "prompt_injection" / "manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    fixture_entries = manifest["attack_fixtures"]
+    fixture_case_ids = {entry["case_id"] for entry in fixture_entries}
+
+    assert fixture_case_ids == {
+        "malicious_web_prompt_injection",
+        "malicious_bluesky_prompt_injection",
+        "malicious_image_alt",
+        "private_url_fetch",
+    }
+    assert manifest["default_eval_network_policy"].startswith("make eval uses cached")
+
+    for entry in fixture_entries:
+        case = cases[entry["case_id"]]
+        raw_fixture = REPO_ROOT / entry["raw_fixture"]
+        fixture = load_cached_fixture(case)
+        trace = fixture.prediction["trace"]
+        flags = set(trace["guardrail_flags"])
+
+        assert raw_fixture.exists()
+        assert raw_fixture.is_file()
+        assert case.attack_type == entry["attack_type"]
+        assert trace["fallback_mode"] in entry["expected_fallback_modes"]
+        assert set(entry["expected_guardrail_flags"]) <= flags
+
+
 def test_gate6_report_summary_and_artifacts_are_reviewer_ready(tmp_path: Path) -> None:
     result = run_eval(output_dir=tmp_path)
     summary = result["summary"]
