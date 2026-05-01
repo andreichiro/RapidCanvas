@@ -66,7 +66,7 @@ Added Dev B-owned behavior:
 - OpenAI embedding wrapper with diskcache plus deterministic test embeddings in `backend/app/ml/embeddings.py`.
 - Chunking variants, in-memory vector store, Qdrant local-mode store, and `RagService.retrieve()` in `backend/app/ml/vector_store.py`.
 - Retrieval diagnostics in `backend/app/ml/diagnostics.py`, including prompt-injection flags/warnings surfaced through `RagService.last_diagnostics`.
-- Similarity, optional HF cross-encoder, and optional DSPy rerankers in `backend/app/ml/rerankers.py`; optional HF setup falls back if model loading fails.
+- Similarity, optional HF cross-encoder, and optional DSPy rerankers in `backend/app/ml/rerankers.py`; optional HF setup falls back if model loading or prediction fails.
 - Unit tests for search, safe fetch, prompt-injection scanning, RAG retrieval, Qdrant optional behavior, and reranker fallback.
 
 Important Dev B notes:
@@ -75,8 +75,52 @@ Important Dev B notes:
 - Optional Qdrant and web extraction paths were verified with extras, not only the base dev environment.
 - Dev B's `BlueskySearchProvider` can consume or wrap Dev A's read-only `BlueskyClient.search_posts()` during the integration window.
 
-## Dev C Gate 4 Lane
+## Dev B Gate 5 Lane
+Source branch: `codex/dev-b-gate5-retrieval-safety`
+Gate 5 Dev B checkpoint C2 is implemented in the isolated lane clone at `/Users/akatsurada/Documents/rapidcanvas_dev_b_gate5`:
 
+- `retrieval_service.py`, `retrieval_adapter.py`, and `retrieval_payload.py` expose the C2 service, sync Dev C adapter, and canonical JSON payload helpers.
+- The service accepts Dev A `PostContext` plus supplied/generated queries and returns `RetrievalResult` with sanitized documents, ranked evidence, diagnostics, warnings, guardrail flags, source ids, scores, queries, and private/local URL block evidence.
+- Dev C can call `await build_retrieval_service().retrieve(...)` or use `RetrievalEvidenceRetriever` for the current sync evidence protocol with invocation-scoped diagnostics.
+- Stable fields are `documents`, `evidence`, `warnings`, `guardrail_flags`, `source_ids`, `scores`, `queries`, `private_url_blocks`, and `diagnostics`.
+- Diagnostics map to trace warnings, `prompt_injection_risk`, retrieval/eval source-score metadata, and private URL block evidence.
+- Evidence ordering preserves raw reranker order; public scores are finite 0..1 values.
+- C2 fixture artifacts use the canonical retrieval payload shape under `backend/app/tests/fixtures/gate5_retrieval/`, with integration coverage in `backend/app/tests/integration/test_gate5_retrieval.py`.
+
+Important Dev B Gate 5 notes:
+- Production builder uses `OpenAIEmbeddingProvider` by default; deterministic embeddings are injected only in tests.
+- Qdrant local mode is preferred by the builder. If Qdrant cannot be created, the service
+  falls back to the in-memory vector store with an explicit `qdrant_unavailable_using_in_memory_vector_store:*` warning.
+- Bluesky search is read-only through Dev A `BlueskyClient.search_posts()` when
+  the default builder is used; builder/per-call settings can disable Bluesky or
+  web search, and live provider failures are surfaced as warnings.
+- Search providers return per-call warnings, cap output, avoid concurrent warning leaks, degrade provider failures/invalid bundles safely, bound DDGS iteration, skip zero-limit live searches, and use the same resolver-aware source URL policy in direct Bluesky and final retrieval paths.
+- Built-in provider `last_warnings`, direct `RagService.last_diagnostics`, and the Dev C retrieval adapter keep diagnostics scoped to the current invocation across async tasks and threaded callers while preserving direct-component accessor shapes.
+- Retrieval/evidence/query/reranker limits clamp to non-negative values; zero
+  retrieval/evidence limits and malformed embedding/vector runtime output skip model work safely.
+- For deterministic/offline C2 or controlled Dev C handoff runs, call
+  `build_retrieval_service(..., search_providers=[])`; that explicit empty list
+  is preserved and does not install default live search providers.
+- DDGS web search and linked-page fetch are read-only. The fetcher blocks
+  malformed, credential-bearing, private, localhost, link-local, non-global IP,
+  and unsupported-scheme URLs before fetch and before redirects; it also validates
+  the connected peer address before accepting response bytes. URL diagnostics
+  redact userinfo, query strings, and fragments.
+- Linked-page fetches are capped by `RetrievalSettings.linked_page_limit` so
+  untrusted post context cannot drive unbounded outbound GET attempts; overflow
+  is surfaced as `linked_page_limit_exceeded:*`.
+- Returned documents are sanitized and prompt-injection scanned across titles,
+  body text, bounded string metadata, and decoded bytes metadata. Retrieval
+  filters unsafe source URLs, including normalized provider pass-through docs,
+  into private/local block evidence; parser failures return
+  `extraction_failed:<ExceptionType>`.
+- Normalized Bluesky source metadata may preserve `at://...` AT URIs for
+  Bluesky/thread documents; those identifiers are never fetch targets.
+- C2 invariant coverage verifies sanitized docs, resolver-safe HTTP source URLs, promoted private/local blocks, valid evidence IDs/source links, finite scores, JSON-stable metadata, malformed handoff/provider/diagnostic shapes, safe text coercion, RAG diagnostics, vector payloads, direct accessor compatibility, adapter/provider/RAG state isolation, and embedding/vector/reranker runtime failures.
+- This lane does not wire retrieval into `/api/explain`, does not implement DSPy
+  explanations, and does not close final Search/RAG requirement rows. C5 owns
+  final end-to-end acceptance.
+## Dev C Gate 4 Lane
 Source branch:
 
 ```text
@@ -253,7 +297,7 @@ path. Use `docs/gate6_parallelization_plan.md` only after Gate 5 lands.
 
 During the integration window:
 
-- Replace the temporary `ThreadContextEvidenceRetriever` in `backend/app/agent/service.py` or `backend/app/deps.py` with Dev B retrieval while preserving trace visibility.
+- Replace `ThreadContextEvidenceRetriever` in `backend/app/agent/service.py` or `backend/app/deps.py` with `RetrievalEvidenceRetriever` while preserving trace visibility.
 - Map Dev B `RagService.last_diagnostics` prompt-injection/private-url/source-safety warnings into Dev C trust/trace fields.
 - Keep DSPy provider failures guarded with `dspy_provider_error`.
 - Run `make deep-review`, `make eval`, `make optimize`, and `make mlflow-log`.
