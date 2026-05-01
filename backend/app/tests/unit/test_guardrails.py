@@ -167,6 +167,27 @@ def test_output_guardrail_fallback_does_not_echo_malicious_visible_post() -> Non
     assert "credential-seeking text that was not echoed" in serialized
 
 
+def test_output_guardrail_fallback_keeps_non_english_visible_post_in_english() -> None:
+    guardrail = OutputGuardrail()
+    repaired = guardrail.repair(
+        ExplanationDraft(),
+        {"S1"},
+        fallback_mode="safe_summary",
+        post=_post(
+            text=(
+                "Hoy, el Rayo Vallecano ha hecho historia, ha ganado 1-0 en la ida "
+                "de las semifinales."
+            )
+        ).model_copy(update={"metadata": {"langs": ["es"]}}),
+        post_source_id="S1",
+    )
+
+    serialized = " ".join(bullet.text.lower() for bullet in repaired)
+    assert "rayo vallecano ha hecho historia" not in serialized
+    assert "visible post is not in english" in serialized
+    assert "source-backed evidence" in serialized
+
+
 def test_output_guardrail_accepts_three_cited_supported_bullets() -> None:
     guardrail = OutputGuardrail()
     draft = ExplanationDraft(

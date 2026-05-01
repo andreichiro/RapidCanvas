@@ -26,6 +26,12 @@ Active lane owner: Dev G7-C final truth/docs/submission consuming G7-A/G7-B evid
   backend route requires either that transient `api_key` or local
   `OPENAI_API_KEY` before it runs embeddings/model-backed explanations. The
   field is not stored in the repo or browser local storage.
+- User-facing bullets are now explicitly generated/validated in English. The
+  deterministic fallback no longer echoes non-English visible post text; it
+  emits an English fallback instead when the post language is non-English.
+- Bluesky video embeds are supported as a degraded path: the post still flows
+  through text/thread/link/image retrieval, while trace/UI warnings mark
+  `video_embed_unparsed` so the app does not pretend to parse video frames.
 - Local startup now has one-command paths: `make run` starts the Docker Compose
   stack for UI, API, Qdrant, and MLflow; `make dev` starts or reuses fixed-port
   source dev servers in one terminal. The frontend also falls back from `/api`
@@ -56,6 +62,11 @@ Active lane owner: Dev G7-C final truth/docs/submission consuming G7-A/G7-B evid
   Final closure then added the transient request-key path and verified two
   public Bluesky URLs with provider-backed routing: both returned 200,
   `adapter_mode=none`, web/thread sources, and 3-4 cited bullets.
+- A final reported-post smoke for
+  `https://bsky.app/profile/fonsiloaizap.bsky.social/post/3mkqt5qidf22l`
+  returned 200 in 47.43s with `adapter_mode=none`, `fallback_mode=partial`,
+  4 English cited bullets, thread/web sources, and a `video_embed_unparsed`
+  warning.
 - The OpenAI key pasted in chat was used only as transient request input for
   that live route smoke. It was not written to tracked files or docs. Rotate it
   before real use because it appeared in chat.

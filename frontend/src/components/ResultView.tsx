@@ -64,6 +64,9 @@ function warningSummary(warnings: string[]): string[] {
       if (warning === emptyExtractedText) {
         return "One fetched source did not expose readable text.";
       }
+      if (warning.startsWith("video_embed_unparsed")) {
+        return "This post contains a video; the explanation uses text, thread, link, and image evidence without parsing video frames.";
+      }
       return warning;
     })
     .filter((warning): warning is string => Boolean(warning));

@@ -137,6 +137,22 @@ test("submits a Bluesky URL through the typed API client", async () => {
   });
 });
 
+test("prevents native form navigation and handles submission in React", async () => {
+  mockFetch();
+  const { container } = render(<App />);
+
+  await fillRequiredFields();
+  const form = container.querySelector("form");
+  expect(form).not.toBeNull();
+  expect(form).toHaveAttribute("novalidate");
+
+  const submitEvent = new Event("submit", { bubbles: true, cancelable: true });
+  form?.dispatchEvent(submitEvent);
+
+  expect(submitEvent.defaultPrevented).toBe(true);
+  expect(await screen.findByText("Fetched post text is available.")).toBeVisible();
+});
+
 test("keeps optional provider skip reasons visible when only OpenAI request key is present", async () => {
   mockFetch();
   render(<App />);
@@ -231,6 +247,7 @@ test("summarizes common retrieval diagnostics without making successful load not
     trace: {
       ...baseResponse.trace,
       warnings: [
+        "video_embed_unparsed: the post contains video, and this build uses the post text/thread/link/image evidence without parsing video frames.",
         "qdrant_unavailable_using_in_memory_vector_store:RuntimeError",
         "bluesky_search_failed:BlueskyClientError",
         "content_truncated",
@@ -247,6 +264,7 @@ test("summarizes common retrieval diagnostics without making successful load not
   fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
 
   expect(await screen.findByText("Retrieval notes")).toBeVisible();
+  expect(screen.getByLabelText("warnings")).toHaveTextContent("This post contains a video");
   expect(screen.getByLabelText("warnings")).toHaveTextContent("Vector database was unavailable");
   expect(screen.getByLabelText("warnings")).toHaveTextContent("Bluesky search was unavailable");
   expect(screen.getByLabelText("warnings")).not.toHaveTextContent("optimized_dspy_program_loaded");

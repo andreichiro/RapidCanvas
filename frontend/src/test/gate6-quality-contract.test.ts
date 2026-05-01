@@ -92,7 +92,12 @@ test("production frontend code renders backend quality fields without making qua
   const trustDecisionPattern = /\b(?:trust_score|trustScore)\b\s*(?:[<>]=?|={2,3}|!={1,2})/;
   const backendFlagLiteralPattern =
     /\b(?:low_evidence|prompt_injection_risk|conflicting_sources|weak_retrieval_score|dspy_provider_error|post_unavailable|disable_citations|provider_upstream_error)\b/;
-  const allowedSchemaSnakeCaseLiterals = new Set(["deterministic_dev", "fallback_mode", "safe_summary"]);
+  const allowedSchemaSnakeCaseLiterals = new Set([
+    "deterministic_dev",
+    "fallback_mode",
+    "safe_summary",
+    "video_embed_unparsed",
+  ]);
   const snakeCaseStringLiteralPattern = /["'`]([a-z]+(?:_[a-z]+)+)["'`]/g;
 
   const trustDecisionFiles = productionSourceFiles

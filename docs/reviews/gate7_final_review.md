@@ -35,8 +35,8 @@ and G7-A commit `fc4dff4`.
 | `make optimize` | passed | Preserves merged real GEPA metadata and compiled program; `mode=real`, `metric_score=0.875`. |
 | `make mlflow-log` | passed | Local file-backed MLflow run `210212431e8145deb442a37bff05f1b6`; generated artifacts remain ignored. |
 | `make lint` | passed | Backend Ruff/mypy and frontend TypeScript checks. |
-| `make test` | passed | 345 backend tests and 32 frontend tests on the merged A/B/C integration branch. |
-| `npm --prefix frontend test` | passed | 35 frontend tests after local API fallback, provider-status, and retrieval-note UI fixes. |
+| `make test` | passed | 350 backend tests and 36 frontend tests on the merged A/B/C integration branch. |
+| `npm --prefix frontend test` | passed | 36 frontend tests after local API fallback, provider-status, no-reload, video-warning, and retrieval-note UI fixes. |
 | `npm --prefix frontend run build` | passed | TypeScript and Vite build after API fallback and Docker proxy configuration. |
 | focused Qdrant remote config test | passed | Confirms `QDRANT_URL` config builds a remote Qdrant client for Docker Compose. |
 | `make dev` local source smoke | passed | Reuses healthy fixed-port local API/UI or starts both in one terminal; `/api/health`, UI HTML, and proxied `/api/providers` were reachable. |
@@ -49,6 +49,8 @@ and G7-A commit `fc4dff4`.
 | provider selector fallback smoke | passed | Selecting Anthropic with only the OpenAI transient key returned 200 in 30.22s and surfaced `provider_anthropic_skipped` plus `provider_openai_default_used`. No Anthropic benchmark ran. |
 | live vision helper smoke | passed with scoped proof | First public image URL failed OpenAI download; second public image URL succeeded in 3.3s through `describe_image_with_openai`. This proves helper path only, not full UI vision. |
 | transient API-key UI/backend tests | passed | Backend rejects keyless default explain requests, trims/masks request keys, and frontend sends a masked required key without storing it. |
+| reported Spanish video post smoke | passed | `https://bsky.app/profile/fonsiloaizap.bsky.social/post/3mkqt5qidf22l` returned 200 in 47.43s with 4 English cited bullets, `adapter_mode=none`, `fallback_mode=partial`, thread/web sources, and `video_embed_unparsed`. |
+| focused English/video/no-reload regressions | passed | Backend tests cover video-embed warning, English fallback text, and evidence-id citation normalization; frontend tests cover no native form navigation and video retrieval-note rendering. |
 | `make skills-review` | passed | All four local project skills validate. |
 | `make deep-review` | passed | Full local review gate, including audit/build, generated-artifact cleanup, maintainability, API smoke, and frontend smoke. |
 | final `make eval && make check-secrets` | passed | Regenerated ignored cached eval reports after `deep-review` cleanup and rechecked secrets. |
@@ -115,10 +117,12 @@ ignored.
 | Search/RAG runtime | real | `backend/app/deps.py`, `backend/app/ml/retrieval_service.py`, `backend/app/ml/retrieval_adapter.py`, G7-A tests | Default route uses Dev B Search/RAG with trace-visible fallbacks when runtime modules are present. |
 | Adaptive retrieval | real | `backend/app/agent/adaptive_retrieval.py`, `backend/app/agent/query_planning.py`, `backend/app/tests/integration/test_gate7_adaptive_retrieval.py`, forced live adaptive smoke from G7-A | Bounded adaptive path is integrated: max one extra safe query and no unbounded confidence-search loop. Organic public round-two trigger was not observed before shipping. |
 | Public live answer usefulness | partial | `/tmp/rapidcanvas_gate7_all_public_api_eval/summary.json`, transient-key direct TestClient sample | No-key API-mode cases now remain a documented degraded baseline; the final transient-key smoke returned a normal 3-bullet cited answer in 28.62s on a public NYTimes post. This proves usefulness on a small sample, not a broad live benchmark. Cached eval remains the quality proof. |
+| Non-English output behavior | real | `backend/app/agent/signatures.py`, `backend/app/guardrails/output.py`, focused tests, reported-post transient-key smoke | User-facing bullets are generated and validated in English. Deterministic fallbacks no longer echo non-English visible post text. |
 | Eval dataset | fixture-backed | `eval/posts.yaml`, `eval/fixtures/gate6/public_cases.json`, `make eval` summary | 19 cached rows, 10 fixture-backed public Bluesky URLs, 9 synthetic fixtures. Live search is not ground truth. |
 | GEPA | real | `backend/app/agent/optimized/program.json`, `backend/app/agent/optimized/program_compiled/`, `backend/app/eval/gepa_dataset.py`, `make optimize` | GEPA examples are built from finalized cached eval fixtures, and a real compiled saved DSPy program is included. Loader use depends on DSPy and provider credentials. |
 | Provider comparison | skipped/config-limited | `GET /api/providers`, `backend/app/deps.py`, README/matrix, provider selector fallback smoke | Registry and skipped-provider reasons are visible. Selecting Anthropic with only the OpenAI key falls back to OpenAI with trace warnings. No live multi-provider benchmark ran. |
 | Image understanding | partial | `backend/app/clients/bsky.py`, `backend/app/ml/diagnostics.py`, `backend/app/ml/image.py`, image eval cases, live helper smoke | Image alt text and image context evidence are supported. Live vision helper smoke passed on one public image, but no full browser/UI vision proof ran. |
+| Video embeds | partial | `backend/app/clients/bsky.py`, `backend/app/tests/unit/test_bsky_client.py`, reported-post smoke | Video posts remain explainable from text/thread/link/image evidence, and `video_embed_unparsed` makes clear that video frames are not parsed. |
 | MLflow | real | `make mlflow-log`, `backend/app/ops/mlflow.py`, run `210212431e8145deb442a37bff05f1b6` | Local file-backed MLflow run and DSPy packaging path work. This is not a hosted experiment workflow. |
 | Ragas/LLM judge | skipped/config-limited | `make eval` summary, Gate 6 review | Default eval uses deterministic/no-network judging. Gate 6 recorded explicit offline optional judge smokes; G7-C did not run provider-backed judges. |
 | Browser/user verification | partial | Gate 6 frontend tests, `make deep-review` user smoke target, Gate 5/6 review records | UI behavior is covered by tests and previous browser notes; G7-C did not run new browser-use verification. |
@@ -133,6 +137,8 @@ surface:
 - `R013`: Search/RAG now records one-shot plus capped adaptive runtime status.
 - `R014`/`R015`: final closure verifies transient-key live route outputs keep
   3-5 cited bullets.
+- `R016`: final closure records English output behavior and the reported Spanish
+  video post smoke with 4 English cited bullets in 47.43s.
 - `R026`: GEPA row now points to the merged eval-dataset bridge and real compiled
   saved DSPy program.
 - `R027`: MLflow row now states local file-backed run/package behavior, not a
@@ -140,7 +146,8 @@ surface:
 - `R028`: Qdrant row now records `QDRANT_URL`/Compose support plus embedded
   local fallback.
 - `R032`: image row now distinguishes helper-level vision/alt-text fallback from
-  a full browser/UI live vision claim, with a live helper smoke.
+  a full browser/UI live vision claim, with a live helper smoke and explicit
+  `video_embed_unparsed` handling for video posts.
 - `R033`: provider row now distinguishes provider registry/skip visibility from
   an unrun live multi-provider benchmark, with OpenAI fallback verified when an
   optional provider is selected without its own key.
@@ -180,6 +187,9 @@ Only `reports/.gitkeep` remains tracked.
   public-post benchmark.
 - Live vision: helper-level smoke passed on a public image, but full browser/UI
   vision proof remains partial/reserved.
+- Video understanding: video posts do not fail, but video frames are not parsed;
+  the route uses text/thread/link/image evidence and surfaces
+  `video_embed_unparsed`.
 - Live provider comparison: skipped/config-limited; optional provider keys and
   benchmark runs were not available in G7-C.
 - Full Docker boot: Compose config passed, but the local Docker daemon was not
@@ -201,10 +211,8 @@ Only `reports/.gitkeep` remains tracked.
   broad live benchmark over drifting public posts.
 - Adaptive retrieval is bounded, not open-ended: max one extra safe query, and it
   does not search until confidence is high.
-- The backend `build_gate3_explainer()` docstring still contains older
-  integration-checkpoint wording about thread-context evidence. G7-C did not edit
-  backend code; the executable path and tests are the evidence for the runtime
-  classification.
+- `build_gate3_explainer()` still carries older integration-checkpoint naming,
+  but the executable path and tests are the evidence for runtime behavior.
 - GEPA loader use still depends on DSPy and provider credentials even though the
   compiled program artifact is present.
 - Image and provider bonus surfaces are honest but incomplete: alt-text and

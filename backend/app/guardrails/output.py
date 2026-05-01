@@ -128,11 +128,16 @@ class OutputGuardrail:
         post: PostContext,
         post_source_id: str,
     ) -> list[BulletDraft]:
-        visible_text = _safe_visible_post_text(post.text, self._policy)
+        visible_text = _safe_visible_post_text(post, self._policy)
         fallback_label = _fallback_label(fallback_mode)
+        visible_summary = (
+            f"{fallback_label} {visible_text}"
+            if visible_text.startswith("The visible post is not in English")
+            else f"{fallback_label} The visible Bluesky post says: {visible_text}"
+        )
         return [
             BulletDraft(
-                text=f"{fallback_label} The visible Bluesky post says: {visible_text}",
+                text=visible_summary,
                 source_ids=[post_source_id],
             ),
             BulletDraft(
@@ -162,14 +167,34 @@ def _fallback_label(fallback_mode: FallbackMode) -> str:
     return labels[fallback_mode]
 
 
-def _safe_visible_post_text(text: str, policy: GuardrailPolicy) -> str:
-    visible_text = text or "The visible post has no text."
+def _safe_visible_post_text(post: PostContext, policy: GuardrailPolicy) -> str:
+    visible_text = post.text or "The visible post has no text."
     if policy.forbidden_output_hits(visible_text):
         return (
             "The visible post contains instruction-like or credential-seeking text "
             "that was not echoed."
         )
+    if _appears_non_english(post):
+        return (
+            "The visible post is not in English; this fallback does not translate or "
+            "expand it beyond source-backed evidence."
+        )
     return compact_text(visible_text, limit=220)
+
+
+def _appears_non_english(post: PostContext) -> bool:
+    langs = post.metadata.get("langs", []) if isinstance(post.metadata, dict) else []
+    if isinstance(langs, str):
+        langs = [langs]
+    if isinstance(langs, list) and any(
+        isinstance(lang, str) and lang and not lang.lower().startswith("en") for lang in langs
+    ):
+        return True
+    text = post.text.lower()
+    spanish_markers = (" el ", " la ", " los ", " las ", " que ", " con ", " hoy,", " está")
+    return any(ord(character) > 127 for character in text) and any(
+        marker in f" {text} " for marker in spanish_markers
+    )
 
 
 def _fill_to_minimum(

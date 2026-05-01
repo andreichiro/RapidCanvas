@@ -78,6 +78,33 @@ class FakeDidAtprotoClient:
         }
 
 
+class FakeVideoAtprotoClient:
+    def resolve_handle(self, handle: str) -> ResolveResponse:
+        assert handle == "example.com"
+        return ResolveResponse(did="did:plc:example")
+
+    def get_post_thread(self, uri: str, depth: int, parent_height: int) -> dict[str, object]:
+        assert uri == "at://did:plc:example/app.bsky.feed.post/3abcxyz"
+        assert depth == 3
+        assert parent_height == 2
+        return {
+            "thread": {
+                "post": {
+                    "author": {"handle": "example.com"},
+                    "record": {
+                        "text": "Watch this clip",
+                        "created_at": "2026-04-29T12:00:00Z",
+                    },
+                    "embed": {
+                        "$type": "app.bsky.embed.video#view",
+                        "playlist": "https://video.cdn.example.com/playlist.m3u8",
+                        "thumbnail": "https://video.cdn.example.com/thumb.jpg",
+                    },
+                }
+            }
+        }
+
+
 class FakeAdvancedAtprotoClient:
     def resolve_handle(self, handle: str) -> ResolveResponse:
         assert handle == "example.com"
@@ -251,6 +278,17 @@ def test_fetch_context_supports_did_actor_without_handle_resolution() -> None:
     assert context.at_uri == "at://did:plc:example/app.bsky.feed.post/3abcxyz"
     assert context.author == "did:plc:example"
     assert context.text == "DID actor post"
+
+
+def test_fetch_context_keeps_video_posts_working_with_unparsed_video_warning() -> None:
+    client = BlueskyClient(client=FakeVideoAtprotoClient())
+
+    context = client.fetch_context("https://bsky.app/profile/example.com/post/3abcxyz")
+
+    assert context.text == "Watch this clip"
+    assert context.metadata["has_unparsed_video"] is True
+    assert context.metadata["unsupported_media"] == ["video"]
+    assert any("video_embed_unparsed" in warning for warning in context.warnings)
 
 
 def test_fetch_context_normalizes_quote_media_embed_links_images_and_warnings() -> None:

@@ -78,6 +78,22 @@ def _embed_parts(post: Any) -> list[Any]:
         return []
     media = _get(embed, "media", None)
     return [embed, media] if media is not None else [embed]
+def _type_name(value: Any) -> str:
+    return str(
+        _get(value, "$type", None) or _get(value, "py_type", None) or _get(value, "type", "")
+    ).lower()
+def _is_video_embed(value: Any) -> bool:
+    type_name = _type_name(value)
+    if "app.bsky.embed.video" in type_name or "embed.video" in type_name:
+        return True
+    if _get(value, "video", None) is not None:
+        return True
+    return bool(
+        _get(value, "playlist", None)
+        and (_get(value, "thumbnail", None) or _get(value, "cid", None))
+    )
+def _has_video_embed(post: Any) -> bool:
+    return any(_is_video_embed(embed) for embed in _embed_parts(post))
 def _external_links(post: Any) -> list[Link]:
     links: dict[str, Link] = {}
     for facet in _items(_get(_get(post, "record", {}), "facets", [])):
@@ -275,6 +291,7 @@ class BlueskyClient:
         if post is None:
             reason = _unavailable_warning(thread, "Target Bluesky post")
             raise BlueskyClientError(reason or "Bluesky thread response missing target post.")
+        has_video = _has_video_embed(post)
         parent_posts, parent_warnings = self._parent_posts_and_warnings(
             _get(thread, "parent", None)
         )
@@ -292,6 +309,8 @@ class BlueskyClient:
                 "requested_rkey": post_ref.rkey,
                 "resolved_did": post_ref.did,
                 "requested_at_uri": post_ref.at_uri,
+                "has_unparsed_video": has_video,
+                "unsupported_media": ["video"] if has_video else [],
             },
             parent_texts=[parent.text for parent in parent_posts],
             parent_posts=parent_posts,
@@ -300,7 +319,19 @@ class BlueskyClient:
             links=[link.url for link in external_links],
             external_links=external_links,
             images=_embed_images(post),
-            warnings=[*parent_warnings, *quote_warnings],
+            warnings=[
+                *parent_warnings,
+                *quote_warnings,
+                *(
+                    [
+                        "video_embed_unparsed: the post contains video, and this build "
+                        "uses the post text/thread/link/image evidence without parsing "
+                        "video frames."
+                    ]
+                    if has_video
+                    else []
+                ),
+            ],
         )
     def _parent_posts_and_warnings(self, parent: Any) -> tuple[list[TPost], list[str]]:
         posts: list[TPost] = []

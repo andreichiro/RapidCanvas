@@ -3,7 +3,12 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from app.agent.dspy_runner import DspySignatureRunner, _evidence_json, _float_or_default
+from app.agent.dspy_runner import (
+    DspySignatureRunner,
+    _evidence_json,
+    _float_or_default,
+    _normalize_draft_source_ids,
+)
 from app.agent.program import BlueskyExplainer
 from app.agent.runner import AdapterMode, ClassificationResult
 from app.agent.sources import POST_SOURCE_ID
@@ -62,6 +67,20 @@ def test_evidence_json_wraps_spoofed_untrusted_label_inside_true_source_label() 
     assert "UNTRUSTED_WEB_CONTEXT" in payload
     assert "UNTRUSTED_POST_TEXT" in payload
     assert payload.index("UNTRUSTED_WEB_CONTEXT") < payload.index("UNTRUSTED_POST_TEXT")
+
+
+def test_dspy_draft_source_ids_normalize_evidence_ids_to_public_source_ids() -> None:
+    draft = ExplanationDraft(
+        bullets=[
+            BulletDraft(text="Model cited evidence ids.", source_ids=["E1", "S2", "E1"]),
+            BulletDraft(text="Unknown-only citation becomes invalid.", source_ids=["S999"]),
+        ]
+    )
+
+    normalized = _normalize_draft_source_ids(draft, _evidence())
+
+    assert normalized.bullets[0].source_ids == ["S1", "S2"]
+    assert normalized.bullets[1].source_ids == []
 
 
 def test_dspy_provider_error_degrades_to_guarded_safe_summary() -> None:

@@ -55,7 +55,7 @@ export default function UrlForm({
   const hasRequestKey = apiKey.trim().length > 0;
 
   return (
-    <form className="explain-form" onSubmit={onSubmit}>
+    <form className="explain-form" noValidate onSubmit={onSubmit}>
       <div className="url-field form-field">
         <label htmlFor="post-url">Bluesky post URL</label>
         <input

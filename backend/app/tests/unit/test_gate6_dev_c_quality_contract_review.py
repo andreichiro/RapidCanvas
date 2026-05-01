@@ -133,6 +133,16 @@ def test_gate6_dev_c_signatures_do_not_request_chain_of_thought() -> None:
     assert "hidden prompt" not in serialized
 
 
+def test_explanation_signatures_require_english_output_for_non_english_posts() -> None:
+    explain = SIGNATURE_DEFINITIONS["ExplainPost"].instructions.lower()
+    validate = SIGNATURE_DEFINITIONS["ValidateExplanation"].instructions.lower()
+
+    assert "written in english" in explain
+    assert "even when the post or evidence is in another language" in explain
+    assert "english-language bullet text" in validate
+    assert "revise once in english" in validate
+
+
 def test_gate6_dev_c_quality_modules_keep_lane_boundaries() -> None:
     violations: list[str] = []
     for path in DEV_C_FILES:

@@ -153,7 +153,10 @@ class DspySignatureRunner:
             prediction = self._predict("explain", self._explain, **inputs)
         if prediction is None:
             return self._fallback.explain(post, evidence)
-        return _draft_from_json(str(getattr(prediction, "bullets_json", "[]")))
+        return _normalize_draft_source_ids(
+            _draft_from_json(str(getattr(prediction, "bullets_json", "[]"))),
+            evidence,
+        )
 
     def validate(
         self,
@@ -170,12 +173,14 @@ class DspySignatureRunner:
         )
         if prediction is None:
             return self._fallback.validate(post, draft, evidence)
+        revised_draft = _normalize_draft_source_ids(
+            _draft_from_json(str(getattr(prediction, "revised_bullets_json", "[]"))),
+            evidence,
+        )
         return ValidationResult(
             is_valid=str(getattr(prediction, "is_valid", "false")).lower() == "true",
             issues=_json_list(str(getattr(prediction, "issues_json", "[]"))),
-            revised_bullets=_draft_from_json(
-                str(getattr(prediction, "revised_bullets_json", "[]"))
-            ).bullets,
+            revised_bullets=revised_draft.bullets,
         )
 
     def revise(
@@ -262,6 +267,30 @@ def _evidence_json(
 
 def _draft_from_json(value: str) -> ExplanationDraft:
     return ExplanationDraft(bullets=[_bullet_from_mapping(item) for item in _bullet_items(value)])
+
+
+def _normalize_draft_source_ids(
+    draft: ExplanationDraft,
+    evidence: Sequence[Evidence],
+) -> ExplanationDraft:
+    """Accept evidence ids from model output and convert them to public source ids."""
+
+    evidence_to_source = {item.id: item.source_id for item in evidence}
+    source_ids = {item.source_id for item in evidence}
+    normalized: list[BulletDraft] = []
+    for bullet in draft.bullets:
+        mapped_ids = [
+            evidence_to_source.get(source_id, source_id)
+            for source_id in bullet.source_ids
+            if source_id in source_ids or source_id in evidence_to_source
+        ]
+        normalized.append(
+            BulletDraft(
+                text=bullet.text,
+                source_ids=list(dict.fromkeys(mapped_ids)),
+            )
+        )
+    return ExplanationDraft(bullets=normalized)
 
 
 def _bullet_items(value: str) -> list[dict[str, object]]:

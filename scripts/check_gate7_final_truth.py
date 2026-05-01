@@ -28,15 +28,21 @@ ALLOWED_DELTA_PATHS = {
     "assets/dev_G7_C_WORKSPACE_CONTRACT.json", "assets/dev_G7_BC_WORKSPACE_CONTRACT.json",
     "assets/dev_G7_A_WORKSPACE_CONTRACT.json", "backend/app/deps.py", "backend/app/agent/service.py",
     "backend/app/api/routes.py", "backend/app/schemas/api.py",
-    "backend/app/config.py", "backend/app/ml/retrieval_service.py", "backend/app/ml/vector_store.py",
+    "backend/app/agent/dspy_runner.py", "backend/app/agent/signatures.py",
+    "backend/app/clients/bsky.py", "backend/app/config.py",
+    "backend/app/guardrails/output.py",
+    "backend/app/ml/retrieval_service.py", "backend/app/ml/vector_store.py",
     "backend/Dockerfile", "docker-compose.yml", "frontend/Dockerfile",
     "frontend/vite.config.ts",
     "backend/app/tests/integration/test_api_contracts.py",
+    "backend/app/tests/unit/test_bsky_client.py",
+    "backend/app/tests/unit/test_gate6_dev_c_quality_contract_review.py",
+    "backend/app/tests/unit/test_guardrails.py",
     "backend/app/tests/unit/test_qdrant_remote_config.py",
     "docs/current_handoff.md", "docs/requirements_matrix.md", "docs/reviews/gate7_final_review.md",
     "scripts/assert_dev_G7_C_execution_context.sh", "scripts/verify_dev_G7_C_isolation.sh",
     "scripts/assert_dev_G7_BC_execution_context.sh", "scripts/verify_dev_G7_BC_isolation.sh",
-    "scripts/check_gate7_final_truth.py",
+    "scripts/check_gate7_final_truth.py", "scripts/review_quality.py",
 }
 ALLOWED_DELTA_PREFIXES = (
     "assets/dev_G7_B_WORKSPACE_CONTRACT.json", "backend/app/agent/log_mlflow.py",
@@ -51,6 +57,46 @@ FORBIDDEN_TRACKED_PREFIXES = (
     ".env", "backend/.env", "frontend/.env", "backend/mlruns/", "mlruns/",
     "backend/qdrant_storage/", "qdrant_storage/", "reports/eval/", "reports/provider_comparison",
 )
+DOC_REQUIREMENTS = {
+    "README.md": [
+        "RapidCanvas is a production-shaped AI data product",
+        "English explanations",
+        "Video embeds are explicitly marked as unparsed",
+        "Bounded adaptive retrieval",
+        "masked field",
+        "make docker-up",
+        "Qdrant",
+        "MLflow",
+        "Optional providers require",
+        "docs/requirements_matrix.md",
+    ],
+    "docs/current_handoff.md": [
+        "one-shot integrated route", "codex/g7bc-final-integration", "3a79056", "fc4dff4",
+        "Capped adaptive retrieval is enabled", "real compiled metadata",
+        "masked OpenAI API-key field", "video_embed_unparsed", "4 English cited bullets",
+        "live helper smoke", "no live Anthropic/Gemini/Ollama benchmark ran",
+        "G7-C did not run a fresh browser-use pass",
+    ],
+    "docs/requirements_matrix.md": [
+        "one-shot plus capped adaptive runtime status", "mode=real",
+        "compiled saved DSPy program", "no fresh Gate 7 browser-use pass",
+        "transient-key live route smoke", "video_embed_unparsed", "live vision",
+        "no live provider comparison report was generated",
+    ],
+    "TRANSLATION_LOG.md": [
+        "Gate 7 Search/RAG and adaptive retrieval truth", "Gate 7 G7-B/G7-C integration",
+        "Gate 7 G7-A runtime merge", "Gate 7 B/C integration isolation",
+        "Gate 7 image understanding truth", "Gate 7 provider comparison truth",
+        "Gate 7 MLflow/Ragas/judge status", "Gate 7 pasted OpenAI key handling",
+        "Gate 7 G7-B branch handoff", "Gate 7 closure API-key UI/default behavior",
+        "Gate 7 reported video post behavior", "Gate 7 non-English response quality",
+    ],
+    "AGENTS.md": [
+        "Gate 7 final A/B/C integration", "make gate7-final-truth-audit",
+        "scripts/verify_dev_G7_BC_isolation.sh", "capped adaptive retrieval is enabled",
+        "real compiled saved DSPy program", "not a full UI vision",
+    ],
+}
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
@@ -163,7 +209,11 @@ def check_runtime_truth(root: Path, errors: list[str]) -> None:
     )
     need("missing_openai_api_key" in routes, errors, "route does not reject missing API key")
     need("api_key: SecretStr" in schema, errors, "request API key is not secret typed")
+    need("written in English" in read(root / "backend/app/agent/signatures.py"), errors, "English output instruction missing")
+    need("video_embed_unparsed" in read(root / "backend/app/clients/bsky.py"), errors, "video warning missing")
+    need("_normalize_draft_source_ids" in read(root / "backend/app/agent/dspy_runner.py"), errors, "citation id normalization missing")
     need('type="password"' in form, errors, "UI API key input is not masked")
+    need("noValidate" in form, errors, "form no-reload guard missing")
     need("api_key: trimmedApiKey" in app, errors, "UI does not send transient request key")
 
 def check_final_review(final_review: str, errors: list[str]) -> None:
@@ -176,6 +226,9 @@ def check_final_review(final_review: str, errors: list[str]) -> None:
         "bounded adaptive retrieval is integrated",
         "forced live adaptive smoke",
         "real compiled saved DSPy program",
+        "Non-English output behavior",
+        "Video embeds",
+        "reported Spanish video post smoke",
         "mode=real",
         "live helper smoke",
         "no Anthropic/Gemini/Ollama live comparison",
@@ -188,47 +241,6 @@ def check_final_review(final_review: str, errors: list[str]) -> None:
         need(phrase in normalized_review, errors, f"final review missing phrase: {phrase}")
 
 def check_docs(readme: str, handoff: str, matrix: str, translation_log: str, agents: str, errors: list[str]) -> None:
-    doc_requirements = {
-        "README.md": [
-            "RapidCanvas is a production-shaped AI data product",
-            "Bounded adaptive retrieval",
-            "masked field",
-            "make docker-up",
-            "Qdrant",
-            "MLflow",
-            "Optional providers require",
-            "docs/requirements_matrix.md",
-        ],
-        "docs/current_handoff.md": [
-            "one-shot integrated route", "codex/g7bc-final-integration", "3a79056", "fc4dff4",
-            "Capped adaptive retrieval is enabled", "real compiled metadata",
-            "masked OpenAI API-key field",
-            "live helper smoke", "no live Anthropic/Gemini/Ollama benchmark ran",
-            "G7-C did not run a fresh browser-use pass",
-        ],
-        "docs/requirements_matrix.md": [
-            "one-shot plus capped adaptive runtime status",
-            "mode=real",
-            "compiled saved DSPy program",
-            "no fresh Gate 7 browser-use pass",
-            "transient-key live route smoke",
-            "live vision",
-            "no live provider comparison report was generated",
-        ],
-        "TRANSLATION_LOG.md": [
-            "Gate 7 Search/RAG and adaptive retrieval truth", "Gate 7 G7-B/G7-C integration",
-            "Gate 7 G7-A runtime merge",
-            "Gate 7 B/C integration isolation", "Gate 7 image understanding truth",
-            "Gate 7 provider comparison truth", "Gate 7 MLflow/Ragas/judge status",
-            "Gate 7 pasted OpenAI key handling", "Gate 7 G7-B branch handoff",
-            "Gate 7 closure API-key UI/default behavior",
-        ],
-        "AGENTS.md": [
-            "Gate 7 final A/B/C integration", "make gate7-final-truth-audit",
-            "scripts/verify_dev_G7_BC_isolation.sh", "capped adaptive retrieval is enabled",
-            "real compiled saved DSPy program", "not a full UI vision",
-        ],
-    }
     documents = {
         "README.md": readme,
         "docs/current_handoff.md": handoff,
@@ -236,7 +248,7 @@ def check_docs(readme: str, handoff: str, matrix: str, translation_log: str, age
         "TRANSLATION_LOG.md": translation_log,
         "AGENTS.md": agents,
     }
-    for file_name, phrases in doc_requirements.items():
+    for file_name, phrases in DOC_REQUIREMENTS.items():
         text = normalize_ws(documents[file_name])
         for phrase in phrases:
             need(phrase in text, errors, f"{file_name} missing: {phrase}")

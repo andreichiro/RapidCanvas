@@ -29,6 +29,8 @@ show where it came from, when to trust it, and when to say less.
 - Done: **Relevant context search.** Runtime Search/RAG uses Bluesky/web/link
   context, thread/quote context, image-related context, sanitization, embeddings,
   Qdrant or in-memory retrieval, and reranking.
+- Done: **English explanations.** User-facing bullets are generated and
+  validated in English, including for non-English Bluesky posts.
 - Done: **Evaluation harness.** `make eval` runs 19 cached cases: 10
   fixture-backed public Bluesky URLs and 9 marked synthetic attack/edge cases.
 - Done: **Image understanding path.** Image URLs and alt text are evidence; the
@@ -226,7 +228,9 @@ The scanner detects attacks such as "ignore previous instructions", "system
 prompt", "API key", "do not cite", "disable citations", "tool call", "POST to",
 and "delete". The fetch layer blocks private/local URLs and `file://` targets.
 Output guardrails require 3-5 bullets in normal mode and citations for factual
-claims.
+claims. Video embeds are explicitly marked as unparsed; video posts still use
+their text, thread, link, and image evidence, but the app does not claim to
+parse video frames.
 
 ## Evaluation Strategy
 
