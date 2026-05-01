@@ -1,7 +1,7 @@
 # Gate 6 Final Review
 
 Date: 2026-05-01
-Branch: `codex/dev-d-gate6-eval-reports`
+Branch: `gate6/integration`
 Baseline: Dev A Gate 6 API smoke baseline `57aefac`
 
 ## Scope
@@ -37,6 +37,22 @@ them.
 | MLflow | Kept out of default eval; explicit `make mlflow-log` ran and created local ignored run `7a2d704cf7304735bb725ed3926b66e9`; `make deep-review` cleans `backend/mlruns/`. |
 | Requirement matrix | Updated with no unmapped rows and no synthetic cases counted as public coverage. |
 | Generated artifacts | `reports/*`, `mlruns/`, Qdrant/cache output, `.env`, and live outputs remain ignored. |
+
+## Integration Branch Result
+
+Dev D created `gate6/integration` in standalone clone
+`/Users/akatsurada/Documents/rapidcanvas_gate6_integration_isolated`. Lane
+ownership was checked from each branch merge-base before merging. No lane was
+skipped, no broad conflicts occurred, and no generated artifacts or secrets were
+tracked.
+
+| Lane | Branch | Head | Merge result | Focused check |
+|---|---|---|---|---|
+| Dev A | `codex/dev-a-gate6-api-smoke-stability` | `57aefac` | Used as integration baseline. | `test_api_contracts.py` + `test_gate6_api_eval_smoke.py`: 17 passed. |
+| Dev D | `codex/dev-d-gate6-eval-reports` | `d7d0da6` | Merged cleanly. | `make gate6-shipping-audit`: passed. |
+| Dev B | `codex/dev-b-gate6-retrieval-diagnostics` | `f3e1d2c` | Merged cleanly. | Gate 6 retrieval metrics/RAG/prompt-injection smoke: 32 passed. |
+| Dev C | `codex/dev-c-gate6-agent-quality` | `0664d07` | Merged cleanly. | Agent quality/guardrail/MLflow smoke: 31 passed. |
+| Dev E | `codex/dev-e-gate6-frontend-quality` | `a969a59` | Merged cleanly. | Gate 6 frontend quality tests: 16 passed. |
 
 ## Default Eval Snapshot
 
@@ -103,8 +119,13 @@ cases with runtime credentials before treating API-mode scores as final.
 scripts/verify_dev_D_gate6_isolation.sh
 scripts/assert_dev_D_gate6_execution_context.sh
 make setup
+cd backend && uv run pytest app/tests/integration/test_api_contracts.py app/tests/integration/test_gate6_api_eval_smoke.py -q
 cd backend && uv run pytest app/tests/unit/test_eval_dataset.py app/tests/unit/test_eval_metrics.py app/tests/unit/test_eval_runner.py app/tests/unit/test_eval_judge.py app/tests/integration/test_gate6_eval_runner.py app/tests/integration/test_gate6_eval_readiness.py -q
 make eval
+make gate6-shipping-audit
+cd backend && uv run pytest app/tests/integration/test_gate6_retrieval_metrics.py app/tests/unit/test_rag.py app/tests/unit/test_prompt_injection.py -q
+cd backend && uv run pytest app/tests/unit/test_agent_quality_support.py app/tests/unit/test_gate6_dev_c_quality_contract_review.py app/tests/unit/test_mlflow.py app/tests/integration/test_gate6_agent_quality_hooks.py app/tests/unit/test_guardrails.py -q
+npm --prefix frontend test -- src/test/gate6-quality-contract.test.ts src/test/gate6-quality-response.test.tsx
 cd backend && uv run --extra ai python -m app.eval.runner --mode cached --judge dspy --out reports/eval_dspy
 cd backend && uv run --extra eval python -m app.eval.runner --mode cached --judge ragas --out reports/eval_ragas
 cd backend && uv run --all-extras python -m app.eval.runner --mode cached --judge composite --out reports/eval_composite_final

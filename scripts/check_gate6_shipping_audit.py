@@ -11,6 +11,14 @@ from pathlib import Path
 from typing import Any
 
 BASELINE = "57aefac"
+INTEGRATION_BRANCH = "gate6/integration"
+INTEGRATED_HEADS = {
+    "Dev A": "57aefac72768883cc0952c5a4684d81c30929526",
+    "Dev D": "d7d0da6578e56cf464a63ba67711059e22401fea",
+    "Dev B": "f3e1d2cdecd08406c55539a2e1faea4f774868d4",
+    "Dev C": "0664d0762931f2da46a0dd4dfcaa101e8837fc13",
+    "Dev E": "a969a59b434ec010c71ef0c73cf9ae301ecedd0d",
+}
 REQUIRED_CASES = 19
 REQUIRED_PUBLIC = 10
 REQUIRED_SYNTHETIC = 9
@@ -122,11 +130,17 @@ def count_provenance(cases: list[dict[str, Any]], provenance: str) -> int:
 
 
 def check_git(root: Path, errors: list[str], *, allow_dirty: bool) -> None:
+    branch = git(root, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
     ancestry = git(root, "merge-base", "--is-ancestor", BASELINE, "HEAD")
     need(ancestry.returncode == 0, errors, f"{BASELINE} is not an ancestor of HEAD")
-    changed = git(root, "diff", "--name-only", f"{BASELINE}..HEAD").stdout.splitlines()
-    violations = [path for path in changed if path.startswith(FORBIDDEN_PREFIXES)]
-    need(not violations, errors, f"Dev D delta touches forbidden paths: {violations}")
+    if branch == INTEGRATION_BRANCH:
+        for lane, commit in INTEGRATED_HEADS.items():
+            merged = git(root, "merge-base", "--is-ancestor", commit, "HEAD")
+            need(merged.returncode == 0, errors, f"{lane} head {commit[:7]} is not merged")
+    else:
+        changed = git(root, "diff", "--name-only", f"{BASELINE}..HEAD").stdout.splitlines()
+        violations = [path for path in changed if path.startswith(FORBIDDEN_PREFIXES)]
+        need(not violations, errors, f"Dev D delta touches forbidden paths: {violations}")
     if allow_dirty:
         return
     status = git(root, "status", "--short").stdout.splitlines()

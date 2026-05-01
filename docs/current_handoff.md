@@ -2,9 +2,8 @@
 
 Updated: 2026-05-01
 Repository: `andreichiro/RapidCanvas`
-Current baseline: Dev A Gate 6 API smoke stability branch `57aefac`
-Active lane: Dev D Gate 6 rapid eval/reporting branch
-`codex/dev-d-gate6-eval-reports`.
+Current baseline: Gate 6 integration branch `gate6/integration`
+Active lane owner: Dev D integration/review owner.
 
 ## Current State
 
@@ -40,6 +39,11 @@ Active lane: Dev D Gate 6 rapid eval/reporting branch
   reasons for Ragas, DSPy judge, and MLflow. Explicit offline DSPy, Ragas, and
   MLflow runs were also verified after `make setup`.
 - Isolated Lane Protocol is instantiated for Dev D through `assets/dev_D_gate6_WORKSPACE_CONTRACT.json` and wrapper scripts in `scripts/`.
+- Gate 6 integration branch `gate6/integration` was created in standalone clone
+  `/Users/akatsurada/Documents/rapidcanvas_gate6_integration_isolated` from Dev A `57aefac`; Dev D then merged Dev D, Dev B, Dev C, and Dev E lanes.
+- Integrated lane heads: Dev A `57aefac`, Dev D `d7d0da6`, Dev B `f3e1d2c`,
+  Dev C `0664d07`, and Dev E `a969a59`. No available Gate 6 lane was skipped.
+- Merge result: all branches merged cleanly, no broad conflicts, no generated artifacts/secrets/Qdrant/MLflow/live outputs tracked, and generated `reports/eval/` remains ignored.
 
 ## Dev A Gate 4 Lane
 
@@ -250,19 +254,14 @@ make deep-review
 
 The current passing gate covers linting, typing, backend tests, frontend tests, secret scan, config validation, frontend audit/build, optional backend dependency dry-run, skill validation, requirement matrix validation, generated artifact cleanup, maintainability review, and user smoke checks.
 
-Additional Dev C Gate 4 checks performed before this handoff:
+Gate 6 integration checks performed in the standalone integration clone:
 
 ```text
-scripts/verify_dev_C_gate4_isolation.sh
-scripts/assert_dev_C_gate4_execution_context.sh
-cd backend && uv run pytest app/tests/unit/test_agent_program.py app/tests/unit/test_agent_loader_optimize_mlflow.py app/tests/unit/test_gepa_optimize.py app/tests/unit/test_guardrails.py app/tests/unit/test_prompt_injection_labels.py app/tests/unit/test_agent_output_edges.py
-cd backend && OPENAI_API_KEY=sk-test-key uv run pytest app/tests/integration/test_api_contracts.py::test_default_explainer_uses_dev_c_agent_program -q
-manual `OPENAI_API_KEY=sk-test-key` `/api/explain` reproduction returned HTTP 200, `fallback_mode=safe_summary`, `adapter_mode=deterministic_dev`, and `dspy_provider_error`
-make optimize
-make mlflow-log
-make requirements-review
-make check-secrets
-make deep-review
+Dev A baseline check: cd backend && uv run pytest app/tests/integration/test_api_contracts.py app/tests/integration/test_gate6_api_eval_smoke.py -q
+Dev D smoke after merge: make gate6-shipping-audit
+Dev B smoke after merge: cd backend && uv run pytest app/tests/integration/test_gate6_retrieval_metrics.py app/tests/unit/test_rag.py app/tests/unit/test_prompt_injection.py -q
+Dev C smoke after merge: cd backend && uv run pytest app/tests/unit/test_agent_quality_support.py app/tests/unit/test_gate6_dev_c_quality_contract_review.py app/tests/unit/test_mlflow.py app/tests/integration/test_gate6_agent_quality_hooks.py app/tests/unit/test_guardrails.py -q
+Dev E smoke after merge: npm --prefix frontend test -- src/test/gate6-quality-contract.test.ts src/test/gate6-quality-response.test.tsx
 ```
 
 Additional merged-main checks retained from previous lanes:
