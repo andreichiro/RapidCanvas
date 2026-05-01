@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from app.agent.eval_support import build_retrieval_quality
 from app.agent.judge_signatures import (
     build_judge_input_payload,
     judge_response_quality,
@@ -104,6 +105,29 @@ def test_quality_trace_marks_unsupported_guardrail_flags_as_source_support_issue
     assert trace.guardrails.unsupported_claim_indicators == ["unsupported_claim"]
     assert trace.guardrails.source_support_validation_status == "partial"
     assert trace.guardrails.source_support_issues == ["unsupported_claim"]
+
+
+def test_retrieval_quality_normalizes_non_finite_scores_for_json_reports() -> None:
+    evidence = [
+        Evidence.model_construct(
+            id="E1",
+            document_id="D1",
+            text="Source text",
+            score=float("nan"),
+            source_id="S1",
+        ),
+        Evidence.model_construct(
+            id="E2",
+            document_id="D2",
+            text="Source text",
+            score=float("inf"),
+            source_id="S2",
+        ),
+    ]
+
+    quality = build_retrieval_quality(evidence, [], [])
+
+    assert quality.retrieval_scores == {"E1": 0.0, "E2": 0.0}
 
 
 class NanJudgeRunner:

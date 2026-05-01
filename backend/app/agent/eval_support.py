@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from math import isfinite
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -106,7 +107,7 @@ def build_retrieval_quality(
     return RetrievalQualitySignals(
         evidence_count=len(evidence),
         source_ids=source_ids,
-        retrieval_scores={item.id: round(float(item.score), 4) for item in evidence},
+        retrieval_scores={item.id: _finite_score(item.score) for item in evidence},
         source_diversity=len(source_ids),
         sanitizer_warnings=sanitizer_warnings,
         prompt_injection_flags=[flag for flag in guardrail_flags if "prompt_injection" in flag],
@@ -152,6 +153,13 @@ def bool_or_none(value: Any) -> bool | None:
         if normalized in {"true", "1", "yes", "on"}:
             return True
     return bool(value)
+
+
+def _finite_score(value: float) -> float:
+    score = float(value)
+    if not isfinite(score):
+        return 0.0
+    return round(score, 4)
 
 
 def dedupe(values: Sequence[str]) -> list[str]:

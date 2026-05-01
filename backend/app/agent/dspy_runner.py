@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from importlib import import_module
+from math import isfinite
 from typing import Any, cast
 
 from app.agent.runner import AdapterMode, ClassificationResult, HeuristicSignatureRunner
@@ -306,9 +307,10 @@ def _json_mapping(value: str) -> dict[str, object]:
 
 def _float_or_default(value: str, default: float) -> float:
     try:
-        return float(value)
+        parsed = float(value)
     except ValueError:
         return default
+    return parsed if isfinite(parsed) else default
 
 
 def _parse_json(value: str) -> object:
