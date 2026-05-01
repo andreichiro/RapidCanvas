@@ -44,17 +44,22 @@ def test_quality_mlflow_payload_is_structured_and_secret_free() -> None:
             "selected_provider": "openai",
             "provider_model": "openai/gpt-4.1-mini",
             "provider_configured": True,
+            "api_key": "sk-provider-secret-12345",
+            "provider_fallback_reason": "failed with sk-provider-secret-67890",
         },
         metrics={"citation_coverage": 1.0},
         artifacts=[Path("reports/eval/summary.json")],
-        model_metadata={"program": "baseline"},
+        model_metadata={"program": "baseline", "nested": {"token": "sk-model-secret-12345"}},
     )
 
     assert payload["params"]["provider"] == "openai"
     assert payload["params"]["requested_provider"] == "gemini"
     assert payload["metrics"] == {"citation_coverage": 1.0}
     assert payload["artifacts"] == ["reports/eval/summary.json"]
-    assert "api_key" not in str(payload).lower()
+    serialized = str(payload).lower()
+    assert "api_key" not in serialized
+    assert "sk-provider-secret" not in serialized
+    assert "sk-model-secret" not in serialized
 
 
 def test_mlflow_log_local_run_falls_back_with_skip_reason(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]

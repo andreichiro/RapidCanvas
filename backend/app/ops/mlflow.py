@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from importlib import import_module
@@ -11,8 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from app.config import Settings
+from app.guardrails.policies import DEFAULT_POLICY
 
 EXPERIMENT_NAME = "bluesky-post-explainer"
+SENSITIVE_KEY_MARKERS = ("api_key", "apikey", "token", "secret", "password", "credential")
+SECRET_VALUE_RE = re.compile(r"\bsk-[A-Za-z0-9_-]{8,}\b")
 
 
 @dataclass(frozen=True)
@@ -49,7 +53,7 @@ def build_default_mlflow_params(settings: Settings) -> dict[str, str | bool]:
         "vision_model": settings.vision_model,
         "vision_enabled": settings.enable_image_understanding,
         "hf_reranker_enabled": settings.enable_hf_reranker,
-        "guardrail_policy_version": "gate4-dev-c-v1",
+        "guardrail_policy_version": DEFAULT_POLICY.version,
         "prompt_injection_detector_version": "heuristic-policy-v1",
     }
 
@@ -105,7 +109,7 @@ def build_quality_mlflow_payload(
 ) -> dict[str, Any]:
     """Build params, metrics, artifacts, and metadata for Dev D MLflow calls."""
 
-    safe_provider = dict(provider or {})
+    safe_provider = _redact_mapping(provider or {})
     params = {
         **build_default_mlflow_params(settings),
         "provider": str(safe_provider.get("selected_provider", "unknown")),
@@ -119,7 +123,7 @@ def build_quality_mlflow_payload(
         "metrics": dict(metrics or {}),
         "artifacts": [str(path) for path in artifacts],
         "provider_metadata": safe_provider,
-        "model_metadata": dict(model_metadata or {}),
+        "model_metadata": _redact_mapping(model_metadata or {}),
     }
 
 
@@ -153,10 +157,11 @@ def log_local_run(
         )
 
     try:
+        safe_params = _redact_mapping(params)
         run_id, logged_artifacts, model_package = _run_mlflow_tracking(
             mlflow,
             settings,
-            params=params,
+            params=safe_params,
             metrics=metrics,
             artifacts=artifacts,
             run_name=run_name,
@@ -165,7 +170,7 @@ def log_local_run(
     except Exception as exc:
         return _write_fallback_run(
             settings,
-            params,
+            _redact_mapping(params),
             metrics,
             artifacts,
             run_name,
@@ -232,14 +237,15 @@ def _write_fallback_run(
     del model_logger
     reports_dir = Path(settings.reports_dir)
     reports_dir.mkdir(parents=True, exist_ok=True)
-    run_id = dataset_hash({"params": params, "metrics": metrics, "run_name": run_name})[:12]
+    safe_params = _redact_mapping(params)
+    run_id = dataset_hash({"params": safe_params, "metrics": metrics, "run_name": run_name})[:12]
     fallback_path = reports_dir / f"mlflow_fallback_{run_id}.json"
     payload = {
         "run_id": run_id,
         "run_name": run_name,
         "tracking_uri": settings.mlflow_tracking_uri,
         "used_mlflow": False,
-        "params": dict(params),
+        "params": safe_params,
         "metrics": metrics,
         "artifacts": [str(artifact) for artifact in artifacts if artifact.exists()],
         "skip_reason": skip_reason,
@@ -258,7 +264,38 @@ def _package_payload(model_package: Any) -> dict[str, Any] | None:
     if model_package is None:
         return None
     if hasattr(model_package, "__dict__"):
-        return dict(model_package.__dict__)
+        return _redact_mapping(model_package.__dict__)
     if isinstance(model_package, dict):
-        return model_package
-    return {"value": str(model_package)}
+        return _redact_mapping(model_package)
+    return {"value": SECRET_VALUE_RE.sub("[redacted]", str(model_package))}
+
+
+def _redact_mapping(mapping: Mapping[str, Any]) -> dict[str, Any]:
+    safe: dict[str, Any] = {}
+    redacted_count = 0
+    for raw_key, value in mapping.items():
+        key = str(raw_key)
+        if _is_sensitive_key(key):
+            redacted_count += 1
+            continue
+        safe[key] = _redact_value(value)
+    if redacted_count:
+        safe["redacted_sensitive_fields"] = redacted_count
+    return safe
+
+
+def _redact_value(value: Any) -> Any:
+    if callable(getattr(value, "get_secret_value", None)):
+        return "[redacted]"
+    if isinstance(value, Mapping):
+        return _redact_mapping(value)
+    if isinstance(value, str):
+        return SECRET_VALUE_RE.sub("[redacted]", value)
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [_redact_value(item) for item in value]
+    return value
+
+
+def _is_sensitive_key(key: str) -> bool:
+    normalized = key.lower().replace("-", "_")
+    return any(marker in normalized for marker in SENSITIVE_KEY_MARKERS)

@@ -24,6 +24,10 @@ DEV_C_FILES = sorted(
         ROOT / "app/eval/gepa_validation.py",
     ]
 )
+DEV_C_TEXT_FILES = [
+    *DEV_C_FILES,
+    ROOT / "app/agent/optimized/program.json",
+]
 FORBIDDEN_IMPORT_PREFIXES = (
     "app.api",
     "app.clients",
@@ -151,6 +155,19 @@ def test_gate6_dev_c_boundary_review_covers_owned_runtime_files() -> None:
     assert "app/guardrails/trust.py" in covered
     assert "app/ops/mlflow.py" in covered
     assert "app/eval/optimize.py" in covered
+
+
+def test_gate6_dev_c_runtime_labels_do_not_regress_to_gate4() -> None:
+    stale_labels: list[str] = []
+    for path in DEV_C_TEXT_FILES:
+        if "__pycache__" in path.parts:
+            continue
+        text = path.read_text()
+        if "gate4-dev-c" in text or "mlflow_gate4" in text:
+            stale_labels.append(str(path.relative_to(ROOT)))
+
+    assert DEFAULT_POLICY.version == "gate6-dev-c-v1"
+    assert stale_labels == []
 
 
 def test_gate6_quality_fixture_is_stable_serializable_and_secret_free() -> None:

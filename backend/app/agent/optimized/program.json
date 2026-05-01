@@ -15,10 +15,10 @@
   "metric_score": 0.75,
   "mode": "dry_run",
   "notes": [
-    "Gate 4 Dev C saves a loadable program config."
+    "Gate 6 Dev C saves a loadable program config."
   ],
   "optimizer": "GEPA",
-  "policy_version": "gate4-dev-c-v1",
+  "policy_version": "gate6-dev-c-v1",
   "saved_at": "1970-01-01T00:00:00+00:00",
   "schema_version": 1
 }

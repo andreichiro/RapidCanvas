@@ -143,9 +143,9 @@ def _load_compiled_dspy_program(
     raw_path = compile_config.get("compiled_program_path")
     if not isinstance(raw_path, str) or not raw_path:
         return None
-    compiled_path = Path(raw_path)
-    if not compiled_path.is_absolute():
-        compiled_path = metadata_path.parent / compiled_path
+    compiled_path = _compiled_program_path(raw_path, metadata_path, warnings)
+    if compiled_path is None:
+        return None
     if not compiled_path.exists():
         warnings.append("optimized_dspy_program_missing")
         return None
@@ -157,3 +157,20 @@ def _load_compiled_dspy_program(
         return None
     warnings.append("optimized_dspy_program_loaded")
     return program
+
+
+def _compiled_program_path(
+    raw_path: str,
+    metadata_path: Path,
+    warnings: list[str],
+) -> Path | None:
+    candidate = Path(raw_path)
+    if candidate.is_absolute():
+        warnings.append("optimized_dspy_program_path_outside_metadata_dir")
+        return None
+    metadata_dir = metadata_path.parent.resolve()
+    resolved = (metadata_dir / candidate).resolve()
+    if metadata_dir != resolved and metadata_dir not in resolved.parents:
+        warnings.append("optimized_dspy_program_path_outside_metadata_dir")
+        return None
+    return resolved

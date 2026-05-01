@@ -105,7 +105,7 @@ def run_gepa_optimization(
             ["expected contextual point absent"],
             ["claim without source support"],
         ),
-        "notes": ["Gate 4 Dev C saves a loadable program config."],
+        "notes": ["Gate 6 Dev C saves a loadable program config."],
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
     serialized = json.dumps(saved_program, indent=2, sort_keys=True) + "\n"
