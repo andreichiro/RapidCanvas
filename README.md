@@ -242,7 +242,8 @@ cases with runtime credentials before treating live-route quality as final.
 
 - Image understanding: Bluesky images are normalized with URLs and alt text, and
   G7-B adds a helper-level OpenAI vision path with untrusted alt-text fallback.
-  This is not a full browser/UI live vision claim.
+  Live vision was not run by G7-C in this integration pass, so this is not a
+  full browser/UI live vision claim.
 - Provider comparison: `GET /api/providers` exposes OpenAI configuration and
   skipped reasons for Anthropic, Gemini, and Ollama. No live multi-provider
   benchmark was run.

@@ -193,7 +193,7 @@ def check_docs(
             "one-shot Search/RAG",
             "adaptive retrieval is reserved",
             "real compiled saved DSPy program",
-            "not live vision",
+            "Live vision was not run",
             "not a live multi-provider benchmark",
             "docs/reviews/gate7_final_review.md",
         ],

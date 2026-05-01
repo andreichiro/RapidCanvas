@@ -27,7 +27,8 @@ Active lane owner: Dev G7-C final truth/docs/submission consuming G7-B evidence.
   finalized cached Gate 6 eval fixtures.
 - Image support includes Bluesky image URL/alt-text context evidence plus G7-B's
   helper-level vision path with untrusted alt-text fallback. This is not a full
-  browser/UI live vision claim.
+  browser/UI live vision claim. Live vision was not run by G7-C in this
+  integration pass.
 - Provider comparison is provider registry and skipped-provider visibility
   through `GET /api/providers`; no live Anthropic/Gemini/Ollama benchmark ran.
 - MLflow local file-backed logging was verified with `make mlflow-log`; generated
