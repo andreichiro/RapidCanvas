@@ -134,6 +134,40 @@ def test_load_program_loads_compiled_dspy_program(monkeypatch, tmp_path) -> None
     assert runner._optimized_explain_program is FakeDspy.loaded_program
 
 
+def test_load_program_rejects_compiled_path_outside_metadata_dir(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    class FakeDspy:
+        @staticmethod
+        def configure(**kwargs) -> None:  # type: ignore[no-untyped-def]
+            del kwargs
+
+        @staticmethod
+        def load(path: str, *, allow_pickle: bool) -> object:
+            raise AssertionError(f"unsafe compiled path should not load: {path} {allow_pickle}")
+
+    outside_dir = tmp_path.parent / "outside-compiled"
+    outside_dir.mkdir(exist_ok=True)
+    optimized_path = tmp_path / "program.json"
+    optimized_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "gepa_compile": {"compiled_program_path": "../outside-compiled"},
+            }
+        )
+    )
+    monkeypatch.setattr("app.agent.loader.import_module", lambda name: FakeDspy)
+
+    result = load_program(
+        Settings(openai_api_key=SecretStr("sk-test-key")),
+        optimized_path=optimized_path,
+        prefer_dspy=True,
+    )
+
+    assert "optimized_dspy_program_path_outside_metadata_dir" in result.warnings
+    runner = cast(Any, result.program._runner)
+    assert runner._optimized_explain_program is None
+
+
 def test_load_program_can_package_live_dspy_without_key() -> None:
     result = load_program(
         Settings(openai_api_key=None),
@@ -148,19 +182,17 @@ def test_mlflow_param_payload_includes_required_dev_c_fields() -> None:
     params = build_default_mlflow_params(Settings(openai_api_key=None))
 
     assert params["dspy_model"] == "openai/gpt-4.1-mini"
-    assert params["guardrail_policy_version"] == "gate4-dev-c-v1"
+    assert params["guardrail_policy_version"] == "gate6-dev-c-v1"
     assert params["prompt_injection_detector_version"] == "heuristic-policy-v1"
 
 
 def test_mlflow_fallback_run_writes_manifest_when_mlflow_missing(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    real_import = __import__
-
-    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):  # type: ignore[no-untyped-def]
+    def fake_import_module(name: str) -> object:
         if name == "mlflow":
-            raise ImportError("No module named mlflow")
-        return real_import(name, globals, locals, fromlist, level)
+            raise ImportError(name=name)
+        return object()
 
-    monkeypatch.setattr("builtins.__import__", fake_import)
+    monkeypatch.setattr(mlflow_ops, "import_module", fake_import_module)
     artifact = tmp_path / "artifact.json"
     artifact.write_text("{}")
     settings = Settings(openai_api_key=None, reports_dir=str(tmp_path))
@@ -175,6 +207,7 @@ def test_mlflow_fallback_run_writes_manifest_when_mlflow_missing(tmp_path, monke
     )
 
     assert run.used_mlflow is False
+    assert run.skip_reason == "mlflow_unavailable:mlflow"
     assert run.artifacts[0].exists()
     assert "test-run" in run.artifacts[0].read_text()
 
@@ -224,7 +257,7 @@ def test_mlflow_model_logger_runs_inside_active_run(tmp_path, monkeypatch) -> No
 
     run = mlflow_ops.log_local_run(
         Settings(openai_api_key=None),
-        params={"provider": "openai"},
+        params={"provider": "openai", "api_key": "sk-live-secret-12345"},
         metrics={"citation_coverage": 1.0},
         artifacts=[artifact],
         run_name="test-run",
@@ -234,6 +267,8 @@ def test_mlflow_model_logger_runs_inside_active_run(tmp_path, monkeypatch) -> No
     assert run.used_mlflow is True
     assert run.model_package == {"packaged": True}
     assert fake_mlflow.logged_artifacts == [str(artifact)]
+    assert "api_key" not in fake_mlflow.params
+    assert fake_mlflow.params["redacted_sensitive_fields"] == "1"
 
 
 def test_dataset_hash_is_stable() -> None:

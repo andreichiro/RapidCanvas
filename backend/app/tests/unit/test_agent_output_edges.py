@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from app.agent.dspy_runner import DspySignatureRunner, _evidence_json
+from app.agent.dspy_runner import DspySignatureRunner, _evidence_json, _float_or_default
 from app.agent.program import BlueskyExplainer
 from app.agent.runner import AdapterMode, ClassificationResult
 from app.agent.sources import POST_SOURCE_ID
@@ -80,6 +80,12 @@ def test_dspy_provider_error_degrades_to_guarded_safe_summary() -> None:
     assert any("provider failed" in note for note in response.trace.adapter_notes)
     assert all("secret-looking" not in note for note in response.trace.adapter_notes)
     assert len(response.bullets) == 3
+
+
+def test_dspy_runner_non_finite_provider_scores_are_not_reportable_quality() -> None:
+    assert _float_or_default("nan", 0.0) == 0.0
+    assert _float_or_default("inf", 0.0) == 0.0
+    assert _float_or_default("-inf", 0.0) == 0.0
 
 
 class FailingPredictor:

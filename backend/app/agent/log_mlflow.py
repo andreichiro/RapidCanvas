@@ -37,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
             "unsupported_claim_rate": 0.0,
         },
         artifacts=[manifest_path],
-        run_name="gate4-dev-c-smoke",
+        run_name="gate6-dev-c-smoke",
         model_logger=None
         if args.skip_model_package
         else lambda: log_dspy_model(program_result.program),
@@ -60,10 +60,10 @@ def _settings_from_args(tracking_uri: str | None, reports_dir: str | None) -> Se
 def _write_manifest(settings: Settings, program_result: ProgramLoadResult) -> Path:
     reports_dir = Path(settings.reports_dir)
     reports_dir.mkdir(parents=True, exist_ok=True)
-    manifest_path = reports_dir / "mlflow_gate4_manifest.json"
+    manifest_path = reports_dir / "mlflow_gate6_dev_c_manifest.json"
     manifest = {
         "lane": "dev_c",
-        "policy_version": "gate4-dev-c-v1",
+        "policy_version": "gate6-dev-c-v1",
         "optimized_path": (
             str(program_result.optimized_path) if program_result.optimized_path else None
         ),
@@ -81,6 +81,7 @@ def _summary_payload(run: MlflowRunSummary) -> dict[str, object]:
         "used_mlflow": run.used_mlflow,
         "artifacts": [str(path) for path in run.artifacts],
         "package": run.model_package,
+        "skip_reason": run.skip_reason,
     }
 
 

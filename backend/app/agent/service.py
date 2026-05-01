@@ -10,6 +10,7 @@ from typing import Any, Protocol
 from app.agent.evidence_contract import RetrievalOutput, normalize_retrieval_output
 from app.agent.loader import load_program
 from app.agent.program import BlueskyExplainer
+from app.agent.quality_trace import AgentQualityTrace
 from app.agent.runner import QueryPlan
 from app.config import Settings, get_settings
 from app.schemas.api import ExplainRequest, ExplainResponse
@@ -144,6 +145,7 @@ class AgentExplainerService:
         self._settings = settings
         self._program_cache: dict[str, tuple[BlueskyExplainer, list[str]]] = {}
         self._extra_warnings = extra_warnings
+        self.last_quality_trace: AgentQualityTrace | None = None
 
     def explain(self, request: ExplainRequest) -> ExplainResponse:
         program, program_warnings = self._program_for_request(request)
@@ -164,7 +166,7 @@ class AgentExplainerService:
                 *self._extra_warnings,
             ]
         )
-        return program.explain_context(
+        response = program.explain_context(
             post=post,
             evidence=bundle.evidence,
             documents=bundle.documents,
@@ -177,6 +179,8 @@ class AgentExplainerService:
             scan_post_context=False,
             reset_trace=False,
         )
+        self.last_quality_trace = program.last_quality_trace
+        return response
 
     def _program_for_request(self, request: ExplainRequest) -> tuple[BlueskyExplainer, list[str]]:
         if self._program is not None:

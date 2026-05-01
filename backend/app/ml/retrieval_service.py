@@ -87,16 +87,16 @@ class RetrievalService:
             )
         evidence, extra_flags = self._retrieve_evidence(search_queries, safe_documents, warnings)
         rag_diagnostics, diagnostic_warnings = safe_last_diagnostics(self._rag_service)
-        warnings.extend(diagnostic_warnings)
         prompt_flags = d.dedupe_values([*prompt_flags, *rag_diagnostics.prompt_injection_flags])
         return d.make_retrieval_result(
             documents=safe_documents,
             evidence=evidence,
             queries=search_queries,
             prompt_flags=prompt_flags,
-            warnings=[*warnings, *rag_diagnostics.warnings],
+            warnings=[*warnings, *diagnostic_warnings, *rag_diagnostics.warnings],
             private_url_blocks=blocks,
             extra_guardrail_flags=extra_flags,
+            reranker_scores=rag_diagnostics.reranker_scores,
         )
 
     async def _collect_documents(

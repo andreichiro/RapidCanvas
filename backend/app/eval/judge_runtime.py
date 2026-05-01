@@ -19,7 +19,9 @@ _UNSAFE_MARKERS = (
     "ignore previous instructions",
     "system prompt",
     "exfiltrate",
-    "delete",
+    "delete all",
+    "delete this",
+    "delete post",
 )
 
 

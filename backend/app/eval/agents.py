@@ -144,6 +144,8 @@ def _error_fixture(case: EvalCase, status_code: int, message: str) -> CachedFixt
                 "guardrail_flags": ["api_eval_error"],
                 "warnings": [message],
                 "latency_ms": 0,
+                "trust_score": 0.0,
+                "adapter_mode": "api_eval_error",
             },
         },
         retrieved_source_hints=[],

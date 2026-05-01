@@ -10,7 +10,6 @@ from __future__ import annotations
 from time import perf_counter
 from typing import Protocol
 
-from app.clients.bsky import BlueskyClient
 from app.schemas.api import Bullet, ExplainRequest, ExplainResponse, PostSummary, Source, Trace
 from app.schemas.domain import PostContext
 
@@ -25,8 +24,8 @@ class BlueskyContextFetcher(Protocol):
 class Gate3Explainer:
     """Real Bluesky fetch plus trace-marked deterministic dev explanation."""
 
-    def __init__(self, bluesky_client: BlueskyContextFetcher | None = None) -> None:
-        self._bluesky_client = bluesky_client or BlueskyClient()
+    def __init__(self, bluesky_client: BlueskyContextFetcher) -> None:
+        self._bluesky_client = bluesky_client
 
     def explain(self, request: ExplainRequest) -> ExplainResponse:
         started = perf_counter()

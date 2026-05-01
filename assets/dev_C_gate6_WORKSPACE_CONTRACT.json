@@ -1,0 +1,42 @@
+{
+  "lane": "dev_C_gate6",
+  "developer": "Dev C",
+  "plan": "Gate 6 Rapid Delivery - agent, guardrail, judge, optimizer, and MLflow substrate",
+  "required_branch": "codex/dev-c-gate6-agent-quality",
+  "execution_roots": [
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/rapidcanvas_dev_c_gate6_isolated",
+      "checkout_kind": "standalone_clone",
+      "role": "implementation"
+    }
+  ],
+  "shared_read_only_roots": [
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/New project",
+      "role": "shared_read_only"
+    }
+  ],
+  "forbidden_operations": [
+    "implement_from_shared_root",
+    "switch_shared_repo_to_lane_branch",
+    "linked_git_worktree_for_live_lane",
+    "stage_shared_repo_changes",
+    "clean_or_reset_shared_repo",
+    "modify_backend_api",
+    "modify_backend_clients",
+    "modify_backend_ml",
+    "modify_eval_runner_or_report",
+    "modify_frontend",
+    "modify_requirements_matrix",
+    "modify_translation_log"
+  ],
+  "verification": [
+    "execution_root_exists",
+    "execution_root_is_standalone_clone",
+    "execution_root_on_required_branch",
+    "shared_repo_does_not_own_required_branch",
+    "current_root_is_execution_root"
+  ]
+}

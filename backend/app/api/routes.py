@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Protocol
 
 from fastapi import APIRouter, HTTPException, status
@@ -10,6 +11,12 @@ from app.clients.bsky import BlueskyClientError, InvalidBlueskyPostUrlError
 from app.config import Settings
 from app.deps import build_gate3_explainer, get_provider_catalog
 from app.schemas.api import ExplainRequest, ExplainResponse, HealthResponse, ProviderListResponse
+
+_SENSITIVE_ERROR_RE = re.compile(
+    r"(?i)(traceback|file\s+\"|openai_api_key|anthropic_api_key|gemini_api_key|api[_-]?key|"
+    r"secret|token|sk-[a-z0-9_-]{6,})"
+)
+_MAX_ERROR_MESSAGE_LENGTH = 240
 
 
 class ExplainerService(Protocol):
@@ -45,12 +52,31 @@ def create_api_router(settings: Settings, explainer: ExplainerService | None = N
         except InvalidBlueskyPostUrlError as exc:
             raise HTTPException(
                 status_code=422,
-                detail={"code": "invalid_bluesky_url", "message": str(exc)},
+                detail={
+                    "code": "invalid_bluesky_url",
+                    "message": _safe_error_message(
+                        str(exc),
+                        fallback="Expected https://bsky.app/profile/{actor}/post/{rkey}",
+                    ),
+                },
             ) from exc
         except BlueskyClientError as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail={"code": "bluesky_fetch_failed", "message": str(exc)},
+                detail={
+                    "code": "bluesky_fetch_failed",
+                    "message": _safe_error_message(
+                        str(exc),
+                        fallback="Unable to fetch Bluesky post context.",
+                    ),
+                },
             ) from exc
 
     return router
+
+
+def _safe_error_message(message: str, *, fallback: str) -> str:
+    compact = " ".join(message.split())
+    if not compact or _SENSITIVE_ERROR_RE.search(compact):
+        return fallback
+    return compact[:_MAX_ERROR_MESSAGE_LENGTH]

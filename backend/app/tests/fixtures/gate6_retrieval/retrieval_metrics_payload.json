@@ -1,0 +1,93 @@
+{
+  "top_k": 6,
+  "recall_at_6_inputs": [
+    {
+      "rank": 1,
+      "evidence_id": "E1",
+      "document_id": "BSKY-normalized",
+      "source_id": "BSKY-normalized",
+      "source_type": "bluesky",
+      "source_url": "https://bsky.app/profile/science.example/post/3kabc",
+      "source_title": "Bluesky post by science.example",
+      "retrieval_score": 0.91,
+      "reranker_score": 0.44
+    },
+    {
+      "rank": 2,
+      "evidence_id": "E2",
+      "document_id": "POST-target",
+      "source_id": "POST-target",
+      "source_type": "thread",
+      "source_url": "https://bsky.app/profile/science.example/post/3kabc",
+      "source_title": "Bluesky post by science.example",
+      "retrieval_score": 0.76,
+      "reranker_score": 0.31
+    }
+  ],
+  "evidence_ids": ["E1", "E2"],
+  "document_ids": ["POST-target", "BSKY-normalized", "WEB-water"],
+  "source_ids": ["BSKY-normalized", "POST-target"],
+  "retrieval_scores": {
+    "E1": 0.91,
+    "E2": 0.76
+  },
+  "reranker_scores": {
+    "E1": 0.44,
+    "E2": 0.31
+  },
+  "source_channel_coverage": {
+    "bluesky": {
+      "channel": "bluesky",
+      "document_ids": ["BSKY-normalized"],
+      "evidence_document_ids": ["BSKY-normalized"],
+      "evidence_ids": ["E1"],
+      "source_ids": ["BSKY-normalized"]
+    },
+    "thread": {
+      "channel": "thread",
+      "document_ids": ["POST-target"],
+      "evidence_document_ids": ["POST-target"],
+      "evidence_ids": ["E2"],
+      "source_ids": ["POST-target"]
+    },
+    "web": {
+      "channel": "web",
+      "document_ids": ["WEB-water"],
+      "evidence_document_ids": [],
+      "evidence_ids": [],
+      "source_ids": []
+    }
+  },
+  "source_diversity": {
+    "document_id_count": 3,
+    "evidence_document_id_count": 2,
+    "source_id_count": 2,
+    "channel_count": 3,
+    "evidence_channel_count": 2,
+    "channels": ["bluesky", "thread", "web"],
+    "evidence_channels": ["bluesky", "thread"]
+  },
+  "prompt_injection_flags": ["ignore_previous_instructions"],
+  "sanitization_warnings": [
+    "prompt_injection_risk:WEB-water:ignore_previous_instructions",
+    "content_truncated"
+  ],
+  "private_url_blocks": [
+    "blocked_link:http://127.0.0.1/admin:blocked_non_public_ip:127.0.0.1"
+  ],
+  "skipped_or_fallback_provider_reasons": [
+    "qdrant_unavailable_using_in_memory_vector_store:RuntimeError",
+    "unsupported_content_type:application/pdf",
+    "extraction_failed:RuntimeError",
+    "retrieval_adapter_failed:RuntimeError"
+  ],
+  "warnings": [
+    "prompt_injection_risk:WEB-water:ignore_previous_instructions",
+    "content_truncated",
+    "blocked_link:http://127.0.0.1/admin:blocked_non_public_ip:127.0.0.1",
+    "qdrant_unavailable_using_in_memory_vector_store:RuntimeError",
+    "unsupported_content_type:application/pdf",
+    "extraction_failed:RuntimeError",
+    "retrieval_adapter_failed:RuntimeError"
+  ]
+}

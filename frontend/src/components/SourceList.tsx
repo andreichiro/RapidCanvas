@@ -1,4 +1,5 @@
 import { type Source } from "../api/client";
+import { sourceAnchorId } from "./sourceAnchors";
 
 type SourceListProps = {
   sources: Source[];
@@ -14,7 +15,7 @@ export default function SourceList({ sources }: SourceListProps) {
       <h2>Sources</h2>
       <div className="source-grid">
         {sources.map((source) => (
-          <article id={`source-${source.id}`} key={source.id} className="source-card">
+          <article id={sourceAnchorId(source.id)} key={source.id} className="source-card">
             <div className="source-card-header">
               <strong>{source.id}</strong>
               <span>{readableType(source.type)}</span>

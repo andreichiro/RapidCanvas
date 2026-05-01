@@ -258,6 +258,7 @@ def test_rag_service_clamps_public_scores_after_raw_rerank_ordering() -> None:
 
     assert [item.document_id for item in evidence] == ["S2", "S1"]
     assert [item.score for item in evidence] == [0.0, 0.0]
+    assert service.last_diagnostics.reranker_scores == {"E1": -0.2, "E2": -1.0}
 
 
 def test_rag_service_public_scores_are_finite_after_raw_rerank_ordering() -> None:
@@ -292,6 +293,7 @@ def test_rag_service_public_scores_are_finite_after_raw_rerank_ordering() -> Non
 
     assert [item.document_id for item in evidence] == ["S3", "S1", "S2"]
     assert [item.score for item in evidence] == [1.0, 1.0, 0.0]
+    assert service.last_diagnostics.reranker_scores == {"E2": 2.5}
 
 
 def test_qdrant_vector_store_recreate_and_query_when_dependency_available(

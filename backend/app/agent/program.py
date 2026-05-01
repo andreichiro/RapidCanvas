@@ -7,7 +7,8 @@ from time import perf_counter
 from typing import Any
 
 from app.agent.dspy_base import dspy_module_base
-from app.agent.response import build_guarded_response
+from app.agent.finalize import finalize_explainer_run
+from app.agent.quality_trace import AgentQualityTrace
 from app.agent.runner import HeuristicSignatureRunner, QueryPlan, SignatureRunner
 from app.agent.sources import sources_for_response
 from app.agent.untrusted import scan_untrusted_flags
@@ -36,6 +37,7 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         output_guardrail: OutputGuardrail | None = None,
         policy: GuardrailPolicy = DEFAULT_POLICY,
         optimized_config: dict[str, Any] | None = None,
+        provider_metadata: dict[str, Any] | None = None,
     ) -> None:
         super().__init__()
         self._runner = runner or HeuristicSignatureRunner()
@@ -43,7 +45,11 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         self._output_guardrail = output_guardrail or OutputGuardrail(policy)
         self._policy = policy
         self.optimized_config = optimized_config or {}
+        self.provider_metadata = provider_metadata or {}
         self.last_trace_events: list[TraceEvent] = []
+        self.last_quality_trace: AgentQualityTrace | None = None
+        self._revision_attempted = False
+        self._revision_succeeded = False
 
     def forward(
         self,
@@ -99,10 +105,12 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
     ) -> ExplainResponse:
         """Explain a normalized post using retrieved evidence and guardrails."""
 
-        del request
         started = perf_counter()
         if reset_trace:
             self.last_trace_events = []
+        self.last_quality_trace = None
+        self._revision_attempted = False
+        self._revision_succeeded = False
         self._set_runner_documents(documents)
         injection_flags = self._scan_for_injection(
             post, evidence, documents, include_post_context=scan_post_context
@@ -122,20 +130,24 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
         final_trust = self._assess_final_trust(
             post, ranked_evidence, pre_validation_trust.flags, validation_issues
         )
-        bullets = self._output_guardrail.repair(
-            draft,
-            allowed_source_ids,
-            fallback_mode=final_trust.fallback_mode,
+        response, self.last_quality_trace = finalize_explainer_run(
+            self,
+            started=started,
+            draft=draft,
+            allowed_source_ids=allowed_source_ids,
             post=post,
             post_source_id=post_source_id,
+            sources=sources,
+            category=category,
+            queries=queries,
+            warnings=warnings,
+            validation_issues=validation_issues,
+            trust=final_trust,
+            evidence=ranked_evidence,
+            documents=documents,
+            request=request,
         )
-        return build_guarded_response(
-            post=post, sources=sources, bullets=bullets, category=category, queries=queries,
-            warnings=warnings, validation_issues=validation_issues, trust=final_trust,
-            latency_ms=int((perf_counter() - started) * 1000),
-            adapter_mode=self._runner.adapter_mode, adapter_notes=self._runner.adapter_notes,
-            optimized_config=self.optimized_config,
-        )
+        return response
 
     def _resolve_plan(
         self,
@@ -233,9 +245,11 @@ class BlueskyExplainer(_DspyModuleBase):  # type: ignore[misc, valid-type]
     ) -> tuple[ExplanationDraft, ValidationResult]:
         if validation.is_valid:
             return draft, validation
+        self._revision_attempted = True
         revised = self._runner.revise(post, draft, evidence, validation.issues)
         revision_validation = self._output_guardrail.validate(revised, allowed_source_ids)
         if revision_validation.is_valid:
+            self._revision_succeeded = True
             return revised, revision_validation
         return draft, validation
 
