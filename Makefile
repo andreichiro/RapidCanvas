@@ -18,7 +18,7 @@ help:
 	@echo "  make skills-review      Validate local project skills"
 	@echo "  make user-smoke         Exercise the scaffold as a user would"
 	@echo "  make run                One-command full Docker stack: UI, API, Qdrant, MLflow"
-	@echo "  make dev                Start FastAPI + Vite in one terminal"
+	@echo "  make dev                Install deps and start FastAPI + Vite in one terminal"
 	@echo "  make dev-backend        Start only FastAPI"
 	@echo "  make dev-frontend       Start only Vite"
 	@echo "  make docker-up          Build and start backend + frontend with Docker"
@@ -40,7 +40,7 @@ setup-backend:
 setup-backend-full: setup-backend
 
 setup-frontend:
-	npm --prefix $(FRONTEND_DIR) install
+	npm --prefix $(FRONTEND_DIR) ci
 
 lint: backend-lint frontend-lint
 
@@ -123,7 +123,7 @@ deep-review: lint test check-secrets config-check frontend-audit frontend-build 
 
 run: docker-up
 
-dev:
+dev: setup
 	@bash -lc 'set -euo pipefail; \
 		BACKEND_LOG="/tmp/rapidcanvas_dev_backend.log"; \
 		FRONTEND_LOG="/tmp/rapidcanvas_dev_frontend.log"; \

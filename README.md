@@ -82,15 +82,15 @@ key into the masked field, leave provider as `openai`, and click **Explain**.
 No API key is baked into Docker images or Compose. The key is supplied through
 the masked required OpenAI API-key field for the current request only.
 
-For source development without Docker:
+For source development without Docker, use the one-command source path:
 
 ```bash
-make setup
 make dev
 ```
 
-`make dev` starts or reuses fixed-port FastAPI and Vite servers in one terminal.
-The frontend uses the Vite `/api` proxy and falls back to
+`make dev` installs or refreshes backend/frontend dependencies, then starts or
+reuses fixed-port FastAPI and Vite servers in one terminal. The frontend uses
+the Vite `/api` proxy and falls back to
 `http://127.0.0.1:8000`, so local preview runs do not collapse into a generic
 browser `Failed to fetch` when the backend is reachable.
 
@@ -294,7 +294,7 @@ ignored.
 ```bash
 make setup                    # install backend and frontend dependencies
 make run                      # one-command Docker UI + API + Qdrant + MLflow
-make dev                      # one-command source backend + frontend
+make dev                      # one-command source deps + backend + frontend
 make docker-up                # Docker stack
 make docker-down              # stop Docker stack
 make lint                     # backend ruff/mypy + frontend TypeScript
