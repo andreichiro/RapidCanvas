@@ -80,13 +80,16 @@ def build_judge_input_payload(
 
     return JudgeInputPayload(
         expected="\n".join(compact_text(point, limit=240) for point in expected_points),
-        prediction="\n".join(compact_text(bullet.text, limit=420) for bullet in response.bullets),
+        prediction="\n".join(
+            _safe_judge_text(bullet.text, limit=420) for bullet in response.bullets
+        ),
         evidence=[
             {
                 "id": item.id,
+                "document_id": item.document_id,
                 "source_id": item.source_id,
                 "score": _finite_score(item.score),
-                "text": _safe_judge_evidence_text(item.text),
+                "text": _safe_judge_text(item.text, limit=420),
             }
             for item in evidence
         ],
@@ -115,7 +118,11 @@ def judge_response_quality(
         fallback = _deterministic_judge(payload)
         return JudgeResult(status=status, score=fallback.score, error_labels=fallback.error_labels)
     try:
-        result = runner.judge_evaluation_case(payload.expected, payload.prediction, evidence)
+        result = runner.judge_evaluation_case(
+            payload.expected,
+            payload.prediction,
+            _evidence_from_payload(payload),
+        )
     except Exception as exc:
         fallback = _deterministic_judge(payload)
         return JudgeResult(
@@ -178,10 +185,23 @@ def _finite_score(value: float) -> float:
     return round(score, 4)
 
 
-def _safe_judge_evidence_text(text: str) -> str:
+def _safe_judge_text(text: str, *, limit: int) -> str:
     if DEFAULT_POLICY.forbidden_output_hits(text):
         return "Untrusted evidence contained instruction-like or credential-seeking text."
-    return compact_text(text, limit=420)
+    return compact_text(text, limit=limit)
+
+
+def _evidence_from_payload(payload: JudgeInputPayload) -> list[Evidence]:
+    return [
+        Evidence.model_construct(
+            id=str(item["id"]),
+            document_id=str(item.get("document_id", item["id"])),
+            text=str(item["text"]),
+            score=float(item["score"]),
+            source_id=str(item["source_id"]),
+        )
+        for item in payload.evidence
+    ]
 
 
 def _labels(result: Any) -> list[str]:
