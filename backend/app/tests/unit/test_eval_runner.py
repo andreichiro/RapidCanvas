@@ -70,6 +70,8 @@ def test_api_eval_agent_records_http_failures_without_crashing() -> None:
     )
 
     assert fixture.prediction["trace"]["category"] == "api_error"
+    assert fixture.prediction["trace"]["trust_score"] == 0.0
+    assert fixture.prediction["trace"]["adapter_mode"] == "api_eval_error"
     assert fixture.unsupported_claims
 
 
