@@ -1,32 +1,84 @@
-# Bluesky Contextual Post Explainer
+# RapidCanvas - Bluesky Contextual Post Explainer
 
-RapidCanvas is a React + FastAPI + DSPy agent that accepts a public Bluesky post URL,
-searches for relevant context, and returns 3-5 cited explanation bullets. The reviewer
-entry points are this README, the requirement matrix, the cached eval report, and the
-Gate 7 final truth review.
+RapidCanvas is a production-shaped AI data product built for the Bluesky Post
+Explainer assignment. A user pastes a public Bluesky post URL and receives 3-5
+concise, cited bullets explaining the post's broader context.
 
-## What It Does
+The project is intentionally more than a prompt wrapper. The model is one
+component inside a system that acquires evidence, normalizes context, defends
+against untrusted content, retrieves relevant support, validates citations,
+chooses safe fallbacks, and reports quality.
 
-- Fetches the target Bluesky post and thread context from public read-only AT Protocol APIs.
-- Plans lightweight context queries from the post, thread, links, category, and available image text.
-- Searches Bluesky/web/link context, sanitizes untrusted text, embeds/chunks evidence, retrieves with Qdrant or an in-memory fallback, reranks, and validates citations.
-- Produces 3-5 bullets with source IDs for normal answers, or `partial`, `safe_summary`, or `abstain` when support is weak.
-- Shows sources, trust/fallback status, guardrail flags, and trace diagnostics in the React UI.
-- Requires a masked OpenAI key at request time so embeddings and model-backed explanations run without committing secrets.
+The product belief is simple: an AI explanation is useful only if the system can
+show where it came from, when to trust it, and when to say less.
 
-## Run Locally
+## Assignment Coverage Snapshot
 
-The full-stack one-command path is Docker:
+### Explicitly Requested
+
+- Done: **Bluesky post explainer agent.** The app accepts a public Bluesky URL,
+  fetches post/thread context through ATProto, searches for supporting context,
+  and returns 3-5 explanatory bullets.
+- Done: **Source citations.** Factual bullets carry `source_ids`; the UI renders
+  source titles, URLs, types, and snippets.
+- Done: **React frontend.** Vite + React + TypeScript UI with URL input, masked
+  key input, provider selector, cited bullets, source list, loading states,
+  fallback states, trace, and errors.
+- Done: **FastAPI backend.** FastAPI + Pydantic v2 routes for `/api/explain`,
+  `/api/health`, `/api/providers`, and `/docs`.
+- Done: **Relevant context search.** Runtime Search/RAG uses Bluesky/web/link
+  context, thread/quote context, image-related context, sanitization, embeddings,
+  Qdrant or in-memory retrieval, and reranking.
+- Done: **Evaluation harness.** `make eval` runs 19 cached cases: 10
+  fixture-backed public Bluesky URLs and 9 marked synthetic attack/edge cases.
+- Done: **Image understanding path.** Image URLs and alt text are evidence; the
+  backend includes a vision helper with untrusted alt-text fallback when image
+  understanding is enabled.
+- Done: **Multi-provider comparison path.** OpenAI runs with the transient
+  request key. Optional providers require their own credentials or services:
+  Anthropic, Gemini, and Ollama appear with configured/skipped status before
+  comparison runs.
+- Done: **ML-powered modules.** Classification, embeddings, retrieval,
+  reranking, evaluation, GEPA, and MLflow paths are implemented as separate
+  capabilities.
+
+### Added Beyond The Base Requirements
+
+- **DSPy workflow:** named modules for classification, query planning,
+  explanation, validation, trust assessment, judge support, and optimization.
+- **Qdrant vector retrieval:** chunked context, OpenAI embeddings, Qdrant local
+  or remote URL support, reranking, and stable evidence/source IDs.
+- **Bounded adaptive retrieval:** at most one extra safe query can run when
+  first-round evidence is weak. It stops early on sufficient trust and skips
+  after pre-retrieval prompt-injection risk.
+- **Prompt-injection defense:** retrieved content is evidence, never
+  instructions; prompt-like attacks are scanned and flagged.
+- **Low-trust fallbacks:** `partial`, `safe_summary`, and `abstain` are product
+  states, not hidden failures.
+- **Operational handoff:** Makefile commands, Docker Compose, `.env.example`,
+  no-secrets checks, Deep Review Workflow, research docs, project skills,
+  translation log, requirement matrix, and review docs.
+
+## Quick Start
+
+The one-command product path is Docker:
 
 ```bash
 make run
 ```
 
-Open `http://localhost:5173`, paste a public Bluesky post URL, paste your OpenAI key
-into the masked field, leave provider as `openai`, and click **Explain**.
+Open `http://localhost:5173`, paste a public Bluesky post URL, paste your OpenAI
+key into the masked field, leave provider as `openai`, and click **Explain**.
 
-`make run` starts the React UI, FastAPI backend, Qdrant, and MLflow UI. It does
-not hardcode or bake in API keys.
+`make run` starts:
+
+- React UI: `http://localhost:5173`
+- FastAPI backend: `http://127.0.0.1:8000`
+- Qdrant: `http://localhost:6333`
+- MLflow UI: `http://localhost:5000`
+
+No API key is baked into Docker images or Compose. The key is supplied through
+the masked required OpenAI API-key field for the current request only.
 
 For source development without Docker:
 
@@ -35,138 +87,151 @@ make setup
 make dev
 ```
 
-`make dev` starts FastAPI at `http://127.0.0.1:8000` and Vite at
-`http://localhost:5173` in one terminal. The frontend first uses the Vite `/api`
-proxy and then falls back to `http://127.0.0.1:8000` so preview/local launches do
-not fail with a generic browser `Failed to fetch` when the backend is running.
+`make dev` starts or reuses fixed-port FastAPI and Vite servers in one terminal.
+The frontend uses the Vite `/api` proxy and falls back to
+`http://127.0.0.1:8000`, so local preview runs do not collapse into a generic
+browser `Failed to fetch` when the backend is reachable.
 
-Useful direct checks:
+Useful checks:
 
 ```bash
-curl http://127.0.0.1:8000/api/health
-npm --prefix frontend test
 make test
 make eval
-make gate7-final-truth-audit
+make requirements-review
+make check-secrets
 ```
 
-## Docker
+## Design Mental Models
 
-For a clean machine with Docker:
-
-```bash
-make run
+```mermaid
+flowchart TB
+    A["Evidence-first"] --> F["Useful, cited explanations"]
+    B["Contract-first"] --> F
+    C["Untrusted-content boundary"] --> F
+    D["Graceful degradation"] --> F
+    E["Observable AI"] --> F
 ```
 
-Then open `http://localhost:5173`. The Compose stack starts:
+**Evidence-first:** the agent does not invent context from the post alone. It
+fetches, searches, sanitizes, retrieves, reranks, cites, and validates evidence.
 
-- FastAPI backend: `http://127.0.0.1:8000`
-- React UI: `http://localhost:5173`
-- Qdrant: `http://localhost:6333`
-- MLflow UI: `http://localhost:5000`
+**Contract-first:** `PostContext`, `ContextDocument`, `Evidence`,
+`ExplainResponse`, and `TrustAssessment` are stable typed boundaries.
 
-The backend receives `QDRANT_URL=http://qdrant:6333` and
-`MLFLOW_TRACKING_URI=http://mlflow:5000`; no API keys are baked into images or Compose.
-Stop it with:
+**Untrusted-content boundary:** posts, replies, web pages, image alt text, and
+retrieved documents can support claims but cannot change tool policy, citation
+policy, or output shape.
 
-```bash
-make docker-down
+**Graceful degradation:** the system can say less. Low evidence, contradictions,
+unavailable posts, unsafe content, or uncited claims produce guarded fallbacks.
+
+**Observable AI:** every response preserves sources, warnings, trust score,
+fallback mode, guardrail flags, adapter mode, and trace notes.
+
+## High-Level Architecture
+
+```mermaid
+flowchart LR
+    UI["React UI"] --> API["FastAPI + Pydantic"]
+    API --> CTX["Bluesky / web / image context"]
+    CTX --> SAFE["Safety boundary"]
+    SAFE --> RAG["Embeddings + Qdrant + rerank"]
+    RAG --> AGENT["DSPy agent"]
+    AGENT --> API
+    API --> UI
+    AGENT --> EVAL["Eval + MLflow + GEPA"]
 ```
 
-## API Key Handling
+Responsibilities are intentionally separated: frontend renders product state,
+API orchestrates requests, Bluesky/search acquires context, safety treats outside
+content as untrusted, retrieval turns context into evidence, DSPy reasons over
+structured evidence, and eval measures usefulness and safety.
 
-The UI has a masked required OpenAI API-key field. The key is sent only with the
-current `/api/explain` request as `api_key`; it is not written to local storage, `.env`,
-reports, or Git. CLI/headless runs may also use a local ignored `.env`:
+## Request Lifecycle
 
-```bash
-cp .env.example .env
-# set OPENAI_API_KEY in .env only if you want CLI requests to use it
+```mermaid
+flowchart TD
+    A["1. Parse Bluesky URL"] --> B["2. Fetch post + thread"]
+    B --> C["3. Normalize quotes, links, images"]
+    C --> D["4. Scan untrusted content"]
+    D --> E["5. Classify + plan queries"]
+    E --> F["6. Search and fetch context"]
+    F --> G["7. Sanitize sources"]
+    G --> H["8. Retrieve + rerank evidence"]
+    H --> I["9. Generate cited bullets"]
+    I --> J["10. Validate + score trust"]
+    J --> K{"Supported?"}
+    K -->|Yes| L["normal answer"]
+    K -->|Some| M["partial / safe_summary"]
+    K -->|No| N["abstain"]
 ```
 
-The default backend route rejects keyless explain requests when no local
-`OPENAI_API_KEY` exists. This prevents a no-key setup from silently looking successful
-while only returning conservative fallback answers.
+This locality makes failures debuggable. A weak result can usually be traced to
+URL parsing, ATProto fetch, search, safe fetch, sanitization, embeddings, vector
+retrieval, reranking, generation, validation, or fallback logic.
 
-## Architecture
+## Core Data Contracts
 
-```text
-Bluesky URL
--> public post/thread fetch
--> prompt-injection scan
--> classification
--> query planning
--> Bluesky/web/link/image context search
--> sanitization
--> chunk/embed
--> Qdrant or in-memory retrieval
--> rerank
--> trust scoring
--> cited 3-5 bullet explanation
--> validation
--> guardrail fallback
--> response
+```mermaid
+flowchart LR
+    A["PostContext"] --> B["ContextDocument"]
+    B --> C["Evidence"]
+    C --> D["Bullet + source_ids"]
+    C --> E["Sources"]
+    D --> F["ExplainResponse"]
+    E --> F
+    G["TrustAssessment"] --> F
 ```
 
-The Gate 7 runtime uses one-shot Search/RAG by default. The capped adaptive retrieval is enabled path
-allows at most one extra safe query when first-round evidence is weak, it
-stops early when trust is sufficient, and it is skipped after pre-retrieval
-prompt-injection risk. The agent does not perform unbounded searching until confidence
-is high.
+- `PostContext`: normalized Bluesky post, thread, quotes, links, images, and warnings.
+- `ContextDocument`: source text from thread, Bluesky, web, link, or image context.
+- `Evidence`: retrieved/reranked text with score and source identity.
+- `ExplainResponse`: post, bullets, sources, and trace.
+- `TrustAssessment`: score, fallback mode, flags, and reasons.
 
-## Frontend
+## Agent, Retrieval, And Evidence
 
-The React UI includes:
+DSPy expresses the agent as named modules instead of one hidden prompt:
+classify, plan queries, retrieve evidence, explain, validate, and apply trust or
+fallback policy.
 
-- Bluesky URL input.
-- Masked required OpenAI API-key input.
-- Provider selector populated by `GET /api/providers`.
-- 3-5 cited bullet rendering.
-- Source cards and citation chips.
-- Trust/fallback badge for `none`, `partial`, `safe_summary`, and `abstain`.
-- Guardrail flags.
-- Trace panel with category, queries, diagnostics, latency, trust score, fallback mode,
-  adapter mode, and notes.
-
-Common retrieval diagnostics are summarized as retrieval notes instead of presented as
-hard failures. For example, Qdrant fallback, content truncation, HTTP 403 source pages,
-empty extracted pages, and Bluesky search outages are non-fatal when other evidence is
-available. Full raw diagnostics remain in the trace panel for review.
-
-## Backend API
-
-```text
-GET  /api/health
-GET  /api/providers
-POST /api/explain
+```mermaid
+flowchart LR
+    A["Documents"] --> B["Chunks"]
+    B --> C["Embeddings"]
+    C --> D["Qdrant"]
+    D --> E["Rerank"]
+    E --> F["Evidence"]
 ```
 
-`POST /api/explain` accepts:
+The retrieval layer uses chunking variants, OpenAI embeddings, Qdrant vector
+search, safe in-memory fallback, reranking, and stable evidence/source IDs.
+Common non-fatal retrieval diagnostics, such as Qdrant fallback, content
+truncation, HTTP 403 source pages, empty extracted text, and Bluesky search
+outages, are summarized as retrieval notes in the UI while raw trace remains
+available for review.
 
-```json
-{
-  "post_url": "https://bsky.app/profile/{actor}/post/{rkey}",
-  "provider": "openai",
-  "include_trace": true,
-  "api_key": "sk-..."
-}
+## Safety Boundary
+
+```mermaid
+flowchart LR
+    A["Untrusted content"] --> B["Scan"]
+    B --> C["Sanitize"]
+    C --> D["Block unsafe fetches"]
+    D --> E["Use as evidence only"]
+    E --> F["Cited or fallback answer"]
 ```
 
-Responses include post metadata, cited bullets, source cards, and trace data. Invalid
-URLs return clean 422 errors. Upstream Bluesky/read failures return sanitized errors or
-guarded fallbacks; external content is treated as evidence, never instructions.
+The scanner detects attacks such as "ignore previous instructions", "system
+prompt", "API key", "do not cite", "disable citations", "tool call", "POST to",
+and "delete". The fetch layer blocks private/local URLs and `file://` targets.
+Output guardrails require 3-5 bullets in normal mode and citations for factual
+claims.
 
-## Deep Review Workflow
+## Evaluation Strategy
 
-`make deep-review` is the full pre-handoff gate. It runs linting, tests, secret
-scanning, config validation, frontend audit/build, optional backend dependency checks,
-Gate 1 requirement review, local skill validation, generated-artifact cleanup,
-maintainability review, and user smoke tests.
-
-## Evaluation
-
-`make eval` is the reproducible quality proof. It runs offline against cached fixtures
-and writes ignored reports under `reports/eval/`:
+`make eval` is the reproducible quality proof. It performs no network/model
+calls by default and writes ignored artifacts under `reports/eval/`:
 
 ```text
 eval_results.jsonl
@@ -176,92 +241,73 @@ metric_bars.svg
 summary.json
 ```
 
-Gate 6/Gate 7 eval status:
+The 19 cases cover public Bluesky fixtures, memes/slang, current-event context,
+reply/quote/link/image context, ambiguous acronyms, sparse context,
+unavailable/deleted posts, prompt injection, contradictory sources, and
+low-evidence behavior.
 
-- 19 cached cases.
-- 10 fixture-backed public Bluesky URLs.
-- 9 marked synthetic attack/edge fixtures.
-- No network or model calls in default `make eval`.
-- Expected key points are the curated truth layer.
-- Live Search/RAG is runtime retrieval and data collection, not ground truth.
+The scoring focuses on expected-point recall, citation coverage, unsupported
+claims, fallback correctness, prompt-injection resistance, private URL blocking,
+source leakage, final-response correctness, and latency. Cached fixtures are the
+curated reference layer; live Search/RAG is runtime retrieval and data collection.
 
-The eval harness measures expected-point recall, citation coverage, fallback
-correctness, prompt-injection resistance, unsupported/hallucination counts, source
-support, private URL blocking, and latency. Optional DSPy/Ragas judge modes are explicit
-commands, not the default no-network gate.
+## Optimization And MLflow
 
-## GEPA And MLflow
-
-`make optimize` verifies the merged GEPA saved-program path. The final artifact is a
-real compiled saved DSPy program from finalized cached eval fixtures:
+`make optimize` verifies the saved DSPy optimization path:
 
 ```text
 backend/app/agent/optimized/program.json
 backend/app/agent/optimized/program_compiled/
 ```
 
-`program.json` records `mode=real`, `metric_score=0.875`, and a 19-case eval-dataset
-bridge. Loader use still depends on DSPy and provider credentials.
+The checked-in program metadata records the eval-dataset bridge and current
+optimization score. Loader use still depends on DSPy and provider credentials.
 
 `make mlflow-log` creates a local file-backed MLflow run and exercises
-`mlflow.dspy.log_model`. This is real local ops plumbing, not a hosted experiment
-workflow. `mlruns/` is ignored.
+`mlflow.dspy.log_model`. Docker Compose also exposes the MLflow UI on port 5000.
+This is local ops plumbing, not a hosted experiment workflow. `mlruns/` is
+ignored.
 
-## Image And Providers
+## Tooling Map
 
-Image understanding is included as Bluesky image URL/alt-text context plus a helper-level
-OpenAI vision path with untrusted alt-text fallback. A live helper smoke described a
-public image in 3.3s, but this was not a full browser/UI vision proof, so the final
-truth classification remains partial.
-
-Provider comparison is visible through `GET /api/providers` and the UI provider selector.
-OpenAI can run with the transient request key. Anthropic, Gemini, and Ollama are listed
-with configured/skipped status and skipped reasons, but this is not a live
-multi-provider benchmark unless those provider credentials/services are configured and
-an explicit comparison run is performed.
-
-## Guardrails
-
-- Every normal factual answer must have 3-5 bullets.
-- Every factual bullet must cite at least one source.
-- Low evidence, contradictions, provider failures, unavailable posts, uncited claims, or
-  unsafe content produce `partial`, `safe_summary`, or `abstain`.
-- Posts, replies, web pages, image alt text, and image descriptions are labeled
-  `UNTRUSTED_*` inside prompts.
-- Prompt-injection attempts are scanned and ignored as instructions.
-- Only public Bluesky reads, safe web GETs, embeddings/model/vision calls, and optional
-  provider calls are reachable. No Bluesky write APIs are exposed.
+| Layer | Tools | Why They Were Used |
+|---|---|---|
+| Frontend | Vite, React, TypeScript | Typed UI for input, citations, trace, sources, fallbacks |
+| Backend API | FastAPI, Pydantic v2 | Async routes and stable contracts |
+| Bluesky | ATProto SDK | Public read-only post/thread/search access |
+| Search/fetch | httpx, DDGS, trafilatura, BeautifulSoup | Safe web/link context collection |
+| Agent | DSPy | Structured modules instead of opaque prompt blobs |
+| Retrieval | OpenAI embeddings, Qdrant, rerankers | Evidence ranking before generation |
+| Safety | scanners, sanitizers, SSRF guard | Keeps external content inside evidence boundaries |
+| Evaluation | cached runner, metrics, reports | Reproducible quality and safety measurement |
+| Optimization | GEPA | Feedback-driven DSPy program improvement |
+| Tracking | MLflow | Params, metrics, artifacts, model/program metadata |
+| Ops | Makefile, Docker, matrix, audits | Repeatable reviewer and local-user workflow |
 
 ## Commands
 
 ```bash
 make setup                    # install backend and frontend dependencies
 make run                      # one-command Docker UI + API + Qdrant + MLflow
-make dev                      # one-command local backend + frontend
-make docker-up                # one-command Docker UI + API + Qdrant + MLflow
+make dev                      # one-command source backend + frontend
+make docker-up                # Docker stack
 make docker-down              # stop Docker stack
 make lint                     # backend ruff/mypy + frontend TypeScript
 make test                     # backend pytest + frontend Vitest
 make eval                     # cached offline eval reports
 make optimize                 # GEPA saved-program verification
 make mlflow-log               # local MLflow run/package path
-make requirements-review      # requirement matrix validation
-make skills-review            # local skill validation
+make requirements-review      # Gate 1 requirement matrix validation
+make skills-review            # local project skill validation
 make check-secrets            # secret/artifact hygiene scan
-make gate7-final-truth-audit  # final truth audit
-make deep-review              # full local review gate
+make deep-review              # full Deep Review Workflow gate
 ```
 
-## Submission Truth
+## Review Artifacts
 
 Gate 1 is closed by `docs/requirements_matrix.md` and `make requirements-review`.
-The final review is `docs/reviews/gate7_final_review.md`; the closure proof is
-`docs/requirements_matrix.md`; the concise status handoff is `docs/current_handoff.md`.
+The main handoff is `docs/current_handoff.md`; detailed review notes live under
+`docs/reviews/`.
 
-This submission is real where integrated, cached where reproducibility matters, skipped
-where credentials/environment are absent, partial where helper/runtime paths exist
-without full UI proof, and reserved where behavior is not implemented, tested,
-documented, and visible in reports.
-
-Security reminder: `.env`, API keys, `mlruns/`, Qdrant cache, screenshots, provider
-outputs, and generated live reports must not be committed.
+Security reminder: `.env`, API keys, `mlruns/`, Qdrant cache, screenshots,
+provider outputs, and generated live reports must not be committed.

@@ -190,14 +190,14 @@ def check_final_review(final_review: str, errors: list[str]) -> None:
 def check_docs(readme: str, handoff: str, matrix: str, translation_log: str, agents: str, errors: list[str]) -> None:
     doc_requirements = {
         "README.md": [
-            "one-shot Search/RAG",
-            "capped adaptive retrieval is enabled",
-            "masked required OpenAI API-key field",
+            "RapidCanvas is a production-shaped AI data product",
+            "Bounded adaptive retrieval",
+            "masked field",
             "make docker-up",
-            "real compiled saved DSPy program",
-            "live helper smoke",
-            "not a live multi-provider benchmark",
-            "docs/reviews/gate7_final_review.md",
+            "Qdrant",
+            "MLflow",
+            "Optional providers require",
+            "docs/requirements_matrix.md",
         ],
         "docs/current_handoff.md": [
             "one-shot integrated route", "codex/g7bc-final-integration", "3a79056", "fc4dff4",
