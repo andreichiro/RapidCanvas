@@ -176,8 +176,9 @@ Only `reports/.gitkeep` remains tracked.
 
 ## Submission Decision
 
-The repository is submission-ready as an honest final delivery once the final
-docs-only changes are committed and pushed. This is real where integrated,
-cached where reproducibility matters, skipped where credentials/environment are
-absent, dry-run where only metadata/smoke paths exist, and reserved where not
-implemented, tested, documented, and visible in reports.
+The repository is submission-ready as an honest final delivery. The G7-C branch
+is pushed, with final truth commit `e9f1500` and this push-status follow-up. This
+is real where integrated, cached where reproducibility matters, skipped where
+credentials/environment are absent, dry-run where only metadata/smoke paths
+exist, and reserved where not implemented, tested, documented, and visible in
+reports.

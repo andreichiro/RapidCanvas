@@ -34,8 +34,9 @@ Active lane owner: Dev G7-C final truth/docs/submission.
 - The OpenAI key pasted in chat was not written to disk or commands by G7-C.
   Rotate it before real use.
 - Final review: `docs/reviews/gate7_final_review.md`.
-- Final branch/push status: branch created locally; final commit/push status is
-  recorded in the G7-C handoff response after staging.
+- Final branch/push status: branch
+  `codex/g7-c-final-truth-docs-submission` pushed to GitHub. Initial final truth
+  commit: `e9f1500` (`Document Gate 7 final truth layer`).
 
 ## Current State
 
