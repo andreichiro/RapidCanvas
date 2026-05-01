@@ -2,14 +2,14 @@
 
 Updated: 2026-05-01
 Repository: `andreichiro/RapidCanvas`
-Current baseline: Gate 7 G7-B + G7-C integration branch
+Current baseline: Gate 7 final A/B/C integration branch
 `codex/g7bc-final-integration` from `origin/main` Gate 6 integration commit
 `4728cc3`.
-Active lane owner: Dev G7-C final truth/docs/submission consuming G7-B evidence.
+Active lane owner: Dev G7-C final truth/docs/submission consuming G7-A/G7-B evidence.
 
 ## Gate 7 Final Truth Snapshot
 
-- Gate 6 is landed and reproducible in the G7-B/G7-C integration clone: `make setup`,
+- Gate 6 is landed and reproducible in the Gate 7 integration clone: `make setup`,
   `make eval`, `make requirements-review`, `make check-secrets`, and
   `make deep-review` all passed.
 - `make gate7-final-truth-audit` now checks the final truth table, real GEPA
@@ -20,7 +20,8 @@ Active lane owner: Dev G7-C final truth/docs/submission consuming G7-B evidence.
   fixtures. Expected key points remain the curated truth layer.
 - Runtime Search/RAG is a real one-shot integrated route when modules and
   providers are available. `ThreadContextEvidenceRetriever` remains only an
-  explicit fallback/injected path. Adaptive retrieval is reserved.
+  explicit fallback/injected path. Capped adaptive retrieval is enabled with max
+  one extra safe query, pre-retrieval prompt-injection skip, and trace warnings.
 - GEPA in this integration branch is real compiled metadata at
   `backend/app/agent/optimized/program.json` with a saved DSPy program under
   `backend/app/agent/optimized/program_compiled/`. The examples come from
@@ -41,9 +42,9 @@ Active lane owner: Dev G7-C final truth/docs/submission consuming G7-B evidence.
   before real use.
 - Final review: `docs/reviews/gate7_final_review.md`.
 - Final branch/push status: branch `codex/g7bc-final-integration` contains the
-  G7-C docs branch and G7-B commit `3a79056`. The Gate 7 audit checks that the
-  tracked tree is clean and `origin/codex/g7bc-final-integration` matches local
-  `HEAD`.
+  G7-C docs branch, G7-B commit `3a79056`, and G7-A commit `fc4dff4`. The Gate 7
+  audit checks that the tracked tree is clean and `origin/codex/g7bc-final-integration`
+  matches local `HEAD`.
 
 ## Current State
 

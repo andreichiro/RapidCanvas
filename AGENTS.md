@@ -41,13 +41,13 @@ JSONL, Markdown, summary JSON, confusion matrix CSV, and SVG graph artifacts
 under ignored `reports/eval/`. Default eval is still offline; live API quality,
 provider-backed judges, and MLflow remain explicit commands.
 
-Gate 7 G7-B + G7-C integration is implemented on the final integration branch.
+Gate 7 final A/B/C integration is implemented on the final integration branch.
 It keeps `docs/reviews/gate7_final_review.md`, README, matrix, and handoff
 claims honest and exposes `make gate7-final-truth-audit`. The submitted runtime
-truth is one-shot Search/RAG with trace-visible fallbacks, adaptive retrieval is
-reserved, GEPA has a real compiled saved DSPy program from cached eval fixtures,
-image support is helper-level vision/alt-text evidence and not a full UI vision
-claim, and provider comparison is registry/skip visibility rather than a live
+truth is real Search/RAG by default with capped adaptive retrieval enabled,
+GEPA has a real compiled saved DSPy program from cached eval fixtures, image
+support is helper-level vision/alt-text evidence and not a full UI vision claim,
+and provider comparison is registry/skip visibility rather than a live
 multi-provider benchmark.
 
 Do not claim T1-T15 are complete until their files, tests, and requirement
@@ -71,7 +71,7 @@ make eval
 make gate6-shipping-audit
 ```
 
-For G7-C final truth/docs or G7-B/G7-C integration changes, also run:
+For G7-C final truth/docs or Gate 7 A/B/C integration changes, also run:
 
 ```bash
 scripts/verify_dev_G7_BC_isolation.sh
@@ -126,9 +126,9 @@ Gate 6 truth layer, including public/synthetic fixture honesty, raw attack
 manifest parity, report-summary labels, documentation claims, Dev D ownership
 boundaries, and ignored generated artifacts.
 `make gate7-final-truth-audit` regenerates cached eval artifacts and verifies the
-Gate 7 truth table, real GEPA compiled-program metadata, one-shot/fallback
-retrieval wording, reserved bonus surfaces, no-live-provider-report wording, and
-generated-artifact hygiene.
+Gate 7 truth table, real GEPA compiled-program metadata, Search/RAG plus capped
+adaptive retrieval wording, reserved bonus surfaces, no-live-provider-report
+wording, and generated-artifact hygiene.
 
 ## Ownership Boundaries
 

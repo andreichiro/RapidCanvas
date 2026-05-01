@@ -23,7 +23,7 @@ matrix honesty, and final review notes.
 - Gate 4 Dev E frontend lane: implemented and merged into the integration baseline.
 - Gate 5 C5 integration: Dev B retrieval is connected into Dev C `AgentExplainerService` through Dev A dependency wiring, Dev E PR #7 polished the C5 response UI, and Dev D records the final review in `docs/reviews/gate5_final_review.md`.
 - Gate 6 Dev D rapid eval/reporting: `make eval` runs 19 cached cases, including 10 fixture-backed public Bluesky URLs and 9 marked synthetic attack/edge fixtures, then writes reviewer-facing reports under ignored `reports/eval/`.
-- Gate 7 final integration: the runtime uses one-shot Search/RAG with trace-visible fallbacks; adaptive retrieval is reserved. G7-B's eval-dataset GEPA bridge and real compiled saved DSPy program are merged in this branch. Image support is URL/alt-text context plus helper-level vision fallback, not a full browser/UI live vision claim. Provider comparison is registry/skip visibility, not a live multi-provider benchmark.
+- Gate 7 final integration: runtime Search/RAG is real by default, and capped adaptive retrieval is enabled with max one extra safe query when first-round evidence is weak. G7-B's eval-dataset GEPA bridge and real compiled saved DSPy program are merged. Image support is URL/alt-text context plus helper-level vision fallback, not a full browser/UI live vision claim. Provider comparison is registry/skip visibility, not a live multi-provider benchmark.
 - The assignment API key must be placed only in local `.env`; do not commit it.
 - Because the key was shared in plain text during intake, rotate it before real use.
 - Current handoff snapshot: `docs/current_handoff.md`.
@@ -112,10 +112,10 @@ Bluesky URL
 -> response
 ```
 
-The submitted Gate 7 runtime implements this as a bounded one-shot path with
-guarded fallback. It does not implement an adaptive multi-round retrieval loop.
-Live image vision and live multi-provider benchmarking are reserved; image alt
-text and provider skip/configuration visibility are present.
+The submitted Gate 7 runtime implements this as one-shot Search/RAG plus capped
+adaptive retrieval: max one extra safe query, skipped on pre-retrieval
+prompt-injection risk, and trace-visible warnings. Live image vision and live
+multi-provider benchmarking are reserved; alt text and provider skip visibility are present.
 
 ## API Contract Status
 
@@ -230,13 +230,13 @@ make mlflow-log
 
 ## Integration Adapter Rule
 
-Integration gates must use real Bluesky post fetching. The C5 route attempts the
-integrated one-shot Search/RAG and DSPy workflow by default; temporary evidence
+Integration gates must use real Bluesky post fetching. The Gate 7 route attempts
+real Search/RAG and bounded adaptive retrieval by default; temporary evidence
 sources or deterministic fallbacks are allowed only when live providers,
-retrieval, or optional dependencies fail, and any response that uses them must
-mark that clearly in `trace`. Gate 6 Dev D closes cached fixture-backed public
-eval coverage; release-captain review should rerun selected API-mode public
-cases with runtime credentials before treating live-route quality as final.
+retrieval, or optional dependencies fail, and responses must mark that in
+`trace`. Gate 6 Dev D closes cached fixture-backed public eval coverage;
+release-captain review should rerun selected API-mode public cases with runtime
+credentials before treating live-route quality as final.
 
 ## Bonus And Optional Surfaces
 
@@ -315,6 +315,6 @@ Research docs live under `docs/research/`, task packets live at
 Run `make skills-review` or each skill's local `quick_validate.py` before
 handoff.
 Gate 7 and release-captain integration should rerun selected API-mode public
-cases with runtime credentials, complete reserved image/provider evidence, and
-preserve the Gate 6 cached/offline report contract for reproducible review.
-The final Gate 7 truth table is in `docs/reviews/gate7_final_review.md`.
+cases with runtime credentials, complete reserved image/provider evidence,
+watch for organic adaptive second-round cases, and preserve the cached/offline
+report contract for reproducible review; final truth table: `docs/reviews/gate7_final_review.md`.

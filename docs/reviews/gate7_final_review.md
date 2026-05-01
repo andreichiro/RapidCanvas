@@ -10,14 +10,15 @@ Gate 7 final integration work can proceed because Gate 6 is landed and
 reproducible: `make eval` passes with 19 cached cases, including 10
 fixture-backed public Bluesky URLs and 9 marked synthetic attack/edge fixtures.
 The final submission is reviewer-ready with explicit limits: runtime Search/RAG
-is one-shot and fallback-aware, adaptive retrieval is reserved, GEPA has a real
-compiled saved DSPy program from the cached eval dataset, image support includes
-alt-text/context evidence plus helper-level vision fallback, provider comparison
-is registry/skip visibility without a live benchmark, and MLflow is verified as
-local file-backed ops plumbing.
+is real by default with trace-visible fallback, bounded adaptive retrieval is
+integrated with max one extra safe query, GEPA has a real compiled saved DSPy
+program from the cached eval dataset, image support includes alt-text/context
+evidence plus helper-level vision fallback, provider comparison is registry/skip
+visibility without a live benchmark, and MLflow is verified as local file-backed
+ops plumbing.
 
-This integration branch merges G7-C final truth docs with G7-B commit `3a79056`.
-G7-A adaptive retrieval remains unmerged and reserved.
+This integration branch merges G7-C final truth docs with G7-B commit `3a79056`
+and G7-A commit `fc4dff4`.
 
 ## Commands Run
 
@@ -30,9 +31,10 @@ G7-A adaptive retrieval remains unmerged and reserved.
 | `make requirements-review` | passed | 45 mapped rows, no unmapped rows. |
 | `make check-secrets` | passed | No tracked `.env` or obvious OpenAI keys found in unignored files. |
 | `make optimize` | passed | Preserves merged real GEPA metadata and compiled program; `mode=real`, `metric_score=0.875`. |
-| `make mlflow-log` | passed | Local file-backed MLflow run `880f747f2a724246ab481ea35f3c6233`; generated artifacts remain ignored. |
+| `make mlflow-log` | passed | Local file-backed MLflow run `ebe784c2058d45da8c62ecac65693a86`; generated artifacts remain ignored. |
 | `make lint` | passed | Backend Ruff/mypy and frontend TypeScript checks. |
-| `make test` | passed | 330 backend tests and 32 frontend tests on the G7-B handoff; combined branch must keep this passing. |
+| `make test` | passed | 342 backend tests and 32 frontend tests on the merged A/B/C integration branch. |
+| focused G7-A runtime tests | passed | 16 targeted Search/RAG, adaptive retrieval, query-planning, source-order, no-credential, and service tests. |
 | `make skills-review` | passed | All four local project skills validate. |
 | `make deep-review` | passed | Full local review gate, including audit/build, generated-artifact cleanup, maintainability, API smoke, and frontend smoke. |
 | final `make eval && make check-secrets` | passed | Regenerated ignored cached eval reports after `deep-review` cleanup and rechecked secrets. |
@@ -55,22 +57,21 @@ write the pasted secret to `.env`, disk, command text, or docs.
 
 ## G7-A Runtime Status
 
-The landed `origin/main` base already attempts the Gate 5/6 integrated route:
-`backend/app/deps.py` imports Dev B `RetrievalEvidenceRetriever` and
-`build_retrieval_service()`, then builds Dev C `AgentExplainerService` when those
-modules are present. `ThreadContextEvidenceRetriever` still exists in
-`backend/app/agent/service.py` as an explicit fallback/injected test path.
+G7-A commit `fc4dff4` is merged in this integration branch. `/api/explain` now
+builds Dev B `RetrievalEvidenceRetriever` by default when runtime modules are
+present, caps runtime search settings at 3 queries / 3 provider results / 3
+linked pages, and keeps `ThreadContextEvidenceRetriever` only as an explicit
+fallback or injected test path.
 
-G7-A local clone `/Users/akatsurada/Documents/rapidcanvas_dev_g7a_runtime` has
-uncommitted changes on `codex/g7-a-runtime-finalization` that cap runtime
-queries to 3, pass retrieval settings into the builder, prefer full retrieval
-diagnostics, and add `test_gate7_search_rag_runtime.py`. Those changes were not
-merged into the G7-C baseline and are not counted as final landed behavior.
-
-Final classification: one-shot Search/RAG is real in the landed base when
-dependencies/providers are available; adaptive retrieval is not implemented.
-Fallbacks, provider failures, search/fetch warnings, prompt-injection flags, and
-private URL diagnostics remain trace-visible through the existing service path.
+Bounded adaptive retrieval is integrated in `backend/app/agent/service.py` via
+`backend/app/agent/adaptive_retrieval.py` and `backend/app/agent/query_planning.py`:
+max one extra safe query, early stop when first-round trust is sufficient, skip
+after pre-retrieval prompt-injection risk, and preserve warnings, diagnostics,
+source ordering, and source IDs in trace. G7-A reported a forced live adaptive
+smoke proving round two can enter the real retriever; G7-C counts that with the
+deterministic focused tests. Natural public live cases did not organically
+trigger round two before G7-A shipped, so the limitation is documented rather
+than hidden.
 
 ## G7-B Optimization And Bonus Status
 
@@ -93,13 +94,13 @@ ignored.
 
 | Item | Classification | Evidence | Final Truth |
 |---|---|---|---|
-| Search/RAG runtime | real | `backend/app/deps.py`, `backend/app/ml/retrieval_service.py`, `backend/app/ml/retrieval_adapter.py`, Gate 5/6 tests and reviews | Default route attempts one-shot Dev B Search/RAG with trace-visible fallbacks. It is not adaptive. |
-| Adaptive retrieval | reserved | No capped adaptive loop in landed `origin/main`; G7-A adaptive work not merged | Do not claim the agent searches until confidence is high. |
+| Search/RAG runtime | real | `backend/app/deps.py`, `backend/app/ml/retrieval_service.py`, `backend/app/ml/retrieval_adapter.py`, G7-A tests | Default route uses Dev B Search/RAG with trace-visible fallbacks when runtime modules are present. |
+| Adaptive retrieval | real | `backend/app/agent/adaptive_retrieval.py`, `backend/app/agent/query_planning.py`, `backend/app/tests/integration/test_gate7_adaptive_retrieval.py`, forced live adaptive smoke from G7-A | Bounded adaptive path is integrated: max one extra safe query and no unbounded confidence-search loop. Organic public round-two trigger was not observed before shipping. |
 | Eval dataset | fixture-backed | `eval/posts.yaml`, `eval/fixtures/gate6/public_cases.json`, `make eval` summary | 19 cached rows, 10 fixture-backed public Bluesky URLs, 9 synthetic fixtures. Live search is not ground truth. |
 | GEPA | real | `backend/app/agent/optimized/program.json`, `backend/app/agent/optimized/program_compiled/`, `backend/app/eval/gepa_dataset.py`, `make optimize` | GEPA examples are built from finalized cached eval fixtures, and a real compiled saved DSPy program is included. Loader use depends on DSPy and provider credentials. |
 | Provider comparison | skipped/config-limited | `GET /api/providers`, `backend/app/deps.py`, README/matrix | Registry and skipped-provider reasons are visible. No live multi-provider benchmark ran. |
 | Image understanding | partial | `backend/app/clients/bsky.py`, `backend/app/ml/diagnostics.py`, image eval cases | Image alt text and image context evidence are supported. Live vision was not run in the landed base. |
-| MLflow | real | `make mlflow-log`, `backend/app/ops/mlflow.py`, run `880f747f2a724246ab481ea35f3c6233` | Local file-backed MLflow run and DSPy packaging path work. This is not a hosted experiment workflow. |
+| MLflow | real | `make mlflow-log`, `backend/app/ops/mlflow.py`, run `ebe784c2058d45da8c62ecac65693a86` | Local file-backed MLflow run and DSPy packaging path work. This is not a hosted experiment workflow. |
 | Ragas/LLM judge | skipped/config-limited | `make eval` summary, Gate 6 review | Default eval uses deterministic/no-network judging. Gate 6 recorded explicit offline optional judge smokes; G7-C did not run provider-backed judges. |
 | Browser/user verification | partial | Gate 6 frontend tests, `make deep-review` user smoke target, Gate 5/6 review records | UI behavior is covered by tests and previous browser notes; G7-C did not run new browser-use verification. |
 | No-write API safety | real | `backend/app/clients/bsky.py`, `backend/app/clients/fetcher.py`, Gate 6 API smoke/readiness tests, `R037` | Public reads and safe web GETs only; no Bluesky write endpoints are exposed. |
@@ -110,7 +111,7 @@ ignored.
 The matrix remains at 45 mapped rows. G7-C tightened wording for the final truth
 surface:
 
-- `R013`: one-shot Search/RAG is integrated; adaptive retrieval is not claimed.
+- `R013`: Search/RAG now records one-shot plus capped adaptive runtime status.
 - `R026`: GEPA row now points to the merged eval-dataset bridge and real compiled
   saved DSPy program.
 - `R027`: MLflow row now states local file-backed run/package behavior, not a
@@ -145,7 +146,8 @@ Only `reports/.gitkeep` remains tracked.
 
 ## Skipped Or Blocked Items
 
-- G7-A adaptive retrieval: still reserved; no capped adaptive loop is merged here.
+- Organic public adaptive trigger: not observed before G7-A shipped; deterministic
+  tests and forced live adaptive smoke cover second-round entry.
 - Live vision: skipped/config-limited; landed base uses image alt-text/context
   evidence.
 - Live provider comparison: skipped/config-limited; optional provider keys and
@@ -162,7 +164,8 @@ Only `reports/.gitkeep` remains tracked.
 - Live route quality still depends on external provider credentials, Bluesky/web
   availability, embeddings, and optional provider behavior. Gate 6 cached scores
   are the reproducible quality proof, not a guarantee for drifting live posts.
-- Search/RAG is one-shot, not adaptive.
+- Adaptive retrieval is bounded, not open-ended: max one extra safe query, and it
+  does not search until confidence is high.
 - The backend `build_gate3_explainer()` docstring still contains older
   integration-checkpoint wording about thread-context evidence. G7-C did not edit
   backend code; the executable path and tests are the evidence for the runtime

@@ -1,7 +1,7 @@
 {
   "lane": "dev_G7_BC",
-  "developer": "Dev G7-B + Dev G7-C integration",
-  "plan": "Gate 7 optimization/bonus evidence plus final truth/docs/submission",
+  "developer": "Dev G7-A + Dev G7-B + Dev G7-C integration",
+  "plan": "Gate 7 runtime, optimization/bonus evidence, and final truth/docs/submission",
   "required_branch": "codex/g7bc-final-integration",
   "protocol": "Isolated Lane Protocol 2026-04-17",
   "execution_roots": [
@@ -9,7 +9,7 @@
       "repo": "RapidCanvas",
       "path": "/Users/akatsurada/Documents/rapidcanvas_g7bc_final_integration",
       "checkout_kind": "standalone_clone",
-      "role": "gate7_b_c_final_integration"
+      "role": "gate7_a_b_c_final_integration"
     }
   ],
   "shared_read_only_roots": [

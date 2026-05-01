@@ -16,7 +16,7 @@ EXPECTED_CASES = 19
 EXPECTED_PUBLIC = 10
 EXPECTED_SYNTHETIC = 9
 EXPECTED_TRUTH = {
-    "Search/RAG runtime": "real", "Adaptive retrieval": "reserved",
+    "Search/RAG runtime": "real", "Adaptive retrieval": "real",
     "Eval dataset": "fixture-backed", "GEPA": "real",
     "Provider comparison": "skipped/config-limited", "Image understanding": "partial",
     "MLflow": "real", "Ragas/LLM judge": "skipped/config-limited",
@@ -26,6 +26,7 @@ EXPECTED_TRUTH = {
 ALLOWED_DELTA_PATHS = {
     "README.md", "AGENTS.md", "TRANSLATION_LOG.md", "Makefile",
     "assets/dev_G7_C_WORKSPACE_CONTRACT.json", "assets/dev_G7_BC_WORKSPACE_CONTRACT.json",
+    "assets/dev_G7_A_WORKSPACE_CONTRACT.json", "backend/app/deps.py", "backend/app/agent/service.py",
     "docs/current_handoff.md", "docs/requirements_matrix.md", "docs/reviews/gate7_final_review.md",
     "scripts/assert_dev_G7_C_execution_context.sh", "scripts/verify_dev_G7_C_isolation.sh",
     "scripts/assert_dev_G7_BC_execution_context.sh", "scripts/verify_dev_G7_BC_isolation.sh",
@@ -34,10 +35,10 @@ ALLOWED_DELTA_PATHS = {
 ALLOWED_DELTA_PREFIXES = (
     "assets/dev_G7_B_WORKSPACE_CONTRACT.json", "backend/app/agent/log_mlflow.py",
     "backend/app/agent/optimized/", "backend/app/eval/gepa_", "backend/app/eval/optimize.py",
-    "backend/app/ml/image.py", "backend/app/tests/unit/test_agent_loader_optimize_mlflow.py",
+    "backend/app/ml/image.py", "backend/app/agent/adaptive_retrieval.py", "backend/app/agent/query_planning.py",
+    "backend/app/tests/integration/test_gate7_", "backend/app/tests/unit/test_agent_",
     "backend/app/tests/unit/test_gate7b_delivery_review.py", "backend/app/tests/unit/test_gepa_optimize.py",
-    "backend/app/tests/unit/test_image.py", "scripts/assert_dev_G7_B_execution_context.sh",
-    "scripts/verify_dev_G7_B_isolation.sh",
+    "backend/app/tests/unit/test_image.py", "scripts/assert_dev_G7_", "scripts/verify_dev_G7_",
 )
 FORBIDDEN_TRACKED_PREFIXES = (
     ".env", "backend/.env", "frontend/.env", "backend/mlruns/", "mlruns/",
@@ -151,6 +152,8 @@ def check_runtime_truth(root: Path, errors: list[str]) -> None:
     if gate5_marker in deps and fallback_marker in deps:
         need(deps.index(gate5_marker) < deps.index(fallback_marker), errors, "thread fallback appears before Gate 5 path")
     need("class ThreadContextEvidenceRetriever" in service, errors, "thread-context fallback missing")
+    need("should_run_adaptive_round" in service, errors, "adaptive retrieval hook missing")
+    need("adaptive_retrieval_round_2:" in service, errors, "adaptive trace warning missing")
     need(
         "search_rag_not_connected_using_thread_context_evidence" in service,
         errors,
@@ -165,7 +168,8 @@ def check_final_review(final_review: str, errors: list[str]) -> None:
         need(row_prefix in final_review, errors, f"truth table missing {item}={classification}")
     required_phrases = [
         "one-shot",
-        "adaptive retrieval is not implemented",
+        "bounded adaptive retrieval is integrated",
+        "forced live adaptive smoke",
         "real compiled saved DSPy program",
         "mode=real",
         "Live vision was not run",
@@ -173,7 +177,6 @@ def check_final_review(final_review: str, errors: list[str]) -> None:
         "not a hosted experiment workflow",
         "did not run provider-backed judges",
         "G7-C did not run new browser-use verification",
-        "G7-A adaptive retrieval remains unmerged and reserved",
         "This is real where integrated, cached where reproducibility matters",
     ]
     for phrase in required_phrases:
@@ -191,20 +194,20 @@ def check_docs(
     doc_requirements = {
         "README.md": [
             "one-shot Search/RAG",
-            "adaptive retrieval is reserved",
+            "capped adaptive retrieval is enabled",
             "real compiled saved DSPy program",
             "Live vision was not run",
             "not a live multi-provider benchmark",
             "docs/reviews/gate7_final_review.md",
         ],
         "docs/current_handoff.md": [
-            "one-shot integrated route", "codex/g7bc-final-integration", "3a79056",
-            "Adaptive retrieval is reserved", "real compiled metadata",
+            "one-shot integrated route", "codex/g7bc-final-integration", "3a79056", "fc4dff4",
+            "Capped adaptive retrieval is enabled", "real compiled metadata",
             "Live vision was not run", "no live Anthropic/Gemini/Ollama benchmark ran",
             "G7-C did not run a fresh browser-use pass",
         ],
         "docs/requirements_matrix.md": [
-            "one-shot, non-adaptive runtime status",
+            "one-shot plus capped adaptive runtime status",
             "mode=real",
             "compiled saved DSPy program",
             "no fresh Gate 7 browser-use pass",
@@ -213,13 +216,14 @@ def check_docs(
         ],
         "TRANSLATION_LOG.md": [
             "Gate 7 Search/RAG and adaptive retrieval truth", "Gate 7 G7-B/G7-C integration",
+            "Gate 7 G7-A runtime merge",
             "Gate 7 B/C integration isolation", "Gate 7 image understanding truth",
             "Gate 7 provider comparison truth", "Gate 7 MLflow/Ragas/judge status",
             "Gate 7 pasted OpenAI key handling", "Gate 7 G7-B branch handoff",
         ],
         "AGENTS.md": [
-            "Gate 7 G7-B + G7-C integration", "make gate7-final-truth-audit",
-            "scripts/verify_dev_G7_BC_isolation.sh", "adaptive retrieval is reserved",
+            "Gate 7 final A/B/C integration", "make gate7-final-truth-audit",
+            "scripts/verify_dev_G7_BC_isolation.sh", "capped adaptive retrieval is enabled",
             "real compiled saved DSPy program", "not a full UI vision",
         ],
     }
@@ -245,6 +249,7 @@ def check_matrix_status(matrix: str, errors: list[str]) -> None:
     need(row_status(rows, "R033") == "reserved", errors, "R033 must remain reserved")
     need(row_status(rows, "R026") == "implemented", errors, "R026 status drift")
     need("mode=real" in row_text(rows, "R026"), errors, "R026 does not record real GEPA")
+    need("capped adaptive" in row_text(rows, "R013"), errors, "R013 missing adaptive evidence")
     need("no fresh Gate 7 browser-use pass" in row_text(rows, "R008"), errors, "R008 overclaims browser verification")
     need("no live provider comparison report was generated" in row_text(rows, "R039"), errors, "R039 overclaims provider report")
 
@@ -258,7 +263,8 @@ def check_no_overclaim_phrases(
     errors: list[str],
 ) -> None:
     overclaim_terms = [
-        "adaptive retrieval is implemented",
+        "unbounded adaptive retrieval",
+        "searches until confidence is high",
         "live vision ran",
         "live multi-provider benchmark ran",
         "provider-backed judges ran in G7-C",
@@ -304,13 +310,8 @@ def check_generated_artifact_hygiene(root: Path, errors: list[str]) -> None:
     tracked = git(root, "ls-files", *FORBIDDEN_TRACKED_PREFIXES).stdout.splitlines()
     need(not tracked, errors, f"forbidden generated/secret paths tracked: {tracked}")
     for target in (
-        ".env",
-        "backend/.env",
-        "backend/mlruns/run",
-        "mlruns/run",
-        "backend/qdrant_storage/cache",
-        "reports/eval/summary.json",
-        "reports/provider_comparison.md",
+        ".env", "backend/.env", "backend/mlruns/run", "mlruns/run",
+        "backend/qdrant_storage/cache", "reports/eval/summary.json", "reports/provider_comparison.md",
     ):
         ignored = git(root, "check-ignore", "-q", target)
         need(ignored.returncode == 0, errors, f"not ignored: {target}")
