@@ -11,12 +11,12 @@ from threading import RLock
 from typing import Any, Protocol
 
 from app.guardrails.prompt_injection import PromptInjectionScanner, sanitize_context_documents
+from app.ml import rag_runtime as rr
 from app.ml.boundary import boundary_attr, boundary_text, bounded_items, safe_limit
 from app.ml.c2_policy import unique_documents_by_id
 from app.ml.diagnostics import RetrievalDiagnostics, retrieval_diagnostics
 from app.ml.embeddings import EmbeddingProvider, text_hash
 from app.ml.rag_boundary import RetrievalDiagnosticsState
-from app.ml.rag_runtime import evidence_from_ranked_candidates, ranked_rag_candidates
 from app.ml.rerankers import Reranker, SimilarityReranker
 from app.ml.vector_payloads import (
     chunk_metadata,
@@ -193,8 +193,7 @@ class RagService:
         self._record_diagnostics(RetrievalDiagnostics())
         query_text = boundary_text(query, "rag_query_text_failed")
         document_items, document_warnings = bounded_items(
-            documents, 200, "rag_documents_iter_failed"
-        )
+            documents, 200, "rag_documents_iter_failed")
         documents = [doc for doc in document_items if isinstance(doc, ContextDocument)]
         if invalid_count := len(document_items) - len(documents):
             document_warnings.append(f"rag_documents_invalid:{invalid_count}")
@@ -216,7 +215,7 @@ class RagService:
         chunks = chunk_documents(sanitized_documents, config=self._chunking)
         if not chunks:
             return []
-        ranked, runtime_warnings = ranked_rag_candidates(
+        ranked, runtime_warnings = rr.ranked_rag_candidates(
             query_text=query_text,
             chunks=chunks,
             embedding_provider=self._embedding_provider,
@@ -235,12 +234,14 @@ class RagService:
             )
             if not ranked:
                 return []
-        evidence, evidence_warnings = evidence_from_ranked_candidates(ranked, document_ids)
+        rag_evidence = rr.evidence_from_ranked_candidates(ranked, document_ids)
+        evidence, evidence_warnings, reranker_scores = rag_evidence
         current_diagnostics = self.last_diagnostics
         self._record_diagnostics(
             RetrievalDiagnostics(
                 prompt_injection_flags=current_diagnostics.prompt_injection_flags,
                 warnings=(*current_diagnostics.warnings, *evidence_warnings),
+                reranker_scores=reranker_scores,
             )
         )
         return evidence
@@ -303,8 +304,6 @@ def chunk_documents(
     documents: list[ContextDocument],
     config: ChunkingConfig = DEFAULT_CHUNKING_CONFIG,
 ) -> list[DocumentChunk]:
-    """Chunk a document batch."""
-
     return [chunk for document in documents for chunk in chunk_document(document, config=config)]
 
 
