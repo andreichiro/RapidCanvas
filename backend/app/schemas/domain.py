@@ -31,6 +31,28 @@ class ImageRef(DomainModel):
 
     url: str = Field(min_length=1)
     alt_text: str | None = None
+    thumb_url: str | None = None
+    fullsize_url: str | None = None
+
+
+class ExternalLink(DomainModel):
+    """External link evidence extracted from facets or embeds."""
+
+    url: str = Field(min_length=1)
+    title: str | None = None
+    description: str | None = None
+    thumb_url: str | None = None
+
+
+class ThreadPostContext(DomainModel):
+    """Structured parent or quoted Bluesky post context for retrieval."""
+
+    text: str
+    author: str | None = None
+    created_at: datetime | None = None
+    at_uri: str | None = None
+    url: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class PostContext(DomainModel):
@@ -41,9 +63,13 @@ class PostContext(DomainModel):
     author: str = Field(min_length=1)
     text: str
     created_at: datetime
+    metadata: dict[str, Any] = Field(default_factory=dict)
     parent_texts: list[str] = Field(default_factory=list)
+    parent_posts: list[ThreadPostContext] = Field(default_factory=list)
     quoted_texts: list[str] = Field(default_factory=list)
+    quoted_posts: list[ThreadPostContext] = Field(default_factory=list)
     links: list[str] = Field(default_factory=list)
+    external_links: list[ExternalLink] = Field(default_factory=list)
     images: list[ImageRef] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 

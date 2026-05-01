@@ -235,6 +235,60 @@ may then be parallelized internally.
 The detailed Gate 5 ownership, must-not-edit boundaries, merge order, and final
 review criteria live in `docs/gate5_parallelization_plan.md`.
 
+## Dev A Gate 5 Lane - C0/C1 API And Bluesky Handoff
+Standalone execution root: `/Users/akatsurada/Documents/rapidcanvas_dev_a_gate5_isolated`
+Source branch: `codex/dev-a-gate5-api-bluesky`
+
+Dev A Gate 5 changes are intentionally limited to C0/C1:
+
+- Public routes remain stable: `GET /api/health`, `GET /api/providers`, and
+  `POST /api/explain` keep the existing shape.
+- `PostContext` remains backward-compatible and now includes target `metadata`,
+  structured `parent_posts`, `quoted_posts`, `external_links`, image
+  `thumb_url`/`fullsize_url`, legacy text/link lists, `at_uri`, author,
+  creation time, and warning strings.
+- Bluesky normalization stays inside Dev A-owned
+  `backend/app/clients/bsky.py` while preserving real public-read URL parsing,
+  handle/DID resolution, thread fetch, parent, quote, link, image, and
+  unavailable/blocked warning handling.
+- `backend/app/deps.py` wraps current retrievers for request-local warnings and
+  lazily composes Dev C `build_agent_explainer_service` with Dev B
+  `build_retrieval_service` when both PRs are present on the final C5 branch.
+- The C1 handoff fixture lives in
+  `backend/app/tests/integration/test_gate5_real_pipeline.py` as
+  `build_gate5_c1_post_context_fixture()`. Dev B can consume the returned
+  `PostContext` directly for retrieval tests without schema adapters.
+
+Live Bluesky limitations:
+
+- The cached C1 fixture performs no network calls. Live public post/thread fetch
+  still depends on Bluesky AppView availability and public visibility of the
+  target, parent, and quoted posts.
+- Target post unavailability remains a typed sanitized `BlueskyClientError`.
+  Parent/quote unavailable or blocked records are non-fatal warnings on
+  `PostContext.warnings` and now surface through API trace when the current
+  dependency builder is used.
+
+Remaining Gate 5 work:
+
+- Dev B PR #3 and Dev C PR #4 still need to be combined for C5; final
+  `/api/explain` becomes real only when both builders are present together.
+- Dev A's route layer only wires API/dependency composition and discovers their
+  stable builders lazily once present; it does not reimplement retrieval, DSPy,
+  trust scoring, fallback policy, output validation, eval, or UI rendering.
+- Dev E should receive this handoff to confirm whether the stable public API
+  response/trace requires UI changes; Dev D should receive it for final Gate 5
+  review artifacts, requirement-matrix closure, docs, and eval bookkeeping.
+
+Dev A Gate 5 verification before handoff includes lane guards, focused
+API/Bluesky lint/type/tests, and the required `make setup`, `make lint`,
+`make test`, `make requirements-review`, `make check-secrets`, and
+`make deep-review` gates.
+
+Review follow-ups fixed: warning propagation now uses request-local context
+state; helper/runtime test files were removed; and nested quoted-post timestamps
+and CIDs are preserved inside explicit Dev A owned paths.
+
 ## Gate 6 Parallelization Plan
 
 Gate 6 should run on parallel developer branches only after Gate 5 lands a real

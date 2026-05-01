@@ -1,4 +1,4 @@
-"""Public API routes for the Gate 3 vertical slice."""
+"""Public API routes for the current Bluesky explainer contract."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def create_api_router(settings: Settings, explainer: ExplainerService | None = N
     """Create versionless API routes under the configured prefix."""
 
     router = APIRouter(prefix=settings.api_prefix)
-    explain_service = explainer or build_gate3_explainer()
+    explain_service = explainer or build_gate3_explainer(settings=settings)
 
     @router.get("/health", response_model=HealthResponse, tags=["health"])
     def health() -> HealthResponse:
