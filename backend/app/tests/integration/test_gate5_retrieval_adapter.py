@@ -101,7 +101,9 @@ def test_retrieval_adapter_matches_agent_evidence_retriever_contract() -> None:
     retriever = RetrievalEvidenceRetriever(retrieval_service(), queries=["mars rover water"])
     protocol_retriever: EvidenceRetriever = retriever
 
-    evidence, documents = protocol_retriever.retrieve(post_context())
+    result = protocol_retriever.retrieve(post_context(), queries=["mars rover water"])
+    assert isinstance(result, tuple)
+    evidence, documents = result
 
     assert evidence
     assert documents

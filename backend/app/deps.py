@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import Sequence
 from contextvars import ContextVar
 from importlib import import_module
+from inspect import Parameter, signature
 from threading import Thread
 from typing import Any, cast
 
@@ -67,9 +68,12 @@ class PostContextWarningRetriever:
         retriever_warnings = tuple(str(item) for item in getattr(self._retriever, "warnings", ()))
         return (*retriever_warnings, *_post_context_warnings.get())
 
-    def retrieve(self, post: Any) -> Any:
+    def retrieve(self, post: Any, queries: Sequence[str] = ()) -> Any:
         _post_context_warnings.set(tuple(str(warning) for warning in getattr(post, "warnings", ())))
-        return self._retriever.retrieve(post)
+        retrieve = self._retriever.retrieve
+        if _accepts_queries(retrieve):
+            return retrieve(post, queries)
+        return retrieve(post)
 
 
 class QueryAwareRetrievalRetriever:
@@ -122,17 +126,24 @@ def build_gate3_explainer(
 def _build_gate5_explainer(bluesky_client: Any | None, settings: Settings) -> Any | None:
     try:
         agent_service = import_module("app.agent.service")
+        retrieval_adapter = import_module("app.ml.retrieval_adapter")
         retrieval_service = import_module("app.ml.retrieval_service")
     except ImportError:
         return None
     agent_builder = getattr(agent_service, "build_agent_explainer_service", None)
+    adapter = getattr(retrieval_adapter, "RetrievalEvidenceRetriever", None)
     retrieval_builder = getattr(retrieval_service, "build_retrieval_service", None)
     if not callable(agent_builder) or not callable(retrieval_builder):
         return None
     active_retrieval_service = retrieval_builder(settings=settings)
+    active_retriever = (
+        adapter(active_retrieval_service)
+        if callable(adapter)
+        else QueryAwareRetrievalRetriever(active_retrieval_service)
+    )
     return agent_builder(
         fetcher=bluesky_client or BlueskyClient(),
-        retriever=QueryAwareRetrievalRetriever(active_retrieval_service),
+        retriever=active_retriever,
         settings=settings,
     )
 
@@ -143,6 +154,18 @@ def _run_awaitable_sync(awaitable: Any) -> Any:
     except RuntimeError:
         return asyncio.run(awaitable)
     return _run_awaitable_in_thread(awaitable)
+
+
+def _accepts_queries(retrieve: Any) -> bool:
+    params = list(signature(retrieve).parameters.values())
+    if any(param.kind is Parameter.VAR_POSITIONAL for param in params):
+        return True
+    positional = [
+        param
+        for param in params
+        if param.kind in {Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD}
+    ]
+    return len(positional) >= 2
 
 
 def _run_awaitable_in_thread(awaitable: Any) -> Any:

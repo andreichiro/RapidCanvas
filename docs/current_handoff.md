@@ -279,131 +279,32 @@ may then be parallelized internally.
 The detailed Gate 5 ownership, must-not-edit boundaries, merge order, and final
 review criteria live in `docs/gate5_parallelization_plan.md`.
 
-## Dev A Gate 5 Lane - C0/C1 API And Bluesky Handoff
-Standalone execution root: `/Users/akatsurada/Documents/rapidcanvas_dev_a_gate5_isolated`
-Source branch: `codex/dev-a-gate5-api-bluesky`
+## Gate 5 C5 Integration Handoff
 
-Dev A Gate 5 changes are intentionally limited to C0/C1:
+Integration branch `codex/gate5-c5-integration` combines Dev A PR #5, Dev B PR
+#3, and Dev C PR #4. Dev A still owns only API/dependency composition:
+`backend/app/deps.py` now prefers Dev B `RetrievalEvidenceRetriever` and passes
+it to Dev C `build_agent_explainer_service(...)`; the older query-aware wrapper
+remains a fallback only when the Dev B adapter module is absent.
 
-- Public routes remain stable: `GET /api/health`, `GET /api/providers`, and
-  `POST /api/explain` keep the existing shape.
-- `PostContext` remains backward-compatible and now includes target `metadata`,
-  structured `parent_posts`, `quoted_posts`, `external_links`, image
-  `thumb_url`/`fullsize_url`, legacy text/link lists, `at_uri`, author,
-  creation time, and warning strings.
-- Bluesky normalization stays inside Dev A-owned
-  `backend/app/clients/bsky.py` while preserving real public-read URL parsing,
-  handle/DID resolution, thread fetch, parent, quote, link, image, and
-  unavailable/blocked warning handling.
-- `backend/app/deps.py` wraps current retrievers for request-local warnings and
-  lazily composes Dev C `build_agent_explainer_service` with Dev B
-  `build_retrieval_service` when both PRs are present on the final C5 branch.
-- The C1 handoff fixture lives in
-  `backend/app/tests/integration/test_gate5_real_pipeline.py` as
-  `build_gate5_c1_post_context_fixture()`. Dev B can consume the returned
-  `PostContext` directly for retrieval tests without schema adapters.
+The final `/api/explain` path is real only when Dev A `PostContext`, Dev B
+retrieval, and Dev C explainer builders are present together. It fetches the
+Bluesky post, plans queries before retrieval, passes planned queries into Dev B,
+normalizes C2 evidence/diagnostics through Dev C, and returns the stable public
+`ExplainResponse`. Missing credentials or provider failures still downgrade
+through trace-visible fallback behavior rather than route crashes.
 
-Live Bluesky limitations:
+Dev A C1: `PostContext` contains metadata, parents, quotes, links, image refs,
+and warning strings; live fetch depends on public Bluesky visibility. Dev B C2:
+retrieval returns bounded evidence, documents, warnings, diagnostics, private
+URL blocks, and guardrail flags. Dev C C3: the service consumes Dev B-shaped
+output, scans visible post context before query planning, and cites the stable
+post source for visible-post fallback.
 
-- The cached C1 fixture performs no network calls. Live public post/thread fetch
-  still depends on Bluesky AppView availability and public visibility of the
-  target, parent, and quoted posts.
-- Target post unavailability remains a typed sanitized `BlueskyClientError`.
-  Parent/quote unavailable or blocked records are non-fatal warnings on
-  `PostContext.warnings` and now surface through API trace when the current
-  dependency builder is used.
-
-Remaining Gate 5 work:
-
-- Dev B PR #3 and Dev C PR #4 still need to be combined for C5; final
-  `/api/explain` becomes real only when both builders are present together.
-- Dev A's route layer only wires API/dependency composition and discovers their
-  stable builders lazily once present; it does not reimplement retrieval, DSPy,
-  trust scoring, fallback policy, output validation, eval, or UI rendering.
-- Dev E should receive this handoff to confirm whether the stable public API
-  response/trace requires UI changes; Dev D should receive it for final Gate 5
-  review artifacts, requirement-matrix closure, docs, and eval bookkeeping.
-
-Dev A Gate 5 verification before handoff includes lane guards, focused
-API/Bluesky lint/type/tests, and the required `make setup`, `make lint`,
-`make test`, `make requirements-review`, `make check-secrets`, and
-`make deep-review` gates.
-
-Review follow-ups fixed: warning propagation now uses request-local context
-state; helper/runtime test files were removed; and nested quoted-post timestamps
-and CIDs are preserved inside explicit Dev A owned paths.
-
-## Gate 6 Parallelization Plan
-
-Gate 6 should run on parallel developer branches only after Gate 5 lands a real
-integrated pipeline. Its detailed ownership, must-not-edit boundaries, quality
-spine, merge order, and final review criteria live in
-`docs/gate6_parallelization_plan.md`.
-
-## Next Work
-
-Recommended next step: start Gate 5 on parallel branches using
-`docs/gate5_parallelization_plan.md`. Gate 5 integration should wire Dev B
-`RagService` and retrieval diagnostics into Dev C `AgentExplainerService`, carry
-Dev A `PostContext.warnings` into trace warnings, keep Dev E's frontend API
-contract stable, and run Dev D API/model-backed eval against the integrated
-path. Use `docs/gate6_parallelization_plan.md` only after Gate 5 lands.
-
-During the integration window:
-
-- Replace `ThreadContextEvidenceRetriever` in `backend/app/agent/service.py` or `backend/app/deps.py` with `RetrievalEvidenceRetriever` while preserving trace visibility.
-- Map Dev B `RagService.last_diagnostics` prompt-injection/private-url/source-safety warnings into Dev C trust/trace fields.
-- Keep DSPy provider failures guarded with `dspy_provider_error`.
-- Run `make deep-review`, `make eval`, `make optimize`, and `make mlflow-log`.
-
-## Gate 5 Dev C C2/C3 Handoff
-
-Dev C's Gate 5 lane exposes the explainer service checkpoint without wiring the
-public route. Dev A can instantiate it with:
-
-```python
-from app.agent.service import AgentExplainerService, build_agent_explainer_service
-
-service = AgentExplainerService(fetcher=bluesky_client, retriever=dev_b_retriever, settings=settings)
-response = service.explain(request)
-```
-
-or use `build_agent_explainer_service(...)` for the same C3 service boundary.
-With no fixed program supplied, `AgentExplainerService` lazily loads a
-provider-aware DSPy program per `ExplainRequest.provider`; missing optional
-providers are skipped with trace warnings and the OpenAI/default path remains
-the normal configuration. Passing an explicit `program` preserves the current
-route-compatible fixed-program behavior.
-
-Dev B-shaped retrieval output is consumed through
-`app.agent.evidence_contract.normalize_retrieval_output`. The service accepts
-the legacy `(Evidence[], ContextDocument[])` tuple as well as objects or dicts
-with `evidence`, `documents` or `context_documents`, `warnings`, `diagnostics`,
-`prompt_injection_flags`, `guardrail_flags`, and `source_safety_diagnostics`.
-It also accepts JSON-stable document/evidence mappings and Dev B C2
-`private_url_blocks`, with the canonical fixture covered by
-`backend/app/tests/integration/test_gate5_explainer.py`.
-The service now scans visible post/thread/image text for prompt-injection risk
-before DSPy query planning. Clean inputs continue through DSPy classification
-and query generation; risky inputs use a trusted metadata-only query and record
-`query_generation_skipped_prompt_injection_risk`. The service passes queries to
-a query-aware retriever when supported and threads retrieval warnings,
-source-safety diagnostics, and prompt-injection flags into the final
-`ExplainResponse.trace`.
-
-Trace fields emitted by Dev C include category, DSPy-generated queries,
-retrieval and provider warnings, trust score, fallback mode, guardrail flags
-such as `prompt_injection_risk`, `source_safety_private_url_blocked`,
-`unknown_citation`, `uncited_output`, `dspy_provider_error`, and the current
-adapter mode/notes. Provider failures still degrade to guarded fallback output
-instead of route crashes. Fallback bullets about the visible Bluesky post cite
-the stable post source (`S-post`) rather than borrowing a web evidence source.
-
-This satisfies Dev C's C2 and C3 checkpoint responsibility only: the explainer
-can consume Dev B-shaped evidence/diagnostics and return a schema-valid
-`ExplainResponse` for Dev A to wire. It does not mark final Search/RAG route
-wiring, public eval coverage, frontend verification, or C5 end-to-end
-acceptance complete.
+Dev E should review only if final public response or trace rendering changes.
+Dev D should own final Gate 5 review artifacts, requirement-matrix closure,
+docs, and eval bookkeeping. Gate 6 begins only after this real integrated Gate
+5 path lands; see `docs/gate6_parallelization_plan.md`.
 
 ## Review Records
 

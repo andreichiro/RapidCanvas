@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from pytest import raises
 
+from app.agent.service import ThreadContextEvidenceRetriever
 from app.clients.bsky import BlueskyClientError, InvalidBlueskyPostUrlError
 from app.deps import PostContextWarningRetriever, build_gate3_explainer
 from app.main import create_app
@@ -174,9 +175,14 @@ def test_explain_route_returns_schema_valid_gate3_response() -> None:
     assert "dev_adapter_dspy" in payload["trace"]["guardrail_flags"]
 
 
-def test_default_explainer_uses_dev_c_agent_program() -> None:
+def test_explainer_uses_dev_c_agent_program_with_thread_context_fallback() -> None:
     route_client = TestClient(
-        create_app(explainer=build_gate3_explainer(bluesky_client=FakeBlueskyClient()))
+        create_app(
+            explainer=build_gate3_explainer(
+                bluesky_client=FakeBlueskyClient(),
+                retriever=ThreadContextEvidenceRetriever(),
+            )
+        )
     )
 
     response = route_client.post(

@@ -52,25 +52,42 @@ class RetrievalEvidenceRetriever:
     def last_result(self) -> RetrievalResult | None:
         return self._current_result()
 
-    def retrieve(self, post: PostContext) -> tuple[Sequence[Evidence], Sequence[ContextDocument]]:
-        result = self.retrieve_result(post)
+    def retrieve(
+        self,
+        post: PostContext,
+        queries: Sequence[str] | None = None,
+    ) -> tuple[Sequence[Evidence], Sequence[ContextDocument]]:
+        result = self.retrieve_result(post, queries=queries)
         return result.evidence, result.documents
 
-    def retrieve_result(self, post: PostContext) -> RetrievalResult:
-        result = _run_coroutine_sync(self._retrieve_result(post))
+    def retrieve_result(
+        self,
+        post: PostContext,
+        queries: Sequence[str] | None = None,
+    ) -> RetrievalResult:
+        result = _run_coroutine_sync(self._retrieve_result(post, queries=queries))
         self._record_result(result)
         return result
 
-    async def retrieve_result_async(self, post: PostContext) -> RetrievalResult:
-        result = await self._retrieve_result(post)
+    async def retrieve_result_async(
+        self,
+        post: PostContext,
+        queries: Sequence[str] | None = None,
+    ) -> RetrievalResult:
+        result = await self._retrieve_result(post, queries=queries)
         self._record_result(result)
         return result
 
-    async def _retrieve_result(self, post: PostContext) -> RetrievalResult:
+    async def _retrieve_result(
+        self,
+        post: PostContext,
+        queries: Sequence[str] | None = None,
+    ) -> RetrievalResult:
+        active_queries = self._queries if queries is None else queries
         try:
             return await self._service.retrieve(
                 post,
-                queries=self._queries,
+                queries=active_queries,
                 settings=self._settings,
             )
         except Exception as exc:

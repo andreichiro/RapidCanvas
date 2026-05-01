@@ -8,7 +8,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.clients.bsky import BlueskyClient
+from app.config import Settings
 from app.deps import build_gate3_explainer
+from app.ml import retrieval_service
+from app.ml.embeddings import DeterministicHashEmbeddingProvider
+from app.ml.vector_store import InMemoryVectorStore
+from app.schemas.api import ExplainRequest, ExplainResponse
 from app.schemas.domain import PostContext
 
 GATE5_C1_URL = "https://bsky.app/profile/example.com/post/3gate5c1"
@@ -153,13 +158,11 @@ def test_gate5_route_wiring_uses_dev_c_builder_and_dev_b_retrieval_queries(
 
     retrieval_module = types.ModuleType("app.ml.retrieval_service")
     retrieval_module.build_retrieval_service = build_retrieval_service  # type: ignore[attr-defined]
+    adapter_module = types.ModuleType("app.ml.retrieval_adapter")
+    monkeypatch.setitem(sys.modules, "app.ml.retrieval_adapter", adapter_module)
     monkeypatch.setitem(sys.modules, "app.ml.retrieval_service", retrieval_module)
-    monkeypatch.setattr(
-        agent_service,
-        "build_agent_explainer_service",
-        build_agent_explainer_service,
-        raising=False,
-    )
+    builder = build_agent_explainer_service
+    monkeypatch.setattr(agent_service, "build_agent_explainer_service", builder)
 
     service = build_gate3_explainer(bluesky_client=BlueskyClient(client=Gate5C1AtprotoClient()))
 
@@ -206,3 +209,38 @@ def test_gate5_c1_post_context_fixture_contains_dev_b_handoff_fields() -> None:
 
     payload = context.model_dump(mode="json")
     assert PostContext.model_validate(payload) == context
+
+
+def test_gate5_c5_dependency_builder_composes_dev_a_dev_b_and_dev_c(
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setattr(
+        retrieval_service,
+        "OpenAIEmbeddingProvider",
+        lambda *, settings: DeterministicHashEmbeddingProvider(),
+    )
+    monkeypatch.setattr(
+        retrieval_service,
+        "_vector_store_or_fallback",
+        lambda settings, vector_store: (InMemoryVectorStore(), []),
+    )
+    monkeypatch.setattr(
+        retrieval_service,
+        "_default_search_providers",
+        lambda settings, fetcher: [],
+    )
+    post_context = build_gate5_c1_post_context_fixture()
+    service = build_gate3_explainer(
+        bluesky_client=BlueskyClient(client=Gate5C1AtprotoClient()),
+        settings=Settings(),
+    )
+
+    response = service.explain(ExplainRequest(post_url=post_context.url, provider="openai"))
+
+    assert isinstance(ExplainResponse.model_validate(response.model_dump()), ExplainResponse)
+    assert type(service).__name__ == "AgentExplainerService"
+    assert type(service._retriever).__name__ == "RetrievalEvidenceRetriever"  # noqa: SLF001
+    assert response.trace.queries
+    assert "search_rag_not_connected_using_thread_context_evidence" not in response.trace.warnings
+    assert "Parent Bluesky post is blocked." in response.trace.warnings
+    assert any(source.type == "thread" for source in response.sources)
