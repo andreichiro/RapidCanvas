@@ -69,11 +69,23 @@ class PostContextWarningRetriever:
         return (*retriever_warnings, *_post_context_warnings.get())
 
     def retrieve(self, post: Any, queries: Sequence[str] = ()) -> Any:
-        _post_context_warnings.set(tuple(str(warning) for warning in getattr(post, "warnings", ())))
+        self._record_post_warnings(post)
         retrieve = self._retriever.retrieve
         if _accepts_queries(retrieve):
             return retrieve(post, queries)
         return retrieve(post)
+
+    def retrieve_result(self, post: Any, queries: Sequence[str] = ()) -> Any:
+        self._record_post_warnings(post)
+        retrieve_result = getattr(self._retriever, "retrieve_result", None)
+        if not callable(retrieve_result):
+            return self.retrieve(post, queries)
+        if _accepts_queries(retrieve_result):
+            return retrieve_result(post, queries)
+        return retrieve_result(post)
+
+    def _record_post_warnings(self, post: Any) -> None:
+        _post_context_warnings.set(tuple(str(warning) for warning in getattr(post, "warnings", ())))
 
 
 class QueryAwareRetrievalRetriever:
@@ -97,10 +109,10 @@ def build_gate3_explainer(
 ) -> AgentExplainerService:
     """Build the current explain service.
 
-    Gate 5 Dev A keeps real Bluesky fetching and the public route stable while
-    preserving an injectable retriever/program seam for final Dev B/C wiring.
-    Until that integration lands, the default retriever still supplies
-    trace-marked thread-context evidence rather than external Search/RAG.
+    The default route path uses real Bluesky fetching, Dev B Search/RAG
+    retrieval, and the Dev C agent service when those modules are present.
+    Thread-context evidence remains only the explicit fallback or injected test
+    path, and any fallback warnings stay visible in trace output.
     """
 
     active_settings = settings or get_settings()
@@ -135,7 +147,11 @@ def _build_gate5_explainer(bluesky_client: Any | None, settings: Settings) -> An
     retrieval_builder = getattr(retrieval_service, "build_retrieval_service", None)
     if not callable(agent_builder) or not callable(retrieval_builder):
         return None
-    active_retrieval_service = retrieval_builder(settings=settings)
+    active_retrieval_service = _build_runtime_retrieval_service(
+        retrieval_service,
+        retrieval_builder,
+        settings,
+    )
     active_retriever = (
         adapter(active_retrieval_service)
         if callable(adapter)
@@ -146,6 +162,29 @@ def _build_gate5_explainer(bluesky_client: Any | None, settings: Settings) -> An
         retriever=active_retriever,
         settings=settings,
     )
+
+
+def _build_runtime_retrieval_service(
+    retrieval_module: Any,
+    retrieval_builder: Any,
+    settings: Settings,
+) -> Any:
+    kwargs: dict[str, Any] = {"settings": settings}
+    if _accepts_keyword(retrieval_builder, "retrieval_settings"):
+        retrieval_settings = _gate7_retrieval_settings(retrieval_module)
+        if retrieval_settings is not None:
+            kwargs["retrieval_settings"] = retrieval_settings
+    return retrieval_builder(**kwargs)
+
+
+def _gate7_retrieval_settings(retrieval_module: Any) -> Any | None:
+    settings_type = getattr(retrieval_module, "RetrievalSettings", None)
+    if not callable(settings_type):
+        return None
+    try:
+        return settings_type(max_queries=3, search_limit_per_provider=3, linked_page_limit=3)
+    except TypeError:
+        return settings_type()
 
 
 def _run_awaitable_sync(awaitable: Any) -> Any:
@@ -166,6 +205,19 @@ def _accepts_queries(retrieve: Any) -> bool:
         if param.kind in {Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD}
     ]
     return len(positional) >= 2
+
+
+def _accepts_keyword(callable_obj: Any, keyword: str) -> bool:
+    try:
+        params = signature(callable_obj).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(
+        param.kind is Parameter.VAR_KEYWORD
+        or (param.kind in {Parameter.KEYWORD_ONLY, Parameter.POSITIONAL_OR_KEYWORD}
+            and param.name == keyword)
+        for param in params
+    )
 
 
 def _run_awaitable_in_thread(awaitable: Any) -> Any:

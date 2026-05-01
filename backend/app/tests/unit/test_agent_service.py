@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from app.agent.program import BlueskyExplainer
 from app.agent.service import (
     AgentExplainerService,
-    StaticEvidenceRetriever,
     build_agent_explainer_service,
 )
 from app.config import Settings
@@ -56,6 +56,21 @@ class FakeFetcher:
     def fetch_context(self, url: str) -> PostContext:
         del url
         return _post()
+
+
+@dataclass(frozen=True)
+class StaticEvidenceRetriever:
+    evidence: Sequence[Evidence] = field(default_factory=list)
+    documents: Sequence[ContextDocument] = field(default_factory=list)
+    warnings: Sequence[str] = field(default_factory=list)
+
+    def retrieve(
+        self,
+        post: PostContext,
+        queries: Sequence[str] = (),
+    ) -> tuple[Sequence[Evidence], Sequence[ContextDocument]]:
+        del post, queries
+        return self.evidence, self.documents
 
 
 class QueryCapturingRetriever:
