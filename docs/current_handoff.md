@@ -12,6 +12,9 @@ Active lane owner: Dev G7-C final truth/docs/submission.
 - Gate 6 is landed and reproducible in the G7-C clone: `make setup`,
   `make eval`, `make requirements-review`, `make check-secrets`, and
   `make deep-review` all passed.
+- `make gate7-final-truth-audit` now checks the final truth table, dry-run and
+  reserved wording, eval counts, GEPA metadata, allowed G7-C file scope, and
+  generated-artifact hygiene.
 - Default eval is fixture-backed and offline: 19 cached cases, 10
   fixture-backed public Bluesky URLs, and 9 marked synthetic attack/edge
   fixtures. Expected key points remain the curated truth layer.
@@ -36,7 +39,7 @@ Active lane owner: Dev G7-C final truth/docs/submission.
 - Final review: `docs/reviews/gate7_final_review.md`.
 - Final branch/push status: branch
   `codex/g7-c-final-truth-docs-submission` pushed to GitHub. Initial final truth
-  commit: `e9f1500` (`Document Gate 7 final truth layer`).
+  commit: `e9f1500`; latest audit follow-up is visible with `git log`.
 
 ## Current State
 

@@ -39,6 +39,7 @@ make lint
 make test
 make eval
 make gate6-shipping-audit
+make gate7-final-truth-audit
 ```
 
 Run the scaffolded services:
@@ -265,6 +266,7 @@ make check-secrets      # verify no tracked env files or obvious API keys
 make user-smoke         # exercise backend/frontend as a user-facing scaffold
 make eval               # run cached offline eval fixtures and reports
 make gate6-shipping-audit # verify Gate 6 eval/report/docs/artifact truth layer
+make gate7-final-truth-audit # verify Gate 7 final truth docs do not overclaim
 make optimize           # run GEPA dry-run metadata save
 make mlflow-log         # create a local MLflow run and package the DSPy program
 make deep-review        # full local review gate used before handoff/push
