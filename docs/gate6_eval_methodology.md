@@ -56,3 +56,12 @@ make mlflow-log
 
 `make mlflow-log` is separate so the deterministic eval path remains offline
 and does not create `mlruns/` during normal review.
+
+## API Mode
+
+`--mode api` routes cases through the current FastAPI `/api/explain` path and may
+perform live Bluesky or provider-adjacent work depending on local configuration.
+It is intentionally separate from `make eval`. A local no-credential Gate 6 smoke
+completed without aborting, but all 19 rows returned `abstain`, so API-mode output
+from that environment is recorded as a limitation rather than final live quality
+closure.

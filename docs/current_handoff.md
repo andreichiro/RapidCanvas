@@ -302,7 +302,11 @@ Default `make eval` writes ignored artifacts under `reports/eval/` and reports
 19 cached rows: 10 fixture-backed public Bluesky URLs and 9 synthetic attack or
 edge fixtures. The summary exposes `public_bluesky_fixture_case_count` and
 `ragas_metric_source`; DSPy judge, Ragas, and MLflow were also run explicitly.
-Default eval remains offline and reports those optional paths separately.
+Default eval remains offline and reports those optional paths separately. An
+explicit API-mode eval against the local FastAPI route completed without aborting,
+but the no-credential/live-service posture abstained on all 19 rows; treat that
+as a live-route limitation to rerun with runtime credentials, not as final live
+quality closure.
 
 ## Review Records
 
