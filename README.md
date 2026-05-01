@@ -144,6 +144,17 @@ attack and workflow coverage; they are not counted as the final 10+ real public
 Bluesky-post eval set. Gate 6 must add or refresh real/fixture-backed public
 Bluesky post cases before closing that assignment requirement.
 
+The eval dataset is scenario-based, not just a happy-path checklist. The current
+cached case set models niche references, meme/slang explanations, current-event
+context, reply context, quote context, link context, image context, ambiguous
+acronyms, adversarial false premises, sparse context, non-English posts,
+unavailable/deleted posts, prompt-injection attempts, contradictory sources,
+low-evidence fallback behavior, and private URL blocking. These cases are meant
+to answer the assignment's practical quality questions: did the agent recover
+the expected context, cite factual claims, avoid unsupported claims, preserve
+tool and citation policy under attack, and choose `partial`, `safe_summary`, or
+`abstain` when evidence is weak.
+
 Each report records its prediction mode, judge backend, cached/live row counts,
 and whether API or model calls were allowed, so explicit integration runs are
 not mislabeled as offline cached runs. Numeric judge outputs, including DSPy
@@ -184,6 +195,17 @@ Implemented behavior includes:
 - `make optimize` writes GEPA dry-run metadata; `--real` requires valid provider
   credentials, uses a reflection LM, rejects all-failed rollouts, and persists a
   loadable compiled DSPy program directory.
+- GEPA is the prompt/program optimization path for the DSPy explainer. The
+  optimization signal is designed around expected-point recall, citation
+  coverage, requirement following, prompt-injection resistance, fallback
+  correctness, hallucination penalties, and unsupported-claim penalties rather
+  than manual prompt tweaking alone.
+- Gate 5 proves the optimizer/save/load path. Gate 6 finalizes the eval evidence
+  dataset. Gate 7 should wire the finalized `eval/posts.yaml` plus cached
+  fixtures into GEPA train/dev examples with `post_text`, `evidence`,
+  `expected_points`, expected fallback mode, attack type, category, and
+  citation/source expectations. A real compiled optimized program is only the
+  default when it has actually been produced and loader-verified.
 - `make mlflow-log` creates a local MLflow run and exercises
   `mlflow.dspy.log_model` against the live DSPy runner path.
 
