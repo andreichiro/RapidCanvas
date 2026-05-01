@@ -254,6 +254,7 @@ The scoring focuses on expected-point recall, citation coverage, unsupported
 claims, fallback correctness, prompt-injection resistance, private URL blocking,
 source leakage, final-response correctness, and latency. Cached fixtures are the
 curated reference layer; live Search/RAG is runtime retrieval and data collection.
+Assignment requirement closure is tracked in `docs/requirements_matrix.md`.
 
 ## Optimization And MLflow
 
