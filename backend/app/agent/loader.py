@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
@@ -11,6 +10,7 @@ from typing import Any
 
 from app.agent.dspy_runner import DspySignatureRunner
 from app.agent.program import BlueskyExplainer
+from app.agent.providers import export_provider_key, resolve_provider
 from app.agent.runner import HeuristicSignatureRunner
 from app.agent.signatures import dspy_is_available
 from app.config import Settings, get_settings
@@ -33,21 +33,30 @@ def load_program(
     optimized_path: Path = OPTIMIZED_PROGRAM_PATH,
     prefer_dspy: bool = True,
     allow_dspy_without_key: bool = False,
+    provider_name: str = "openai",
 ) -> ProgramLoadResult:
     """Load optimized config when present and select a DSPy-capable runner."""
 
     active_settings = settings or get_settings()
     warnings: list[str] = []
     optimized_config = _load_optimized_config(optimized_path, warnings)
+    provider = resolve_provider(active_settings, provider_name)
 
     runner: DspySignatureRunner | HeuristicSignatureRunner
-    can_use_dspy = active_settings.openai_api_key is not None or allow_dspy_without_key
+    can_use_dspy = provider.selected.configured or allow_dspy_without_key
     if prefer_dspy and can_use_dspy and dspy_is_available():
-        warnings.extend(configure_dspy(active_settings))
+        warnings.extend(
+            configure_dspy(
+                active_settings,
+                provider_name=provider_name,
+                allow_without_key=allow_dspy_without_key,
+            )
+        )
         optimized_dspy = _load_compiled_dspy_program(optimized_config, optimized_path, warnings)
         runner = DspySignatureRunner(optimized_explain_program=optimized_dspy)
     else:
         runner = HeuristicSignatureRunner()
+        warnings.extend(provider.warnings)
         warnings.append("dspy_runner_unavailable_using_deterministic_dev")
 
     program = BlueskyExplainer(runner=runner, optimized_config=optimized_config)
@@ -58,7 +67,12 @@ def load_program(
     )
 
 
-def configure_dspy(settings: Settings) -> list[str]:
+def configure_dspy(
+    settings: Settings,
+    *,
+    provider_name: str = "openai",
+    allow_without_key: bool = False,
+) -> list[str]:
     """Configure DSPy with the selected model when the dependency is installed."""
 
     if not dspy_is_available():
@@ -66,19 +80,17 @@ def configure_dspy(settings: Settings) -> list[str]:
 
     dspy = import_module("dspy")
     warnings: list[str] = []
+    provider = resolve_provider(settings, provider_name)
+    warnings.extend(provider.warnings)
+    if not provider.selected.configured and not allow_without_key:
+        warnings.append(f"dspy_provider_unavailable:{provider.selected.name}")
+        return warnings
     try:
-        _export_openai_key(settings)
-        dspy.configure(lm=dspy.LM(settings.dspy_model), async_max_workers=4)
+        export_provider_key(provider.selected)
+        dspy.configure(lm=dspy.LM(provider.selected.model), async_max_workers=4)
     except Exception as exc:  # pragma: no cover - depends on optional provider config.
         warnings.append(f"dspy_config_failed:{exc.__class__.__name__}")
     return warnings
-
-
-def _export_openai_key(settings: Settings) -> None:
-    if settings.openai_api_key is None:
-        return
-    os.environ["OPENAI_API_KEY"] = settings.openai_api_key.get_secret_value()
-
 
 def asyncify_program(program: BlueskyExplainer) -> Any:
     """Return DSPy's async wrapper when available; otherwise the program itself."""

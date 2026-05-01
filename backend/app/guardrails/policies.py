@@ -15,6 +15,7 @@ UNTRUSTED_CONTENT_LABELS: tuple[str, ...] = (
 
 _PROMPT_INJECTION_PATTERNS: tuple[str, ...] = (
     r"\bignore\s+(all\s+)?(previous|prior|above)\s+instructions\b",
+    r"\bignore\s+all\s+instructions\b",
     r"\bsystem\s+prompt\b",
     r"\bdeveloper\s+message\b",
     r"\bexfiltrate\b",
@@ -33,7 +34,10 @@ _FORBIDDEN_OUTPUT_PATTERNS: tuple[str, ...] = (
     r"\bapi\s*key\b",
     r"\bsk-[A-Za-z0-9_-]{12,}\b",
     r"\bignore\s+(all\s+)?(previous|prior|above)\s+instructions\b",
+    r"\bignore\s+all\s+instructions\b",
+    r"\bdo\s+not\s+cite\b",
     r"\bdisable\s+citations?\b",
+    r"\breveal\s+(the\s+)?(hidden\s+)?instructions\b",
 )
 
 
@@ -88,4 +92,3 @@ def _pattern_hits(patterns: tuple[str, ...], text: str) -> list[str]:
 def _pattern_name(pattern: str) -> str:
     cleaned = re.sub(r"[^a-z0-9]+", "_", pattern.lower()).strip("_")
     return cleaned[:64] or "pattern"
-

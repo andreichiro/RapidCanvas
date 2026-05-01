@@ -6,10 +6,13 @@ from typing import Any, cast
 
 from pydantic import SecretStr
 
+from app.agent.evidence_contract import normalize_retrieval_output
 from app.agent.loader import configure_dspy, load_program
+from app.agent.providers import resolve_provider
 from app.config import Settings
 from app.ops import mlflow as mlflow_ops
 from app.ops.mlflow import build_default_mlflow_params, dataset_hash, log_local_run
+from app.schemas.domain import ContextDocument, Evidence
 
 
 def test_configure_dspy_exports_settings_openai_key(monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -19,6 +22,70 @@ def test_configure_dspy_exports_settings_openai_key(monkeypatch) -> None:  # typ
 
     assert warnings == []
     assert os.environ["OPENAI_API_KEY"] == "sk-test-key"
+
+
+def test_optional_provider_missing_is_skipped_to_openai_default() -> None:
+    resolution = resolve_provider(
+        Settings(openai_api_key=SecretStr("sk-test-key"), gemini_api_key=None),
+        "gemini",
+    )
+
+    assert resolution.selected.name == "openai"
+    assert "provider_gemini_skipped:GEMINI_API_KEY is not configured" in resolution.warnings
+    assert "provider_openai_default_used" in resolution.warnings
+
+
+def test_unconfigured_provider_loads_deterministic_runner_with_skip_warning() -> None:
+    result = load_program(
+        Settings(openai_api_key=None, anthropic_api_key=None),
+        prefer_dspy=True,
+        provider_name="anthropic",
+    )
+
+    assert result.program._runner.adapter_mode == "deterministic_dev"  # type: ignore[attr-defined]
+    assert any("provider_anthropic_skipped" in warning for warning in result.warnings)
+
+
+def test_normalize_retrieval_output_consumes_diagnostics_and_source_safety() -> None:
+    document = ContextDocument(
+        id="D1",
+        source_type="web",
+        title="Source",
+        url="https://example.com/source",
+        text="Source text",
+    )
+    evidence = Evidence(
+        id="E1",
+        document_id="D1",
+        text="Evidence text",
+        score=0.8,
+        source_id="S1",
+    )
+    output = {
+        "context_documents": [document],
+        "evidence": [evidence],
+        "diagnostics": {
+            "warnings": ["retrieval_warning"],
+            "prompt_injection_flags": ["prompt_injection_risk"],
+            "source_safety_diagnostics": ["private_url_blocked"],
+            "private_url_blocks": ["blocked_link:http://127.0.0.1/admin"],
+        },
+        "warnings": ["result_warning"],
+    }
+
+    bundle = normalize_retrieval_output(output)
+
+    assert bundle.evidence == (evidence,)
+    assert bundle.documents == (document,)
+    assert bundle.warnings == ("result_warning", "retrieval_warning")
+    assert bundle.guardrail_flags == (
+        "prompt_injection_risk",
+        "source_safety_private_url_blocked",
+    )
+    assert bundle.source_safety_diagnostics == (
+        "private_url_blocked",
+        "blocked_link:http://127.0.0.1/admin",
+    )
 
 
 def test_load_program_loads_compiled_dspy_program(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
