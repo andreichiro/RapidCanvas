@@ -12,15 +12,18 @@ from app.guardrails.policies import DEFAULT_POLICY
 from app.schemas.api import Trace
 
 ROOT = Path(__file__).resolve().parents[3]
-DEV_C_FILES = [
-    ROOT / "app/agent/eval_support.py",
-    ROOT / "app/agent/finalize.py",
-    ROOT / "app/agent/judge_signatures.py",
-    ROOT / "app/agent/quality_trace.py",
-    ROOT / "app/agent/program.py",
-    ROOT / "app/agent/service.py",
-    ROOT / "app/ops/mlflow.py",
-]
+DEV_C_FILES = sorted(
+    [
+        *list((ROOT / "app/agent").glob("*.py")),
+        ROOT / "app/guardrails/trust.py",
+        ROOT / "app/guardrails/output.py",
+        ROOT / "app/guardrails/policies.py",
+        ROOT / "app/ops/mlflow.py",
+        ROOT / "app/eval/optimize.py",
+        ROOT / "app/eval/gepa_persistence.py",
+        ROOT / "app/eval/gepa_validation.py",
+    ]
+)
 FORBIDDEN_IMPORT_PREFIXES = (
     "app.api",
     "app.clients",
@@ -136,6 +139,18 @@ def test_gate6_dev_c_quality_modules_keep_lane_boundaries() -> None:
                 violations.append(f"{path.relative_to(ROOT)} imports {imported}")
 
     assert violations == []
+
+
+def test_gate6_dev_c_boundary_review_covers_owned_runtime_files() -> None:
+    covered = {str(path.relative_to(ROOT)) for path in DEV_C_FILES}
+
+    assert "app/agent/dev_adapter.py" in covered
+    assert "app/agent/dspy_runner.py" in covered
+    assert "app/agent/loader.py" in covered
+    assert "app/guardrails/output.py" in covered
+    assert "app/guardrails/trust.py" in covered
+    assert "app/ops/mlflow.py" in covered
+    assert "app/eval/optimize.py" in covered
 
 
 def test_gate6_quality_fixture_is_stable_serializable_and_secret_free() -> None:

@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.guardrails.policies import compact_text
+from app.guardrails.policies import DEFAULT_POLICY, compact_text
 from app.schemas.api import ExplainResponse
 from app.schemas.domain import Evidence
 
@@ -85,8 +85,8 @@ def build_judge_input_payload(
             {
                 "id": item.id,
                 "source_id": item.source_id,
-                "score": round(float(item.score), 4),
-                "text": compact_text(item.text, limit=420),
+                "score": _finite_score(item.score),
+                "text": _safe_judge_evidence_text(item.text),
             }
             for item in evidence
         ],
@@ -169,6 +169,19 @@ def _score(result: Any) -> float:
     if not isfinite(score):
         return 0.0
     return max(0.0, min(1.0, score))
+
+
+def _finite_score(value: float) -> float:
+    score = float(value)
+    if not isfinite(score):
+        return 0.0
+    return round(score, 4)
+
+
+def _safe_judge_evidence_text(text: str) -> str:
+    if DEFAULT_POLICY.forbidden_output_hits(text):
+        return "Untrusted evidence contained instruction-like or credential-seeking text."
+    return compact_text(text, limit=420)
 
 
 def _labels(result: Any) -> list[str]:
