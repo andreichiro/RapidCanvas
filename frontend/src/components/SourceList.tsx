@@ -22,6 +22,9 @@ export default function SourceList({ sources }: SourceListProps) {
             <a href={source.url} target="_blank" rel="noreferrer">
               {source.title}
             </a>
+            <a className="source-url" href={source.url} target="_blank" rel="noreferrer">
+              {source.url}
+            </a>
             <p>{source.snippet}</p>
           </article>
         ))}

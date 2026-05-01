@@ -46,6 +46,9 @@ export default function ResultView({ result }: ResultViewProps) {
         <div>
           <span className="label-text">Post</span>
           <h2>{result.post.author}</h2>
+          <a className="post-link" href={result.post.url} target="_blank" rel="noreferrer">
+            Open post
+          </a>
         </div>
         <time dateTime={result.post.created_at}>{formatDate(result.post.created_at)}</time>
       </header>
@@ -63,13 +66,24 @@ export default function ResultView({ result }: ResultViewProps) {
         </div>
       ) : null}
 
+      {result.trace.warnings.length ? (
+        <section className="trace-warning-summary" aria-label="warnings">
+          <h2>Warnings</h2>
+          <ul>
+            {result.trace.warnings.map((warning, index) => (
+              <li key={`${warning}-${index}`}>{warning}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <ol className="bullets" aria-label="explanation bullets">
         {result.bullets.map((bullet, index) => (
           <li key={`${bullet.text}-${index}`}>
             <span>{bullet.text}</span>
             <span className="citation-row" aria-label={`citations for bullet ${index + 1}`}>
-              {bullet.source_ids.map((sourceId) => (
-                <CitationChip key={sourceId} source={sourcesById.get(sourceId)} sourceId={sourceId} />
+              {bullet.source_ids.map((sourceId, sourceIndex) => (
+                <CitationChip key={`${sourceId}-${sourceIndex}`} source={sourcesById.get(sourceId)} sourceId={sourceId} />
               ))}
             </span>
           </li>
