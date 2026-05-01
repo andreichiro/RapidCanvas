@@ -44,7 +44,7 @@ provider-backed judges, and MLflow remain explicit commands.
 Gate 7 final A/B/C integration is implemented on the final integration branch.
 It keeps `docs/reviews/gate7_final_review.md`, README, matrix, and handoff
 claims honest and exposes `make gate7-final-truth-audit`. The submitted runtime
-truth is real Search/RAG by default with capped adaptive retrieval enabled,
+truth is real Search/RAG by default; capped adaptive retrieval is enabled,
 GEPA has a real compiled saved DSPy program from cached eval fixtures, image
 support is helper-level vision/alt-text evidence and not a full UI vision claim,
 and provider comparison is registry/skip visibility rather than a live
