@@ -6,6 +6,7 @@ Current baseline: Gate 7 final A/B/C integration branch
 `codex/g7bc-final-integration` from `origin/main` Gate 6 integration commit
 `4728cc3`.
 Active lane owner: Dev G7-C final truth/docs/submission consuming G7-A/G7-B evidence.
+GitHub file-list labels were refreshed with the final beyond-scope note commit.
 
 ## Gate 7 Final Truth Snapshot
 

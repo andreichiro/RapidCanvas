@@ -1,5 +1,6 @@
 FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
+# Runtime image for the local API service.
 WORKDIR /app/backend
 
 ENV PYTHONUNBUFFERED=1 \

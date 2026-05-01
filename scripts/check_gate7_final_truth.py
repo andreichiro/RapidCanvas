@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only Gate 7 final-truth audit for G7-C submission claims."""
+"""Read-only Gate 7 final-truth audit for final submission claims."""
 
 from __future__ import annotations
 
