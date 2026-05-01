@@ -1,0 +1,39 @@
+{
+  "lane": "dev_B_gate5_retrieval_source_safety",
+  "developer": "dev_b",
+  "plan": "Plan Final E Consolidated Gate 5",
+  "required_branch": "codex/dev-b-gate5-retrieval-safety",
+  "execution_roots": [
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/rapidcanvas_dev_b_gate5",
+      "checkout_kind": "standalone_clone",
+      "role": "implementation"
+    }
+  ],
+  "shared_read_only_roots": [
+    {
+      "repo": "RapidCanvas",
+      "path": "/Users/akatsurada/Documents/New project",
+      "checkout_kind": "standalone_clone",
+      "role": "shared_read_only_context"
+    }
+  ],
+  "forbidden_operations": [
+    "switch shared repo to lane branch",
+    "stage shared repo",
+    "commit shared repo",
+    "reset shared repo",
+    "stash shared repo",
+    "clean shared repo",
+    "create linked worktree for live lane",
+    "run implementation commands from shared repo root"
+  ],
+  "verification": [
+    "execution roots exist",
+    "execution roots are standalone clones",
+    "execution roots are on required branch",
+    "shared repos do not own required branch",
+    "current working directory is an approved execution root"
+  ]
+}
