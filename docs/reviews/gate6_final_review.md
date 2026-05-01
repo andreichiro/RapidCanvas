@@ -30,9 +30,9 @@ them.
 | Synthetic cases marked | Passed: 9 `synthetic_fixture` rows remain for prompt-injection, private URL, unavailable/deleted, contradiction, false premise, low evidence, and non-English coverage. |
 | Core metrics | Passed: expected-point recall, citation coverage, unsupported/hallucination count, fallback correctness, prompt-injection resistance, private URL block rate, latency p50/p95, and production taxonomy metrics. |
 | Report artifacts | Passed: JSONL, Markdown, summary JSON, confusion matrix CSV, and SVG metric graph are generated under ignored `reports/eval/`. |
-| Ragas / DSPy judge | Default `make eval` skips both with explicit reasons; explicit offline DSPy and Ragas judge commands both ran after `make setup`. |
+| Ragas / DSPy judge | Default `make eval` skips both with explicit reasons; explicit offline DSPy, Ragas, and composite judge commands ran after `make setup`. |
 | Automated readiness review | Passed: `test_gate6_eval_readiness.py` checks case mix, public/synthetic provenance, API-shaped fixtures, source/citation references, report artifacts, optional-tool labels, and no synthetic public coverage. |
-| MLflow | Kept out of default eval; explicit `make mlflow-log` ran and created local ignored run `4dde963a71ce4797bb134a9870d80487`; `make deep-review` cleans `backend/mlruns/`. |
+| MLflow | Kept out of default eval; explicit `make mlflow-log` ran and created local ignored run `7a2d704cf7304735bb725ed3926b66e9`; `make deep-review` cleans `backend/mlruns/`. |
 | Requirement matrix | Updated with no unmapped rows and no synthetic cases counted as public coverage. |
 | Generated artifacts | `reports/*`, `mlruns/`, Qdrant/cache output, `.env`, and live outputs remain ignored. |
 
@@ -83,6 +83,7 @@ cd backend && uv run pytest app/tests/unit/test_eval_dataset.py app/tests/unit/t
 make eval
 cd backend && uv run --extra ai python -m app.eval.runner --mode cached --judge dspy --out reports/eval_dspy
 cd backend && uv run --extra eval python -m app.eval.runner --mode cached --judge ragas --out reports/eval_ragas
+cd backend && uv run --all-extras python -m app.eval.runner --mode cached --judge composite --out reports/eval_composite_final
 make mlflow-log
 make lint
 make test
