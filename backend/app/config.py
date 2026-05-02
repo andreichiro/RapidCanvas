@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     retrieval_max_queries: int = 3
     retrieval_search_limit_per_provider: int = 3
     retrieval_linked_page_limit: int = 3
+    enable_rate_limiting: bool = True
+    rate_limit_window_seconds: int = 60
+    rate_limit_max_explain_requests: int = 120
 
     anthropic_api_key: SecretStr | None = None
     gemini_api_key: SecretStr | None = None

@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.rate_limit import ExplainRateLimitMiddleware
 from app.api.routes import ExplainerService, create_api_router
 from app.config import get_settings
 
@@ -14,6 +15,13 @@ def create_app(explainer: ExplainerService | None = None) -> FastAPI:
 
     settings = get_settings()
     app = FastAPI(title=settings.app_name, version="0.1.0")
+    if settings.enable_rate_limiting:
+        app.add_middleware(
+            ExplainRateLimitMiddleware,
+            api_prefix=settings.api_prefix,
+            max_requests=settings.rate_limit_max_explain_requests,
+            window_seconds=settings.rate_limit_window_seconds,
+        )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

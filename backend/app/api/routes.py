@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.clients.bsky import BlueskyClientError, InvalidBlueskyPostUrlError
 from app.config import Settings
-from app.deps import build_gate3_explainer, get_provider_catalog
+from app.deps import build_current_explainer, get_provider_catalog
 from app.schemas.api import ExplainRequest, ExplainResponse, HealthResponse, ProviderListResponse
 
 _SENSITIVE_ERROR_RE = re.compile(
@@ -50,9 +50,9 @@ class _ExplainerResolver:
             request_settings = self._settings.model_copy(
                 update={"openai_api_key": request.api_key}
             )
-            return build_gate3_explainer(settings=request_settings)
+            return build_current_explainer(settings=request_settings)
         if self._default is None:
-            self._default = build_gate3_explainer(settings=self._settings)
+            self._default = build_current_explainer(settings=self._settings)
         return self._default
 
 

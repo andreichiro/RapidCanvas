@@ -101,7 +101,7 @@ class QueryAwareRetrievalRetriever:
         return result
 
 
-def build_gate3_explainer(
+def build_current_explainer(
     bluesky_client: Any | None = None,
     retriever: Any | None = None,
     program: Any | None = None,
@@ -132,6 +132,22 @@ def build_gate3_explainer(
         retriever=active_retriever,
         program=active_program,
         extra_warnings=extra_warnings,
+    )
+
+
+def build_gate3_explainer(
+    bluesky_client: Any | None = None,
+    retriever: Any | None = None,
+    program: Any | None = None,
+    settings: Settings | None = None,
+) -> AgentExplainerService:
+    """Backward-compatible alias for older tests and review docs."""
+
+    return build_current_explainer(
+        bluesky_client=bluesky_client,
+        retriever=retriever,
+        program=program,
+        settings=settings,
     )
 
 

@@ -12,6 +12,7 @@ from typing import Any
 
 GATE6_MAIN = "4728cc3"
 BRANCH = "codex/g7bc-final-integration"
+CURRENT_REMOTE = "origin/main"
 EXPECTED_CASES = 19
 EXPECTED_PUBLIC = 10
 EXPECTED_SYNTHETIC = 9
@@ -27,7 +28,8 @@ ALLOWED_DELTA_PATHS = {
     ".dockerignore", "README.md", "AGENTS.md", "TRANSLATION_LOG.md", "Makefile",
     "assets/dev_G7_C_WORKSPACE_CONTRACT.json", "assets/dev_G7_BC_WORKSPACE_CONTRACT.json",
     "assets/dev_G7_A_WORKSPACE_CONTRACT.json", "backend/app/deps.py", "backend/app/agent/service.py",
-    "backend/app/api/routes.py", "backend/app/schemas/api.py",
+    "backend/app/api/rate_limit.py", "backend/app/api/routes.py", "backend/app/main.py",
+    "backend/app/schemas/api.py",
     "backend/app/agent/dspy_runner.py", "backend/app/agent/dspy_parsing.py",
     "backend/app/agent/program.py",
     "backend/app/agent/signatures.py",
@@ -42,6 +44,7 @@ ALLOWED_DELTA_PATHS = {
     "frontend/package-lock.json", "frontend/vite.config.ts",
     "backend/app/tests/integration/test_api_contracts.py",
     "backend/app/tests/integration/test_gate6_eval_runner.py",
+    "backend/app/tests/unit/test_rate_limit.py",
     "backend/app/tests/unit/test_bsky_client.py",
     "backend/app/tests/unit/test_config.py",
     "backend/app/tests/unit/test_gate6_dev_c_quality_contract_review.py",
@@ -166,11 +169,15 @@ def check_git_scope(root: Path, errors: list[str]) -> None:
     changed = set(git(root, "diff", "--name-only", f"{GATE6_MAIN}..HEAD").stdout.splitlines())
     disallowed = sorted(path for path in changed if not allowed_delta_path(path))
     need(not disallowed, errors, f"G7-C delta touches out-of-scope paths: {disallowed}")
-    remote = git(root, "rev-parse", "--verify", f"origin/{BRANCH}")
-    need(remote.returncode == 0, errors, f"origin/{BRANCH} is missing")
+    remote_ref = CURRENT_REMOTE if current_branch(root) == "main" else f"origin/{BRANCH}"
+    remote = git(root, "rev-parse", "--verify", remote_ref)
+    need(remote.returncode == 0, errors, f"{remote_ref} is missing")
     if remote.returncode == 0:
         head = git(root, "rev-parse", "HEAD")
-        need(remote.stdout == head.stdout, errors, f"origin/{BRANCH} is not at HEAD")
+        need(remote.stdout == head.stdout, errors, f"{remote_ref} is not at HEAD")
+
+def current_branch(root: Path) -> str:
+    return git(root, "branch", "--show-current").stdout.strip()
 
 def check_eval_truth(cases: list[dict[str, Any]], root: Path, errors: list[str]) -> None:
     public = [case for case in cases if case.get("provenance") == "fixture_backed_public"]

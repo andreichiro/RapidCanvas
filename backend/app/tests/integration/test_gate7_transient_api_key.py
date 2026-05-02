@@ -73,7 +73,7 @@ def test_default_explain_route_uses_transient_request_api_key(
         captured_keys.append(settings.openai_api_key.get_secret_value())
         return FakeExplainer()
 
-    monkeypatch.setattr("app.api.routes.build_gate3_explainer", fake_builder)
+    monkeypatch.setattr("app.api.routes.build_current_explainer", fake_builder)
     app = FastAPI()
     app.include_router(create_api_router(Settings(openai_api_key=None)))
     route_client = TestClient(app)
