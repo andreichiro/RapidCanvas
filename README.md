@@ -323,12 +323,7 @@ Multi-provider comparison is implemented as a catalog/report/live-smoke path,
 but real Anthropic, Gemini, or Ollama comparison requires those credentials or
 services.
 
-Given the time constraint, these were the best tradeoffs: prioritize a working
-end-to-end product, source citations, no-secrets handling, reproducible eval,
-clear runtime diagnostics, and honest documentation over broad live benchmarking
-or hosted production operations. For a hiring or leveling review, this is best
-read as senior-capable applied agentic-systems work for a timeboxed prototype;
-a formal Senior Agentic Solutions Engineer production-level decision should
-still include a live walkthrough covering runtime quality, concurrency, provider
-breadth, image/video edge cases, and the boundary between cached fixtures,
-exact-post cache fallback, and live retrieval.
+New features were added after the deadline, please disregard these changes and
+evaluate the version pushed before 17:27. These features are beyond the original
+completed scope; all extras were included on time. They represent additional
+features I am creating separately.
