@@ -71,39 +71,19 @@ make run
 
 Open `http://localhost:5173`, paste a public Bluesky post URL, paste your OpenAI
 key into the masked field, leave provider as `openai`, and click **Explain**.
+`make run` starts the React UI, FastAPI backend, Qdrant, and MLflow UI. No API
+key is baked into Docker images or Compose; the key is supplied through the
+masked required OpenAI API-key field for the current request only.
 
-`make run` starts:
-
-- React UI: `http://localhost:5173`
-- FastAPI backend: `http://127.0.0.1:8000`
-- Qdrant: `http://localhost:6333`
-- MLflow UI: `http://localhost:5000`
-
-No API key is baked into Docker images or Compose. The key is supplied through
-the masked required OpenAI API-key field for the current request only.
-
-For source development without Docker, use the one-command source path:
-
-```bash
-make dev
-```
-
-`make dev` installs or refreshes backend/frontend dependencies, then starts or
-reuses fixed-port FastAPI and Vite servers in one terminal. The frontend uses
-the Vite `/api` proxy and falls back to
+For source development without Docker, use `make dev`. It installs or refreshes
+backend/frontend dependencies, then starts fixed-port FastAPI and Vite servers
+in one terminal. The frontend uses the Vite `/api` proxy and falls back to
 `http://127.0.0.1:8000`, so local preview runs do not collapse into a generic
 browser `Failed to fetch` when the backend is reachable.
 
-Useful checks:
-
-```bash
-make test
-make eval
-make eval-cached
-make provider-comparison
-make requirements-review
-make check-secrets
-```
+Useful checks: `make test`, `make eval`, `make eval-cached`,
+`make provider-comparison`, `make requirements-review`, and
+`make check-secrets`.
 
 ## Design Mental Models
 
@@ -281,23 +261,14 @@ optimization score. Loader use still depends on DSPy and provider credentials.
 This is local ops plumbing, not a hosted experiment workflow. `mlruns/` is
 ignored.
 
-## Tooling Map
+## Tooling And Commands
 
-| Layer | Tools | Why They Were Used |
-|---|---|---|
-| Frontend | Vite, React, TypeScript | Typed UI for input, citations, trace, sources, fallbacks |
-| Backend API | FastAPI, Pydantic v2 | Async routes and stable contracts |
-| Bluesky | ATProto SDK | Public read-only post/thread/search access |
-| Search/fetch | httpx, DDGS, trafilatura, BeautifulSoup | Safe web/link context collection |
-| Agent | DSPy | Structured modules instead of opaque prompt blobs |
-| Retrieval | OpenAI embeddings, Qdrant, rerankers | Evidence ranking before generation |
-| Safety | scanners, sanitizers, SSRF guard | Keeps external content inside evidence boundaries |
-| Evaluation | cached runner, metrics, reports | Reproducible quality and safety measurement |
-| Optimization | GEPA | Feedback-driven DSPy program improvement |
-| Tracking | MLflow | Params, metrics, artifacts, model/program metadata |
-| Ops | Makefile, Docker, matrix, audits | Repeatable reviewer and local-user workflow |
-
-## Commands
+Tooling is intentionally mainstream: Vite/React/TypeScript for the UI,
+FastAPI/Pydantic for stable API contracts, ATProto for public Bluesky reads,
+httpx/DDGS/trafilatura/BeautifulSoup for safe context collection, OpenAI
+embeddings plus Qdrant and rerankers for evidence ranking, DSPy for structured
+agent modules, GEPA for optimization, MLflow for local tracking, and Make/Docker
+for repeatable local operation.
 
 ```bash
 make setup                    # install backend and frontend dependencies
@@ -317,3 +288,33 @@ make skills-review            # local project skill validation
 make check-secrets            # secret/artifact hygiene scan
 make deep-review              # full Deep Review Workflow gate
 ```
+
+## Final Limitations And Tradeoffs
+
+This project is intentionally honest about what is strong and what is still not
+perfect. It has a credible production-shaped architecture for useful,
+source-backed explanations and has been tested through unit, integration,
+frontend, Docker, cached eval, provider-report, MLflow, and final-truth gates.
+The main remaining limitation is breadth of live usefulness evidence: the live
+path works and `make eval` is the first-class live quality command, but the repo
+does not claim a large benchmark over drifting public Bluesky posts.
+
+Search source quality can vary because public Bluesky/web search, linked pages,
+provider availability, and page extraction can change outside the repo. Fallbacks
+are deliberately conservative: safer than unsupported answers, but less useful
+when retrieval, providers, page access, or evidence quality is weak. Image
+understanding is real for image URLs and OpenAI vision when a request key is
+available, with untrusted alt-text fallback; video frames are not parsed.
+Multi-provider comparison is implemented as a catalog/report/live-smoke path,
+but real Anthropic, Gemini, or Ollama comparison requires those credentials or
+services.
+
+Given the time constraint, these were the best tradeoffs: prioritize a working
+end-to-end product, source citations, no-secrets handling, reproducible eval,
+clear runtime diagnostics, and honest documentation over broad live benchmarking
+or hosted production operations. For a hiring or leveling review, this is best
+read as senior-capable applied agentic-systems work for a timeboxed prototype;
+a formal Senior Agentic Solutions Engineer production-level decision should
+still include a live walkthrough covering runtime quality, concurrency, provider
+breadth, image/video edge cases, and the boundary between cached fixtures,
+exact-post cache fallback, and live retrieval.
