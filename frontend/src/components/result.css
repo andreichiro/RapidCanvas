@@ -88,19 +88,32 @@
   color: #667672;
   font-size: 0.9rem;
 }
-
 .post-link {
   display: inline-flex;
   margin-top: 4px;
   font-weight: 800;
 }
-
 .post-text {
   max-width: 78ch;
   color: #40504c;
   overflow-wrap: anywhere;
 }
-
+.post-original {
+  max-width: 78ch;
+  border: 1px solid #d8dfdc;
+  border-radius: 6px;
+  background: #f7faf8;
+}
+.post-original summary {
+  cursor: pointer;
+  padding: 9px 11px;
+  color: #52625e;
+  font-weight: 800;
+}
+.post-original .post-text {
+  border-top: 1px solid #d8dfdc;
+  padding: 10px 11px;
+}
 .status-strip {
   display: flex;
   flex-wrap: wrap;
@@ -110,7 +123,6 @@
 
 .trust-badge {
   display: inline-flex;
-  min-height: 34px;
   align-items: center;
   gap: 10px;
   border: 1px solid #b9c6c1;
@@ -205,6 +217,11 @@
   overflow-wrap: anywhere;
 }
 
+.explanation-section {
+  display: grid;
+  gap: 10px;
+}
+
 .bullets {
   display: grid;
   gap: 14px;
@@ -288,7 +305,6 @@
   color: #52625e;
   overflow-wrap: anywhere;
 }
-
 .source-url {
   color: #52625e;
   font-size: 0.85rem;

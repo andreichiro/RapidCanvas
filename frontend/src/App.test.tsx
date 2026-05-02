@@ -244,7 +244,7 @@ test("renders cited bullets and source cards", async () => {
 
   await fillRequiredFields();
   fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
-
+  expect(await screen.findByRole("heading", { name: "English explanation" })).toBeVisible();
   const bullets = await screen.findByLabelText("explanation bullets");
   expect(within(bullets).getAllByRole("listitem")).toHaveLength(3);
   expect(screen.getAllByLabelText("Citation S1: Bluesky post by example.com")).toHaveLength(3);

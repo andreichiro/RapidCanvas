@@ -13,6 +13,8 @@ afterEach(() => {
 test("renders the normal Gate 5 response with cited bullets and every source type", () => {
   render(<ResultView result={gate5ExplainResponse} />);
 
+  expect(screen.getByRole("heading", { name: "English explanation" })).toBeVisible();
+  expect(screen.getByText("Original post text (author's language)")).toBeVisible();
   const bullets = screen.getByLabelText("explanation bullets");
   expect(within(bullets).getAllByRole("listitem")).toHaveLength(4);
   expect(screen.getByLabelText("trust and fallback status")).toHaveTextContent("Normal");

@@ -87,7 +87,7 @@ export default function ResultView({ result }: ResultViewProps) {
     <section className={`result-view fallback-${result.trace.fallback_mode}`} aria-label="explanation result">
       <header className="post-summary">
         <div>
-          <span className="label-text">Post</span>
+          <span className="label-text">Original post</span>
           <h2>{result.post.author}</h2>
           <a className="post-link" href={result.post.url} target="_blank" rel="noreferrer">
             Open post
@@ -96,7 +96,10 @@ export default function ResultView({ result }: ResultViewProps) {
         <time dateTime={result.post.created_at}>{formatDate(result.post.created_at)}</time>
       </header>
 
-      <p className="post-text">{result.post.text || "No post text returned."}</p>
+      <details className="post-original">
+        <summary>Original post text (author's language)</summary>
+        <p className="post-text">{result.post.text || "No post text returned."}</p>
+      </details>
 
       <div className="status-strip">
         <TrustBadge fallbackMode={result.trace.fallback_mode} trustScore={result.trace.trust_score} />
@@ -120,18 +123,21 @@ export default function ResultView({ result }: ResultViewProps) {
         </section>
       ) : null}
 
-      <ol className="bullets" aria-label="explanation bullets">
-        {result.bullets.map((bullet, index) => (
-          <li key={`${bullet.text}-${index}`}>
-            <span>{bullet.text}</span>
-            <span className="citation-row" aria-label={`citations for bullet ${index + 1}`}>
-              {bullet.source_ids.map((sourceId, sourceIndex) => (
-                <CitationChip key={`${sourceId}-${sourceIndex}`} source={sourcesById.get(sourceId)} sourceId={sourceId} />
-              ))}
-            </span>
-          </li>
-        ))}
-      </ol>
+      <section className="explanation-section" aria-labelledby="english-explanation-heading">
+        <h2 id="english-explanation-heading">English explanation</h2>
+        <ol className="bullets" aria-label="explanation bullets">
+          {result.bullets.map((bullet, index) => (
+            <li key={`${bullet.text}-${index}`}>
+              <span>{bullet.text}</span>
+              <span className="citation-row" aria-label={`citations for bullet ${index + 1}`}>
+                {bullet.source_ids.map((sourceId, sourceIndex) => (
+                  <CitationChip key={`${sourceId}-${sourceIndex}`} source={sourcesById.get(sourceId)} sourceId={sourceId} />
+                ))}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       <SourceList sources={result.sources} />
       <TracePanel isOpen={traceOpen} onToggle={() => setTraceOpen((value) => !value)} trace={result.trace} />
