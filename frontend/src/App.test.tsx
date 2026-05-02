@@ -137,7 +137,7 @@ test("submits a Bluesky URL through the typed API client", async () => {
   });
 });
 
-test("shows detailed loading progress while the explanation is running", async () => {
+test("shows honest request status while the explanation is running", async () => {
   const pendingExplain: Array<() => void> = [];
   vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
     const url = String(input);
@@ -156,8 +156,12 @@ test("shows detailed loading progress while the explanation is running", async (
   await fillRequiredFields();
   fireEvent.click(screen.getByRole("button", { name: "Explain" }));
 
-  expect(await screen.findByText("Reading the Bluesky post and thread")).toBeVisible();
+  expect(await screen.findByText("Request sent to the FastAPI explainer.")).toBeVisible();
+  expect(screen.getByText(/Provider: openai/)).toBeVisible();
+  expect(screen.getByText(/exact fetch, search, retrieval, and citation details will appear in the trace/)).toBeVisible();
   expect(screen.getByText("...")).toBeVisible();
+  expect(screen.queryByText("Searching for relevant context")).not.toBeInTheDocument();
+  expect(screen.queryByText("Ranking evidence and checking citations")).not.toBeInTheDocument();
 
   expect(pendingExplain).toHaveLength(1);
   pendingExplain[0]();

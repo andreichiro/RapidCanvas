@@ -22,8 +22,8 @@
 
 .loading-state {
   display: inline-flex;
-  width: fit-content;
-  align-items: center;
+  max-width: 760px;
+  align-items: flex-start;
   gap: 8px;
   border: 1px solid #d8dfdc;
   border-radius: 6px;
@@ -36,6 +36,22 @@
   min-width: 18px;
   color: #1d6552;
   font-weight: 900;
+}
+
+.loading-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.loading-title {
+  color: #1c2528;
+  font-weight: 800;
+}
+
+.loading-detail {
+  color: #52625e;
+  font-size: 0.9rem;
+  line-height: 1.35;
 }
 
 .result-view {

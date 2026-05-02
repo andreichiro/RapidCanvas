@@ -14,13 +14,6 @@ const DEFAULT_PROVIDER: ProviderInfo = {
 
 type RequestState = "idle" | "loading" | "success" | "error";
 
-const LOADING_MESSAGES = [
-  "Reading the Bluesky post and thread",
-  "Searching for relevant context",
-  "Ranking evidence and checking citations",
-  "Writing the English explanation",
-];
-
 export default function App() {
   const [postUrl, setPostUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -30,7 +23,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [providerWarning, setProviderWarning] = useState<string | null>(null);
   const [requestState, setRequestState] = useState<RequestState>("idle");
-  const [loadingStep, setLoadingStep] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   useEffect(() => {
     let ignore = false;
@@ -60,10 +53,10 @@ export default function App() {
     if (requestState !== "loading") {
       return;
     }
-    setLoadingStep(0);
+    setElapsedSeconds(0);
     const timer = window.setInterval(() => {
-      setLoadingStep((current) => (current + 1) % LOADING_MESSAGES.length);
-    }, 2200);
+      setElapsedSeconds((current) => current + 1);
+    }, 1000);
     return () => window.clearInterval(timer);
   }, [requestState]);
 
@@ -73,6 +66,7 @@ export default function App() {
     const trimmedApiKey = apiKey.trim();
     setPostUrl(trimmedUrl);
     setApiKey(trimmedApiKey);
+    setElapsedSeconds(0);
     setRequestState("loading");
     setError(null);
     setProviderWarning(null);
@@ -128,7 +122,13 @@ export default function App() {
               <span className="loading-icon" aria-hidden="true">
                 ...
               </span>
-              <span>{LOADING_MESSAGES[loadingStep]}</span>
+              <span className="loading-copy">
+                <span className="loading-title">Request sent to the FastAPI explainer.</span>
+                <span className="loading-detail">
+                  Provider: {provider}. Waiting {elapsedSeconds}s for the backend response; exact fetch, search,
+                  retrieval, and citation details will appear in the trace when it returns.
+                </span>
+              </span>
             </div>
           ) : null}
           {result ? <ResultView result={result} /> : null}
