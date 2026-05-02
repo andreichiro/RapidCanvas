@@ -3,7 +3,7 @@ SHELL := /bin/bash
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 
-.PHONY: help setup setup-backend setup-backend-full setup-frontend lint backend-lint frontend-lint test backend-test frontend-test run dev start dev-backend dev-frontend docker-config docker-up docker-down eval eval-cached eval-api provider-comparison live-quality-smoke world-class-review gate6-shipping-audit gate7-final-truth-audit optimize mlflow-log mlflow-ui clean clean-generated check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review skills-review maintainability-review api-smoke frontend-smoke user-smoke deep-review
+.PHONY: help setup setup-backend setup-backend-full setup-frontend lint backend-lint frontend-lint test backend-test frontend-test run dev start dev-backend dev-frontend docker-config docker-up docker-down eval eval-cached eval-api provider-comparison live-quality-smoke live-quality-review world-class-review gate6-shipping-audit gate7-final-truth-audit optimize mlflow-log mlflow-ui clean clean-generated check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review skills-review maintainability-review api-smoke frontend-smoke user-smoke deep-review
 
 help:
 	@echo "Bluesky Contextual Post Explainer"
@@ -30,6 +30,7 @@ help:
 	@echo "  make eval-api             Alias for live FastAPI eval"
 	@echo "  make provider-comparison  Write provider comparison/skip report"
 	@echo "  make live-quality-smoke   Run live provider comparison; requires OPENAI_API_KEY"
+	@echo "  make live-quality-review  Write curated live proof; requires OPENAI_API_KEY"
 	@echo "  make world-class-review   Run full local review plus cached/live-aware eval strategy"
 	@echo "  make gate6-shipping-audit Regenerate eval reports and verify Gate 6 truth layer"
 	@echo "  make gate7-final-truth-audit Verify final truth docs do not overclaim"
@@ -218,12 +219,15 @@ provider-comparison:
 live-quality-smoke:
 	cd $(BACKEND_DIR) && uv run python -m app.eval.provider_comparison --live --require-openai --max-cases 2
 
+live-quality-review:
+	cd $(BACKEND_DIR) && RETRIEVAL_MAX_QUERIES=2 RETRIEVAL_SEARCH_LIMIT_PER_PROVIDER=2 RETRIEVAL_LINKED_PAGE_LIMIT=1 uv run python ../scripts/write_live_quality_review.py --max-cases 6
+
 world-class-review: deep-review eval-cached provider-comparison optimize mlflow-log gate7-final-truth-audit
 	@if [[ -n "$${OPENAI_API_KEY:-}" ]]; then \
-		$(MAKE) eval live-quality-smoke; \
+		$(MAKE) eval live-quality-smoke live-quality-review; \
 	else \
 		echo "Skipping live eval/live-quality-smoke because OPENAI_API_KEY is not set."; \
-		echo "Run OPENAI_API_KEY=... make eval for first-class live quality."; \
+		echo "Run OPENAI_API_KEY=... make eval live-quality-review for first-class live quality."; \
 	fi
 
 gate6-shipping-audit: eval-cached

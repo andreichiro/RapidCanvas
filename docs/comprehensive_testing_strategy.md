@@ -41,6 +41,9 @@ slow benchmark.
 - Confirm output is English, has 3-5 cited bullets, uses `adapter_mode=none`
   when provider-backed generation succeeds, and exposes trace warnings for
   degraded behavior.
+- Run `make live-quality-review` with `OPENAI_API_KEY` when preparing a
+  reviewer proof. It writes a curated doc, not raw generated reports, with
+  bullets, citations, source counts, latency, fallback mode, and Qdrant status.
 - Treat video posts as supported degraded inputs: explain text/thread/link/image
   evidence, keep the request successful, and surface `video_embed_unparsed`.
 - Treat image posts as first-class inputs: use OpenAI vision when a key and image
@@ -99,11 +102,13 @@ Critical:
 - API key is required but never committed.
 - Live explain returns a schema-valid response with 3-5 cited English bullets or
   an honest fallback.
+- Runtime dependency failures return a safe JSON API error envelope instead of
+  leaking provider, retrieval, traceback, path, or key details.
 - `make eval` cannot hide unrelated live failures behind mismatched fixtures.
 
 High:
-- Qdrant uses the Docker service when `QDRANT_URL` is set and degrades with a
-  trace-visible fallback otherwise.
+- Trace output explicitly reports `qdrant_vector_store` or `in_memory_fallback`
+  so reviewers can see whether Qdrant was used or retrieval degraded.
 - Reranking remains part of the runtime ranking path.
 - Prompt-injection labels preserve post, thread, web, image alt text, and image
   description boundaries.

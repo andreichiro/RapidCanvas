@@ -229,6 +229,18 @@ def dedupe_values(values: Iterable[T]) -> list[T]:
     return deduped
 
 
+def vector_store_backend_name(vector_store: object) -> str:
+    name = getattr(vector_store, "backend_name", None)
+    if isinstance(name, str) and name:
+        return name
+    return f"vector_store:{type(vector_store).__name__}"
+
+
+def diagnostic_warnings(warnings: Sequence[str], vector_store_backend: str) -> list[str]:
+    suffix = [vector_store_backend] if vector_store_backend else []
+    return list(dict.fromkeys([*warnings, *suffix]))
+
+
 def dedupe_limited_values_with_warnings(
     values: object,
     limit: int,

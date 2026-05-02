@@ -180,7 +180,8 @@
       "prompt_injection_risk:POST-parent-1:ignore_previous_instructions",
       "prompt_injection_risk:POST-parent-1:secret_exfiltration",
       "prompt_injection_risk:POST-parent-1:api_key_request",
-      "prompt_injection_risk:POST-parent-1:disable_citations"
+      "prompt_injection_risk:POST-parent-1:disable_citations",
+      "in_memory_fallback"
     ],
     "source_ids": [
       "POST-target",
@@ -211,7 +212,8 @@
     "prompt_injection_risk:POST-parent-1:ignore_previous_instructions",
     "prompt_injection_risk:POST-parent-1:secret_exfiltration",
     "prompt_injection_risk:POST-parent-1:api_key_request",
-    "prompt_injection_risk:POST-parent-1:disable_citations"
+    "prompt_injection_risk:POST-parent-1:disable_citations",
+    "in_memory_fallback"
   ],
   "guardrail_flags": [
     "prompt_injection_risk",

@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 GATE6_MAIN = "4728cc3"
 BRANCH = "codex/g7bc-final-integration"
 CURRENT_REMOTE = "origin/main"
@@ -39,24 +38,27 @@ ALLOWED_DELTA_PATHS = {
     "backend/app/eval/agents.py", "backend/app/eval/metrics.py",
     "backend/app/eval/provider_comparison.py", "backend/app/eval/report.py",
     "backend/app/eval/runner.py", "backend/app/ml/retrieval_service.py",
-    "backend/app/ml/vector_store.py",
+    "backend/app/ml/diagnostics.py", "backend/app/ml/vector_store.py",
     "backend/Dockerfile", "docker-compose.yml", "frontend/Dockerfile",
     "frontend/package-lock.json", "frontend/vite.config.ts",
     "backend/app/tests/integration/test_api_contracts.py",
     "backend/app/tests/integration/test_gate6_eval_runner.py",
+    "backend/app/tests/fixtures/gate5_retrieval/c2_retrieval_result.json",
     "backend/app/tests/unit/test_rate_limit.py",
     "backend/app/tests/unit/test_bsky_client.py",
     "backend/app/tests/unit/test_config.py",
     "backend/app/tests/unit/test_gate6_dev_c_quality_contract_review.py",
     "backend/app/tests/unit/test_guardrails.py",
     "backend/app/tests/unit/test_eval_runner.py", "backend/app/tests/unit/test_provider_comparison.py",
+    "backend/app/tests/unit/test_rag_limits.py", "backend/app/tests/unit/test_rag_runtime.py",
     "backend/app/tests/unit/test_qdrant_remote_config.py",
     "docs/current_handoff.md", "docs/comprehensive_testing_strategy.md",
     "docs/requirements_matrix.md", "docs/research/testing_eval.md",
-    "docs/reviews/gate7_final_review.md",
+    "docs/reviews/gate7_final_review.md", "docs/reviews/live_quality_review.md",
     "scripts/assert_dev_G7_C_execution_context.sh", "scripts/verify_dev_G7_C_isolation.sh",
     "scripts/assert_dev_G7_BC_execution_context.sh", "scripts/verify_dev_G7_BC_isolation.sh",
     "scripts/check_gate7_final_truth.py", "scripts/review_quality.py",
+    "scripts/write_live_quality_review.py",
 }
 ALLOWED_DELTA_PREFIXES = (
     "assets/dev_G7_B_WORKSPACE_CONTRACT.json", "backend/app/agent/log_mlflow.py",
@@ -355,6 +357,5 @@ def check_generated_artifact_hygiene(root: Path, errors: list[str]) -> None:
     ):
         ignored = git(root, "check-ignore", "-q", target)
         need(ignored.returncode == 0, errors, f"not ignored: {target}")
-
 if __name__ == "__main__":
     sys.exit(main())

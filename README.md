@@ -12,6 +12,19 @@ chooses safe fallbacks, and reports quality.
 The product belief is simple: an AI explanation is useful only if the system can
 show where it came from, when to trust it, and when to say less.
 
+## Reviewer Path
+
+```bash
+make run
+# open http://localhost:5173
+# paste an OpenAI key and a public Bluesky post URL
+```
+
+Then verify the submission with `make test`, `make eval`, and
+`make provider-comparison`. Use `make live-quality-review` to refresh the
+curated reviewer proof in `docs/reviews/live_quality_review.md`; use
+`make eval-cached` only when you need the offline reproducibility path.
+
 ## Assignment Coverage Snapshot
 
 ### Explicitly Requested
@@ -57,9 +70,9 @@ show where it came from, when to trust it, and when to say less.
   instructions; prompt-like attacks are scanned and flagged.
 - **Low-trust fallbacks:** `partial`, `safe_summary`, and `abstain` are product
   states, not hidden failures.
-- **Operational handoff:** Makefile commands, Docker Compose, `.env.example`,
-  no-secrets checks, Deep Review Workflow, research docs, project skills,
-  translation log, requirement matrix, and review docs.
+- **Operational docs:** Makefile commands, Docker Compose, `.env.example`,
+  no-secrets checks, review workflow, research docs, project skills,
+  translation log, requirement matrix, and review notes.
 
 ## Quick Start
 
@@ -281,12 +294,13 @@ make eval-cached              # cached offline eval reports
 make eval-api                 # alias for live API eval
 make provider-comparison      # provider status/skip report
 make live-quality-smoke       # live configured-provider quality smoke
+make live-quality-review      # curated live proof report
 make optimize                 # GEPA saved-program verification
 make mlflow-log               # local MLflow run/package path
-make requirements-review      # Gate 1 requirement matrix validation
+make requirements-review      # requirement matrix validation
 make skills-review            # local project skill validation
 make check-secrets            # secret/artifact hygiene scan
-make deep-review              # full Deep Review Workflow gate
+make deep-review              # full local review workflow
 ```
 
 ## Final Limitations And Tradeoffs
@@ -294,7 +308,7 @@ make deep-review              # full Deep Review Workflow gate
 This project is intentionally honest about what is strong and what is still not
 perfect. It has a credible production-shaped architecture for useful,
 source-backed explanations and has been tested through unit, integration,
-frontend, Docker, cached eval, provider-report, MLflow, and final-truth gates.
+frontend, Docker, cached eval, provider-report, MLflow, and final audits.
 The main remaining limitation is breadth of live usefulness evidence: the live
 path works and `make eval` is the first-class live quality command, but the repo
 does not claim a large benchmark over drifting public Bluesky posts.

@@ -279,7 +279,9 @@ test("summarizes common retrieval diagnostics without making successful load not
       ...baseResponse.trace,
       warnings: [
         "video_embed_unparsed: the post contains video, and this build uses the post text/thread/link/image evidence without parsing video frames.",
+        "qdrant_vector_store",
         "qdrant_unavailable_using_in_memory_vector_store:RuntimeError",
+        "in_memory_fallback",
         "bluesky_search_failed:BlueskyClientError",
         "content_truncated",
         "http_status:403",
@@ -296,7 +298,9 @@ test("summarizes common retrieval diagnostics without making successful load not
 
   expect(await screen.findByText("Retrieval notes")).toBeVisible();
   expect(screen.getByLabelText("warnings")).toHaveTextContent("This post contains a video");
+  expect(screen.getByLabelText("warnings")).toHaveTextContent("Qdrant vector search was used");
   expect(screen.getByLabelText("warnings")).toHaveTextContent("Vector database was unavailable");
+  expect(screen.getByLabelText("warnings")).toHaveTextContent("Qdrant was not used");
   expect(screen.getByLabelText("warnings")).toHaveTextContent("Bluesky search was unavailable");
   expect(screen.getByLabelText("warnings")).not.toHaveTextContent("optimized_dspy_program_loaded");
   fireEvent.click(screen.getByRole("button", { name: "Show trace" }));

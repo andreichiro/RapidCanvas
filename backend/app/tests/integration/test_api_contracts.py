@@ -156,6 +156,16 @@ class InvalidUrlExplainer:
         raise InvalidBlueskyPostUrlError("unsupported post URL")
 
 
+class ExplodingExplainer:
+    def explain(self, request: ExplainRequest) -> ExplainResponse:
+        raise RuntimeError("provider crashed with sk-secret-like diagnostic")
+
+
+class TimeoutExplainer:
+    def explain(self, request: ExplainRequest) -> ExplainResponse:
+        raise TimeoutError("upstream timed out")
+
+
 def test_explain_route_returns_schema_valid_gate3_response() -> None:
     route_client = TestClient(create_app(explainer=FakeExplainer()))
     response = route_client.post(
@@ -231,6 +241,39 @@ def test_explain_route_maps_late_invalid_url_failure() -> None:
 
     assert response.status_code == 422
     assert response.json()["detail"]["code"] == "invalid_bluesky_url"
+
+
+def test_explain_route_maps_unexpected_runtime_failure_to_safe_error() -> None:
+    route_client = TestClient(create_app(explainer=ExplodingExplainer()))
+    response = route_client.post(
+        "/api/explain",
+        json={
+            "post_url": "https://bsky.app/profile/example.com/post/3abcxyz",
+            "provider": "openai",
+            "include_trace": True,
+        },
+    )
+
+    payload = response.json()["detail"]
+    assert response.status_code == 502
+    assert payload["code"] == "explanation_failed"
+    assert "sk-" not in payload["message"]
+    assert "traceback" not in payload["message"].lower()
+
+
+def test_explain_route_maps_dependency_timeout_to_retryable_error() -> None:
+    route_client = TestClient(create_app(explainer=TimeoutExplainer()))
+    response = route_client.post(
+        "/api/explain",
+        json={
+            "post_url": "https://bsky.app/profile/example.com/post/3abcxyz",
+            "provider": "openai",
+            "include_trace": True,
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["code"] == "runtime_dependency_unavailable"
 
 
 def test_openapi_exposes_frozen_explain_contract() -> None:

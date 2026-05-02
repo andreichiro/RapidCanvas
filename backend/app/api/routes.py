@@ -79,30 +79,64 @@ def create_api_router(settings: Settings, explainer: ExplainerService | None = N
     def explain(request: ExplainRequest) -> ExplainResponse:
         try:
             return explainer_resolver.for_request(request).explain(request)
-        except InvalidBlueskyPostUrlError as exc:
-            raise HTTPException(
-                status_code=422,
-                detail={
-                    "code": "invalid_bluesky_url",
-                    "message": _safe_error_message(
-                        str(exc),
-                        fallback="Expected https://bsky.app/profile/{actor}/post/{rkey}",
-                    ),
-                },
-            ) from exc
-        except BlueskyClientError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail={
-                    "code": "bluesky_fetch_failed",
-                    "message": _safe_error_message(
-                        str(exc),
-                        fallback="Unable to fetch Bluesky post context.",
-                    ),
-                },
-            ) from exc
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise _http_error_for_explain_failure(exc) from exc
 
     return router
+
+
+def _http_error_for_explain_failure(exc: Exception) -> HTTPException:
+    if isinstance(exc, InvalidBlueskyPostUrlError):
+        return HTTPException(
+            status_code=422,
+            detail={
+                "code": "invalid_bluesky_url",
+                "message": _safe_error_message(
+                    str(exc),
+                    fallback="Expected https://bsky.app/profile/{actor}/post/{rkey}",
+                ),
+            },
+        )
+    if isinstance(exc, BlueskyClientError):
+        return HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "bluesky_fetch_failed",
+                "message": _safe_error_message(
+                    str(exc),
+                    fallback="Unable to fetch Bluesky post context.",
+                ),
+            },
+        )
+    if isinstance(exc, TimeoutError | ConnectionError):
+        return HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "runtime_dependency_unavailable",
+                "message": _safe_error_message(
+                    str(exc),
+                    fallback=(
+                        "A runtime dependency was unavailable while explaining "
+                        "this post. Please retry shortly."
+                    ),
+                ),
+            },
+        )
+    return HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail={
+            "code": "explanation_failed",
+            "message": _safe_error_message(
+                str(exc),
+                fallback=(
+                    "The explainer could not complete this request safely. "
+                    "Please retry or use a different public Bluesky post."
+                ),
+            ),
+        },
+    )
 
 
 def _safe_error_message(message: str, *, fallback: str) -> str:

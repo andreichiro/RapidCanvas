@@ -254,7 +254,10 @@ def test_rag_service_degrades_bad_document_container() -> None:
     )
 
     assert service.retrieve("mars", cast(Any, BadDocumentIterable())) == []
-    assert service.last_diagnostics.warnings == ("rag_documents_iter_failed:RuntimeError",)
+    assert service.last_diagnostics.warnings == (
+        "rag_documents_iter_failed:RuntimeError",
+        "in_memory_fallback",
+    )
 
 
 def test_rag_service_degrades_empty_embedding_batch() -> None:

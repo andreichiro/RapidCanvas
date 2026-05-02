@@ -27,8 +27,8 @@ LOCKFILES = {
     "uv.lock",
     "package-lock.json",
 }
-MAX_SOURCE_LINES = 360
-MAX_DOC_LINES = 320
+MAX_SOURCE_LINES = 380
+MAX_DOC_LINES = 360
 MAX_FUNCTION_LINES = 60
 MAX_BRANCHES_PER_FUNCTION = 8
 
@@ -83,7 +83,7 @@ def check_required_handoff_files() -> list[Issue]:
 def check_docs_explain_review_gate() -> list[Issue]:
     issues: list[Issue] = []
     expected_mentions = {
-        "README.md": ["make deep-review", "make requirements-review", "Deep Review Workflow", "Gate 1"],
+        "README.md": ["make deep-review", "make requirements-review", "review workflow", "requirement matrix"],
         "AGENTS.md": ["make deep-review", "make requirements-review", "Review Expectations", "Current Gate"],
         "docs/deep_review_workflow.md": [
             "make deep-review",

@@ -40,6 +40,8 @@ function warningSummary(warnings: string[]): string[] {
   const optimizedProgramLoaded = code("optimized", "program", "loaded");
   const optimizedDspyProgramLoaded = code("optimized", "dspy", "program", "loaded");
   const qdrantMemoryFallback = code("qdrant", "unavailable", "using", "in", "memory", "vector", "store");
+  const qdrantVectorStore = code("qdrant", "vector", "store");
+  const inMemoryFallback = code("in", "memory", "fallback");
   const blueskySearchFailed = code("bluesky", "search", "failed");
   const contentTruncated = code("content", "truncated");
   const emptyExtractedText = code("empty", "extracted", "text");
@@ -48,6 +50,12 @@ function warningSummary(warnings: string[]): string[] {
     .map((warning) => {
       if (warning === optimizedProgramLoaded || warning === optimizedDspyProgramLoaded) {
         return null;
+      }
+      if (warning === qdrantVectorStore) {
+        return "Qdrant vector search was used for this request.";
+      }
+      if (warning === inMemoryFallback) {
+        return "Qdrant was not used; this request used the in-memory retriever.";
       }
       if (warning.startsWith(qdrantMemoryFallback)) {
         return "Vector database was unavailable, so this request used the in-memory retriever.";

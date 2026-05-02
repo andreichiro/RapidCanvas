@@ -90,6 +90,10 @@ def build_provider_comparison(
     return {
         "mode": "live" if live else "catalog",
         "case_count": len(urls),
+        "credential_scope": (
+            "configured means server environment credentials; the OpenAI "
+            "per-request key path is exercised by the UI/API and is not stored"
+        ),
         "providers": [run.as_dict() for run in runs],
     }
 
@@ -244,6 +248,7 @@ def _markdown(result: dict[str, object]) -> str:
         "",
         f"- Mode: `{result.get('mode')}`",
         f"- Case count: `{result.get('case_count')}`",
+        f"- Credential scope: {result.get('credential_scope')}",
         "",
         "| Provider | Status | Configured | Quality Pass | Bullets | Sources | Fallback | Notes |",
         "|---|---|---:|---:|---:|---:|---|---|",

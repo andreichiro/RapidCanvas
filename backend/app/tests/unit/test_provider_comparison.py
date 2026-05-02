@@ -44,6 +44,7 @@ def test_provider_comparison_catalog_reports_skipped_optionals() -> None:
     result = build_provider_comparison(settings=Settings(openai_api_key=None), live=False)
     providers = {row["provider"]: row for row in _provider_rows(result)}
 
+    assert "per-request key path" in str(result["credential_scope"])
     assert providers["openai"]["status"] == "skipped"
     assert providers["anthropic"]["skipped_reason"] == "ANTHROPIC_API_KEY is not configured"
     assert providers["gemini"]["skipped_reason"] == "GEMINI_API_KEY is not configured"
@@ -78,6 +79,8 @@ def test_provider_comparison_writes_markdown_and_json(tmp_path: Path) -> None:
     markdown = Path(paths["markdown"]).read_text(encoding="utf-8")
     payload = Path(paths["json"]).read_text(encoding="utf-8")
     assert "Provider Comparison" in markdown
+    assert "Credential scope" in markdown
+    assert "per-request key path" in markdown
     assert "ANTHROPIC_API_KEY is not configured" in markdown
     assert '"provider": "openai"' in payload
 

@@ -42,6 +42,57 @@ def test_rag_service_degrades_empty_embedding_batch() -> None:
 
     assert service.retrieve("mars", [_document()]) == []
     assert "rag_embedding_shape_invalid" in service.last_diagnostics.warnings
+    assert "in_memory_fallback" in service.last_diagnostics.warnings
+
+
+def test_rag_service_records_qdrant_backend_when_vector_store_succeeds() -> None:
+    class FakeQdrantStore(InMemoryVectorStore):
+        backend_name = "qdrant_vector_store"
+
+    service = RagService(
+        embedding_provider=KeywordEmbeddingProvider(),
+        vector_store=FakeQdrantStore(),
+        reranker=SimilarityReranker(),
+        chunking=ChunkingConfig(name="test", size=100, overlap=10),
+        retrieve_limit=1,
+        evidence_limit=1,
+    )
+
+    evidence = service.retrieve("mars", [_document()])
+
+    assert evidence[0].document_id == "D1"
+    assert "qdrant_vector_store" in service.last_diagnostics.warnings
+
+
+def test_rag_service_retries_in_memory_when_qdrant_runtime_fails() -> None:
+    class FailingQdrantStore:
+        backend_name = "qdrant_vector_store"
+
+        def recreate_collection(self, vector_size: int) -> None:
+            del vector_size
+            raise RuntimeError("qdrant down")
+
+        def upsert(self, chunks: object, embeddings: object) -> None:
+            del chunks, embeddings
+
+        def query(self, embedding: list[float], limit: int) -> list[VectorSearchResult]:
+            del embedding, limit
+            return []
+
+    service = RagService(
+        embedding_provider=KeywordEmbeddingProvider(),
+        vector_store=FailingQdrantStore(),
+        reranker=SimilarityReranker(),
+        chunking=ChunkingConfig(name="test", size=100, overlap=10),
+        retrieve_limit=1,
+        evidence_limit=1,
+    )
+
+    evidence = service.retrieve("mars", [_document()])
+
+    assert evidence[0].document_id == "D1"
+    assert "qdrant_runtime_failed_using_in_memory_fallback" in service.last_diagnostics.warnings
+    assert "in_memory_fallback" in service.last_diagnostics.warnings
 
 
 def test_rag_service_falls_back_on_malformed_reranker_output() -> None:
