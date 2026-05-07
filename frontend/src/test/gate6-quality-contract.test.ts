@@ -3,6 +3,8 @@ import { expect, test } from "vitest";
 import { type ExplainResponse } from "../api/client";
 import appSource from "../App.tsx?raw";
 import apiClientSource from "../api/client.ts?raw";
+import apiTypesSource from "../api/types.ts?raw";
+import apiValidationSource from "../api/validation.ts?raw";
 import citationChipSource from "../components/CitationChip.tsx?raw";
 import errorBannerSource from "../components/ErrorBanner.tsx?raw";
 import guardrailFlagsSource from "../components/GuardrailFlags.tsx?raw";
@@ -39,6 +41,8 @@ const gate6Responses: ExplainResponse[] = [
 const productionSourceFiles: Array<{ path: string; text: string }> = [
   { path: "App.tsx", text: appSource },
   { path: "api/client.ts", text: apiClientSource },
+  { path: "api/types.ts", text: apiTypesSource },
+  { path: "api/validation.ts", text: apiValidationSource },
   { path: "components/CitationChip.tsx", text: citationChipSource },
   { path: "components/ErrorBanner.tsx", text: errorBannerSource },
   { path: "components/GuardrailFlags.tsx", text: guardrailFlagsSource },
@@ -73,7 +77,7 @@ test("Gate 6 fixture responses stay inside the public API contract shape", () =>
     expect(response.trace.trust_score).toEqual(expect.any(Number));
     expect(["none", "partial", "abstain", "safe_summary"]).toContain(response.trace.fallback_mode);
     expect(response.trace.guardrail_flags).toEqual(expect.any(Array));
-    expect(["none", "deterministic_dev"]).toContain(response.trace.adapter_mode);
+    expect(["none", "deterministic_fallback"]).toContain(response.trace.adapter_mode);
     expect(response.trace.adapter_notes).toEqual(expect.any(Array));
   }
 });
@@ -93,10 +97,17 @@ test("production frontend code renders backend quality fields without making qua
   const backendFlagLiteralPattern =
     /\b(?:low_evidence|prompt_injection_risk|conflicting_sources|weak_retrieval_score|dspy_provider_error|post_unavailable|disable_citations|provider_upstream_error)\b/;
   const allowedSchemaSnakeCaseLiterals = new Set([
-    "deterministic_dev",
+    "deterministic_fallback",
+    "adapter_mode",
     "fallback_mode",
     "safe_summary",
     "video_embed_unparsed",
+    "comparison_status",
+    "configured_not_run",
+    "deterministic_dev",
+    "missing_request_api_key",
+    "quality_score",
+    "request_canceled",
   ]);
   const snakeCaseStringLiteralPattern = /["'`]([a-z]+(?:_[a-z]+)+)["'`]/g;
 

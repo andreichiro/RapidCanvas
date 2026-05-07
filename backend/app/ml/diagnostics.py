@@ -29,6 +29,7 @@ class RetrievalDiagnostics:
     search_queries: tuple[str, ...] = ()
     document_count: int = 0
     evidence_count: int = 0
+    source_quality: tuple[dict[str, object], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -70,6 +71,7 @@ def make_retrieval_result(
     private_url_blocks: Sequence[object],
     extra_guardrail_flags: Sequence[object] = (),
     reranker_scores: Mapping[str, float] | None = None,
+    source_quality: Sequence[Mapping[str, object]] = (),
 ) -> RetrievalResult:
     safe_evidence_result = safe_evidence_for_documents(evidence, documents)
     safe_evidence = safe_evidence_result.evidence
@@ -100,6 +102,7 @@ def make_retrieval_result(
         search_queries=tuple(query_values),
         document_count=len(documents),
         evidence_count=len(safe_evidence),
+        source_quality=tuple(dict(item) for item in source_quality),
     )
     return RetrievalResult(
         documents=documents,

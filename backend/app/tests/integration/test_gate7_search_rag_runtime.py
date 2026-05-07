@@ -122,6 +122,7 @@ def test_gate7_default_api_path_uses_one_shot_search_rag(monkeypatch: Any) -> No
         lambda settings, vector_store: (InMemoryVectorStore(), []),
     )
     monkeypatch.setattr(retrieval_service, "LinkedPageFetcher", FakeLinkedPageFetcher)
+
     def default_search_providers(settings: Any, fetcher: Any) -> list[FakeSearchProvider]:
         del fetcher
         captured_settings["retrieval"] = settings
@@ -148,6 +149,9 @@ def test_gate7_default_api_path_uses_one_shot_search_rag(monkeypatch: Any) -> No
     assert runtime_settings.max_queries == 3
     assert runtime_settings.search_limit_per_provider == 3
     assert runtime_settings.linked_page_limit == 3
+    assert runtime_settings.linked_page_concurrency == 4
+    assert runtime_settings.search_concurrency == 4
+    assert runtime_settings.retrieval_timeout_seconds == 25.0
     assert search_provider.calls
     assert all(limit == 3 for _, limit in search_provider.calls)
     assert 1 <= len(validated.trace.queries) <= 3
@@ -240,8 +244,10 @@ class StaticFetcher:
 
 class WarningFetcher:
     def fetch_context(self, url: str) -> PostContext:
-        return StaticFetcher().fetch_context(url).model_copy(
-            update={"warnings": ["post_context_warning"]}
+        return (
+            StaticFetcher()
+            .fetch_context(url)
+            .model_copy(update={"warnings": ["post_context_warning"]})
         )
 
 

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import importlib
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
 from itertools import islice
-from typing import Any, Protocol, cast
+from typing import Any
+from urllib.parse import urlparse
 
 from app.clients import search_support as ss
 from app.clients.extraction import (
@@ -17,26 +16,25 @@ from app.clients.extraction import (
     validate_public_http_url,
 )
 from app.clients.fetcher import LinkedPageFetcher
+from app.clients.search_collect import (
+    SearchBundle,
+    SearchProvider,
+    SearchProviderWithWarnings,
+    collect_search_context,
+)
 from app.guardrails.prompt_injection import sanitize_context_document
 from app.ml.boundary import boundary_attr as ba
-from app.ml.boundary import boundary_text, bounded_items, safe_limit
+from app.ml.boundary import boundary_text, safe_limit
 from app.schemas.domain import ContextDocument
 
-_LEGACY_PROVIDER_LOCKS: dict[int, asyncio.Lock] = {}
-
-
-class SearchProvider(Protocol):
-    async def search(self, query: str, limit: int = 5) -> list[ContextDocument]: ...
-
-
-@dataclass(frozen=True)
-class SearchBundle:
-    documents: list[ContextDocument]
-    warnings: list[str]
-
-
-class SearchProviderWithWarnings(SearchProvider, Protocol):
-    async def search_with_warnings(self, query: str, limit: int = 5) -> SearchBundle: ...
+__all__ = [
+    "BlueskySearchProvider",
+    "SearchBundle",
+    "SearchProvider",
+    "SearchProviderWithWarnings",
+    "WebSearchProvider",
+    "collect_search_context",
+]
 
 
 class BlueskySearchProvider:
@@ -177,10 +175,21 @@ class WebSearchProvider:
                 self._record_blocked_url(url, result.warnings, warnings)
                 return None
             warnings.extend(result.warnings)
-            return self._fallback_document(hit, query=query, index=index, warnings=warnings)
+            return self._fallback_document(
+                hit,
+                query=query,
+                index=index,
+                warnings=warnings,
+                fetch_status=result.status_code,
+                fetch_warnings=result.warnings,
+            )
         warnings.extend(result.warnings)
         sanitized, scan = sanitize_search_hit_document(
-            result.document, hit, query=query, index=index
+            result.document,
+            hit,
+            query=query,
+            index=index,
+            fetch_status=result.status_code,
         )
         if scan.is_risky:
             warnings.append(f"prompt_injection_risk:{sanitized.id}")
@@ -202,7 +211,14 @@ class WebSearchProvider:
             return []
 
     def _fallback_document(
-        self, hit: dict[str, Any], *, query: str, index: int, warnings: list[str]
+        self,
+        hit: dict[str, Any],
+        *,
+        query: str,
+        index: int,
+        warnings: list[str],
+        fetch_status: int | None,
+        fetch_warnings: tuple[str, ...] = (),
     ) -> ContextDocument | None:
         url = boundary_text(hit.get("href") or hit.get("url") or "")
         snippet = boundary_text(hit.get("body") or hit.get("snippet") or "")
@@ -217,8 +233,14 @@ class WebSearchProvider:
             metadata={},
         )
         sanitized, scan = sanitize_search_hit_document(
-            document, hit, query=query, index=index, fetch_fallback=True
+            document,
+            hit,
+            query=query,
+            index=index,
+            fetch_fallback=True,
+            fetch_status=fetch_status,
         )
+        sanitized = _with_fetch_warning_metadata(sanitized, fetch_warnings)
         if scan.is_risky:
             warnings.append(f"prompt_injection_risk:{sanitized.id}")
         return sanitized
@@ -232,67 +254,24 @@ class WebSearchProvider:
         return ddgs_module.DDGS()
 
 
-async def collect_search_context(
-    query: str,
-    providers: list[SearchProvider],
-    limit_per_provider: int = 5,
-) -> SearchBundle:
-    documents: list[ContextDocument] = []
-    warnings: list[str] = []
-    limit_per_provider = safe_limit(limit_per_provider)
-    query_text = boundary_text(query, "search_query_text_failed")
-    if limit_per_provider == 0 or not query_text.strip():
-        return SearchBundle(documents=[], warnings=[])
-    provider_items, provider_warnings = bounded_items(
-        providers, 50, "search_providers_iter_failed"
-    )
-    warnings.extend(provider_warnings)
-    for provider_item in provider_items:
-        provider = cast(SearchProvider, provider_item)
-        try:
-            if callable(getattr(provider, "search_with_warnings", None)):
-                bundle = await cast(SearchProviderWithWarnings, provider).search_with_warnings(
-                    query_text, limit=limit_per_provider
-                )
-            else:
-                bundle = await _legacy_provider_search_bundle(
-                    provider, query_text, limit_per_provider
-                )
-            valid_documents = [doc for doc in bundle.documents if isinstance(doc, ContextDocument)]
-            invalid_count = len(bundle.documents) - len(valid_documents)
-            overflow_count = max(0, len(valid_documents) - limit_per_provider)
-            documents.extend(valid_documents[:limit_per_provider])
-            warnings.extend(ss.warning_strings(bundle.warnings))
-            name = provider.__class__.__name__
-            if invalid_count:
-                warnings.append(f"search_provider_invalid_documents:{name}:{invalid_count}")
-            if overflow_count:
-                warnings.append(f"search_provider_result_limit_exceeded:{name}:{overflow_count}")
-        except Exception as exc:
-            warnings.append(ss.provider_failure_warning(provider, exc))
-            continue
-    return SearchBundle(documents=documents, warnings=warnings)
-
-
-async def _legacy_provider_search_bundle(
-    provider: SearchProvider, query: str, limit: int
-) -> SearchBundle:
-    async with _LEGACY_PROVIDER_LOCKS.setdefault(id(provider), asyncio.Lock()):
-        documents = await provider.search(query, limit=limit)
-        warnings = ss.warning_strings(getattr(provider, "last_warnings", []))
-    return SearchBundle(documents=documents, warnings=warnings)
-
-
 def _document_from_bluesky_search_item(
     post: Any, *, query: str, index: int
 ) -> ContextDocument | None:
     if isinstance(post, ContextDocument):
+        url = ba(post, "url", "document_url_field_failed")
+        url_text = boundary_text(url, "document_url_text_failed")
         metadata = {
             **_metadata_mapping(post.metadata),
+            "provider": "bluesky_search",
+            "query": query,
             "rank": index,
+            "domain": _canonical_domain(url_text),
             "search_query": query,
+            "snippet_only": False,
+            "fetch_success": True,
+            "fetch_status": 200,
         }
-        return post.model_copy(update={"metadata": metadata})
+        return post.model_copy(update={"url": url, "metadata": metadata})
     text = ss.post_text(post)
     if not text:
         return None
@@ -304,7 +283,18 @@ def _document_from_bluesky_search_item(
         title=f"Bluesky search result by {author}",
         url=ss.post_url(post, fallback_uri=uri),
         text=text,
-        metadata={"rank": index, "at_uri": uri, "author": author, "search_query": query},
+        metadata={
+            "provider": "bluesky_search",
+            "query": query,
+            "rank": index,
+            "domain": "bsky.app",
+            "at_uri": uri,
+            "author": author,
+            "search_query": query,
+            "snippet_only": False,
+            "fetch_success": True,
+            "fetch_status": 200,
+        },
     )
 
 
@@ -315,3 +305,28 @@ def _metadata_mapping(value: object) -> dict[str, object]:
         except Exception as exc:
             return {"metadata_iter_failed": f"metadata_iter_failed:{exc.__class__.__name__}"}
     return {"metadata": value}
+
+
+def _canonical_domain(url: str) -> str:
+    return (urlparse(url).hostname or "").lower().removeprefix("www.")
+
+
+def _with_fetch_warning_metadata(
+    document: ContextDocument,
+    fetch_warnings: tuple[str, ...],
+) -> ContextDocument:
+    if not fetch_warnings:
+        return document
+    metadata = dict(document.metadata)
+    existing = metadata.get("warnings")
+    warning_values = list(existing) if isinstance(existing, list) else []
+    for warning in fetch_warnings:
+        if warning not in warning_values:
+            warning_values.append(warning)
+    metadata["warnings"] = warning_values
+    metadata["fetch_warnings"] = list(fetch_warnings)
+    if "robots_disallowed" in fetch_warnings:
+        metadata["robots_disallowed"] = True
+        metadata["fetch_status"] = "robots_disallowed"
+        metadata["fetch_status_reason"] = "robots_disallowed"
+    return document.model_copy(update={"metadata": metadata})

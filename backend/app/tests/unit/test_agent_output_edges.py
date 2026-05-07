@@ -28,7 +28,7 @@ def test_unknown_citation_forces_partial_trace_not_none() -> None:
     assert "unknown_citation" in response.trace.guardrail_flags
     assert len(response.bullets) == 3
     visible_post_bullet = next(
-        bullet for bullet in response.bullets if "visible Bluesky post says" in bullet.text
+        bullet for bullet in response.bullets if bullet.source_ids == [POST_SOURCE_ID]
     )
     assert visible_post_bullet.source_ids == [POST_SOURCE_ID]
     post_source = next(source for source in response.sources if source.id == POST_SOURCE_ID)
@@ -94,7 +94,7 @@ def test_dspy_provider_error_degrades_to_guarded_safe_summary() -> None:
     )
 
     assert response.trace.fallback_mode == "safe_summary"
-    assert response.trace.adapter_mode == "deterministic_dev"
+    assert response.trace.adapter_mode == "deterministic_fallback"
     assert "dspy_provider_error" in response.trace.guardrail_flags
     assert any("provider failed" in note for note in response.trace.adapter_notes)
     assert all("secret-looking" not in note for note in response.trace.adapter_notes)
@@ -108,9 +108,10 @@ def test_dspy_runner_non_finite_provider_scores_are_not_reportable_quality() -> 
 
 
 def test_non_english_draft_revises_to_english_before_fallback() -> None:
+    evidence = _english_repair_evidence()
     response = BlueskyExplainer(runner=NonEnglishRepairRunner()).explain_context(
         post=_post(),
-        evidence=_evidence(),
+        evidence=evidence,
         documents=_documents(),
     )
 
@@ -120,6 +121,19 @@ def test_non_english_draft_revises_to_english_before_fallback() -> None:
     assert "ganó" not in serialized
     assert "sacó" not in serialized
     assert response.trace.guardrail_flags == []
+
+
+def test_language_revision_cannot_introduce_unsupported_claims() -> None:
+    response = BlueskyExplainer(runner=UnsupportedLanguageRepairRunner()).explain_context(
+        post=_post(),
+        evidence=_evidence(),
+        documents=_documents(),
+    )
+
+    serialized = " ".join(bullet.text for bullet in response.bullets)
+    assert "Maryland passed the pricing rule in 2026" not in serialized
+    assert response.trace.fallback_mode == "partial"
+    assert all(bullet.source_ids for bullet in response.bullets)
 
 
 class FailingPredictor:
@@ -245,6 +259,28 @@ class NonEnglishRepairRunner(UnknownCitationRunner):
         return super().revise(post, draft, evidence, issues)
 
 
+class UnsupportedLanguageRepairRunner(NonEnglishRepairRunner):
+    def revise(
+        self,
+        post: PostContext,
+        draft: ExplanationDraft,
+        evidence: Sequence[Evidence],
+        issues: Sequence[str],
+    ) -> ExplanationDraft:
+        if "non_english_output" in issues:
+            return ExplanationDraft(
+                bullets=[
+                    BulletDraft(
+                        text="Maryland passed the pricing rule in 2026 because it was confirmed.",
+                        source_ids=["S1"],
+                    ),
+                    BulletDraft(text="The source discusses committee review.", source_ids=["S2"]),
+                    BulletDraft(text="The post asks for verified context.", source_ids=["S3"]),
+                ]
+            )
+        return super().revise(post, draft, evidence, issues)
+
+
 def _post() -> PostContext:
     return PostContext(
         url="https://bsky.app/profile/example.com/post/3abcxyz",
@@ -278,4 +314,30 @@ def _evidence() -> list[Evidence]:
             source_id=f"S{index}",
         )
         for index in range(1, 4)
+    ]
+
+
+def _english_repair_evidence() -> list[Evidence]:
+    return [
+        Evidence(
+            id="E1",
+            document_id="D1",
+            text="Rayo Vallecano won 1-0 in the semifinal.",
+            score=0.9,
+            source_id="S1",
+        ),
+        Evidence(
+            id="E2",
+            document_id="D2",
+            text="Ilias Akhomach brought out a Palestinian flag.",
+            score=0.9,
+            source_id="S2",
+        ),
+        Evidence(
+            id="E3",
+            document_id="D3",
+            text="The supporters sang during the victory celebration.",
+            score=0.9,
+            source_id="S3",
+        ),
     ]

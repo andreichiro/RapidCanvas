@@ -1,6 +1,6 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
-import { type ExplainResponse, type ProviderInfo, explainPost, fetchProviders } from "./api/client";
+import { ApiRequestError, type ExplainResponse, type ProviderInfo, explainPost, fetchProviders } from "./api/client";
 import ErrorBanner from "./components/ErrorBanner";
 import ResultView from "./components/ResultView";
 import UrlForm from "./components/UrlForm";
@@ -9,10 +9,37 @@ const DEFAULT_PROVIDER: ProviderInfo = {
   name: "openai",
   configured: false,
   skipped_reason: null,
+  runnable: false,
   default_model: null,
+  comparison_status: null,
 };
 
 type RequestState = "idle" | "loading" | "success" | "error";
+
+type DisplayError = {
+  code?: string;
+  details?: string[];
+  message: string;
+  status?: number;
+  title: string;
+};
+
+function displayErrorFrom(caught: unknown): DisplayError {
+  if (caught instanceof ApiRequestError) {
+    return {
+      code: caught.code,
+      details: caught.details,
+      message: caught.message,
+      status: caught.status,
+      title: "API request failed",
+    };
+  }
+
+  return {
+    message: caught instanceof Error ? caught.message : "Unable to explain this post.",
+    title: "Request failed",
+  };
+}
 
 export default function App() {
   const [postUrl, setPostUrl] = useState("");
@@ -20,10 +47,11 @@ export default function App() {
   const [provider, setProvider] = useState(DEFAULT_PROVIDER.name);
   const [providers, setProviders] = useState<ProviderInfo[]>([DEFAULT_PROVIDER]);
   const [result, setResult] = useState<ExplainResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<DisplayError | null>(null);
   const [providerWarning, setProviderWarning] = useState<string | null>(null);
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const explainAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -49,6 +77,8 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => () => explainAbortRef.current?.abort(), []);
+
   useEffect(() => {
     if (requestState !== "loading") {
       return;
@@ -73,10 +103,17 @@ export default function App() {
     setResult(null);
 
     if (!trimmedApiKey) {
-      setError("OpenAI API key is required for embeddings and model-backed explanations.");
+      setError({
+        code: "missing_request_api_key",
+        message: "OpenAI API key is required for embeddings and model-backed explanations.",
+        title: "API key required",
+      });
       setRequestState("error");
       return;
     }
+
+    const controller = new AbortController();
+    explainAbortRef.current = controller;
 
     try {
       const response = await explainPost({
@@ -84,13 +121,30 @@ export default function App() {
         provider,
         include_trace: true,
         api_key: trimmedApiKey,
-      });
+      }, controller.signal);
       setResult(response);
       setRequestState("success");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Unable to explain this post.");
-      setRequestState("error");
+      if (controller.signal.aborted) {
+        setError({
+          code: "request_canceled",
+          message: "Request canceled.",
+          title: "Request canceled",
+        });
+        setRequestState("idle");
+      } else {
+        setError(displayErrorFrom(caught));
+        setRequestState("error");
+      }
+    } finally {
+      if (explainAbortRef.current === controller) {
+        explainAbortRef.current = null;
+      }
     }
+  }
+
+  function handleCancel() {
+    explainAbortRef.current?.abort();
   }
 
   return (
@@ -108,13 +162,22 @@ export default function App() {
           onPostUrlChange={setPostUrl}
           onProviderChange={setProvider}
           onSubmit={handleSubmit}
+          onCancel={handleCancel}
           postUrl={postUrl}
           provider={provider}
           providers={providers}
         />
 
         {providerWarning ? <ErrorBanner tone="warning" message={providerWarning} /> : null}
-        {error ? <ErrorBanner message={error} /> : null}
+        {error ? (
+          <ErrorBanner
+            code={error.code}
+            details={error.details}
+            message={error.message}
+            status={error.status}
+            title={error.title}
+          />
+        ) : null}
 
         <section className="result-region" aria-live="polite" aria-busy={requestState === "loading"}>
           {requestState === "loading" ? (

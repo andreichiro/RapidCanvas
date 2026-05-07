@@ -1,4 +1,4 @@
-"""Structured Gate 6 quality evidence for agent and guardrail evaluation."""
+"""Structured quality evidence for agent and guardrail evaluation."""
 
 from __future__ import annotations
 
@@ -33,6 +33,7 @@ _UNSUPPORTED_ISSUES = {
 }
 _UNSAFE_ISSUES = {
     "leaked_instruction_or_secret",
+    "unsafe_echo",
     "unsafe_output",
     "source_quote_leakage",
 }
@@ -69,7 +70,7 @@ class QueryPlanQuality(QualityModel):
 
 
 class GuardrailQualityOutput(QualityModel):
-    """Guardrail and fallback evidence exposed for Gate 6 scoring."""
+    """Guardrail and fallback evidence exposed for scoring."""
 
     fallback_mode: FallbackMode
     fallback_reasons: list[str] = Field(default_factory=list)
@@ -114,7 +115,7 @@ def build_agent_quality_trace(
     request: ExplainRequest | None = None,
     provider_metadata: Mapping[str, Any] | None = None,
 ) -> AgentQualityTrace:
-    """Build a serializable Gate 6 quality trace without chain-of-thought."""
+    """Build a serializable quality trace without chain-of-thought."""
 
     del documents
     provider = build_provider_quality(response, request, provider_metadata)

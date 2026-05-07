@@ -1,10 +1,10 @@
-"""Response construction helpers for the Dev C explainer."""
+"""Response construction helpers for the runtime explainer."""
 
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Literal
 
+from app.agent.runner import AdapterMode
 from app.schemas.api import Bullet, ExplainResponse, PostSummary, Source, Trace
 from app.schemas.domain import PostContext, TrustAssessment
 
@@ -20,7 +20,7 @@ def build_explain_response(
     guardrail_flags: list[str],
     trust: TrustAssessment,
     latency_ms: int,
-    adapter_mode: Literal["none", "deterministic_dev"],
+    adapter_mode: AdapterMode,
     adapter_notes: Sequence[str],
 ) -> ExplainResponse:
     """Build the public schema object from validated internals."""
@@ -59,7 +59,7 @@ def build_guarded_response(
     validation_issues: Sequence[str],
     trust: TrustAssessment,
     latency_ms: int,
-    adapter_mode: Literal["none", "deterministic_dev"],
+    adapter_mode: AdapterMode,
     adapter_notes: Sequence[str],
     optimized_config: dict[str, object],
 ) -> ExplainResponse:

@@ -172,7 +172,7 @@
         {"text": "The puzzle frame is supported by the image and post text; any guesses about the answers should wait for later thread posts.", "source_ids": ["S1", "S2"]}
       ],
       "sources": [
-        {"id": "S1", "title": "Wikipedia image alt text", "url": "https://bsky.app/profile/wikipedia.org/post/3mksbkf7voc2z", "type": "image", "snippet": "Alt text describes a graphic introducing four Wikipedia articles and four May connections."},
+        {"id": "S1", "title": "Wikipedia image alt text", "url": "https://bsky.app/profile/wikipedia.org/post/3mksbkf7voc2z", "type": "image", "snippet": "Alt text describes a graphic introducing four Wikipedia articles and four May connections.", "quality_score": 0.82, "quality_reasons": ["image_evidence", "image_alt_text_used"], "citation_eligible": true},
         {"id": "S2", "title": "Wikipedia puzzle post", "url": "https://bsky.app/profile/wikipedia.org/post/3mksbkf7voc2z", "type": "bluesky", "snippet": "Public post starting the puzzle thread."}
       ],
       "trace": {
@@ -183,7 +183,20 @@
         "trust_score": 0.81,
         "fallback_mode": "none",
         "guardrail_flags": [],
-        "adapter_mode": "none"
+        "adapter_mode": "none",
+        "image_status": [
+          {
+            "id": "S1",
+            "url": "https://bsky.app/profile/wikipedia.org/post/3mksbkf7voc2z",
+            "vision_model": null,
+            "vision_used": false,
+            "alt_text_used": true,
+            "image_evidence_role": "image_alt_text",
+            "image_index": 1,
+            "vision_warning": "gate6_cached_public_fixture_alt_text_only",
+            "prompt_injection_flags": []
+          }
+        ]
       }
     },
     "retrieved_source_hints": ["image alt text May connections", "puzzle frame"],
@@ -236,7 +249,7 @@
         {"text": "The useful explanation should cite visual evidence and keep the interpretation modest because the post is short and slangy.", "source_ids": ["S1", "S2"]}
       ],
       "sources": [
-        {"id": "S1", "title": "Image alt text fixture", "url": "https://bsky.app/profile/jay.bsky.team/post/3mjko6vtdps2b", "type": "image", "snippet": "Alt text says tree of life art."},
+        {"id": "S1", "title": "Image alt text fixture", "url": "https://bsky.app/profile/jay.bsky.team/post/3mjko6vtdps2b", "type": "image", "snippet": "Alt text says tree of life art.", "quality_score": 0.78, "quality_reasons": ["image_evidence", "image_alt_text_used"], "citation_eligible": true},
         {"id": "S2", "title": "Jay Bluesky post fixture", "url": "https://bsky.app/profile/jay.bsky.team/post/3mjko6vtdps2b", "type": "bluesky", "snippet": "Public short post using a visual slang comparison."}
       ],
       "trace": {
@@ -247,7 +260,20 @@
         "trust_score": 0.74,
         "fallback_mode": "none",
         "guardrail_flags": [],
-        "adapter_mode": "none"
+        "adapter_mode": "none",
+        "image_status": [
+          {
+            "id": "S1",
+            "url": "https://bsky.app/profile/jay.bsky.team/post/3mjko6vtdps2b",
+            "vision_model": null,
+            "vision_used": false,
+            "alt_text_used": true,
+            "image_evidence_role": "image_alt_text",
+            "image_index": 1,
+            "vision_warning": "gate6_cached_public_fixture_alt_text_only",
+            "prompt_injection_flags": []
+          }
+        ]
       }
     },
     "retrieved_source_hints": ["tree of life William Morris", "visual evidence"],
@@ -305,7 +331,7 @@
       "trace": {
         "category": "link_context",
         "queries": ["Git City GitHub profile pixel art city"],
-        "warnings": ["gate6_cached_public_fixture_not_live_refetch"],
+        "warnings": ["gate6_cached_public_fixture_not_live_refetch", "video_embed_unparsed"],
         "latency_ms": 55,
         "trust_score": 0.78,
         "fallback_mode": "none",

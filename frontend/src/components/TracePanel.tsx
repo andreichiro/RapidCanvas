@@ -24,6 +24,24 @@ function TraceList({ items }: { items: string[] }) {
   );
 }
 
+function readable(value: string | null | undefined): string {
+  return value ? value.replaceAll("_", " ") : "Not reported";
+}
+
+function TraceRecords({ items }: { items: Array<Record<string, unknown>> }) {
+  if (!items.length) {
+    return <span>None</span>;
+  }
+
+  return (
+    <ul className="trace-list trace-record-list">
+      {items.map((item, index) => (
+        <li key={index}>{JSON.stringify(item)}</li>
+      ))}
+    </ul>
+  );
+}
+
 export default function TracePanel({ isOpen, onToggle, trace }: TracePanelProps) {
   return (
     <section className="trace-section" aria-label="trace panel">
@@ -37,6 +55,18 @@ export default function TracePanel({ isOpen, onToggle, trace }: TracePanelProps)
             <div>
               <dt>Category</dt>
               <dd>{trace.category}</dd>
+            </div>
+            <div>
+              <dt>Request ID</dt>
+              <dd>{trace.request_id ?? "Not reported"}</dd>
+            </div>
+            <div>
+              <dt>Provider</dt>
+              <dd>{trace.provider ?? "Not reported"}</dd>
+            </div>
+            <div>
+              <dt>Vector backend</dt>
+              <dd>{readable(trace.vector_store_backend)}</dd>
             </div>
             <div>
               <dt>Latency</dt>
@@ -76,6 +106,24 @@ export default function TracePanel({ isOpen, onToggle, trace }: TracePanelProps)
               <dt>Adapter notes</dt>
               <dd>
                 <TraceList items={trace.adapter_notes} />
+              </dd>
+            </div>
+            <div>
+              <dt>Source quality</dt>
+              <dd>
+                <TraceRecords items={trace.source_quality ?? []} />
+              </dd>
+            </div>
+            <div>
+              <dt>Image status</dt>
+              <dd>
+                <TraceRecords items={trace.image_status ?? []} />
+              </dd>
+            </div>
+            <div>
+              <dt>Live quality notes</dt>
+              <dd>
+                <TraceList items={trace.live_quality_notes ?? []} />
               </dd>
             </div>
           </dl>

@@ -208,6 +208,7 @@ def sanitize_context_document(
         part for part in (sanitized_title, sanitized_text, metadata_scan_text) if part
     )
     scan = active_scanner.scan(scan_input, label=label)
+    scan = _merge_upstream_scan_metadata(sanitized_metadata, scan, label=label)
     metadata = {
         **sanitized_metadata,
         "sanitized": True,
@@ -224,6 +225,50 @@ def sanitize_context_document(
         }
     )
     return sanitized_document, scan
+
+
+def _merge_upstream_scan_metadata(
+    metadata: Mapping[str, object],
+    scan: PromptInjectionScanResult,
+    *,
+    label: str,
+) -> PromptInjectionScanResult:
+    upstream_flags = _metadata_strings(metadata.get("prompt_injection_flags"))
+    upstream_reasons = _metadata_strings(metadata.get("prompt_injection_reasons"))
+    upstream_score = _metadata_float(metadata.get("prompt_injection_risk_score"))
+    return PromptInjectionScanResult(
+        risk_score=max(scan.risk_score, upstream_score),
+        flags=tuple(dict.fromkeys([*upstream_flags, *scan.flags])),
+        reasons=tuple(dict.fromkeys([*upstream_reasons, *scan.reasons])),
+        label=label,
+    )
+
+
+def _metadata_strings(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value] if value else []
+    if isinstance(value, Iterable) and not isinstance(value, bytes | bytearray):
+        return [
+            text
+            for item in value
+            if (text := sanitize_untrusted_text(boundary_text(item), max_chars=200))
+        ]
+    text = sanitize_untrusted_text(boundary_text(value), max_chars=200)
+    return [text] if text else []
+
+
+def _metadata_float(value: object) -> float:
+    if isinstance(value, bool) or value is None:
+        return 0.0
+    try:
+        number = float(value)  # type: ignore[arg-type]
+    except Exception:
+        return 0.0
+    if not math.isfinite(number):
+        return 0.0
+    return max(0.0, min(1.0, number))
 
 
 def _sanitize_metadata(value: object, *, depth: int = 0) -> object:

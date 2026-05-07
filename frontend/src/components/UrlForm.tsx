@@ -7,6 +7,7 @@ type UrlFormProps = {
   apiKey: string;
   isLoading: boolean;
   onApiKeyChange: (value: string) => void;
+  onCancel: () => void;
   onPostUrlChange: (value: string) => void;
   onProviderChange: (provider: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -17,24 +18,40 @@ type UrlFormProps = {
 
 function providerStatusText(provider: ProviderInfo | undefined, hasRequestKey: boolean): string {
   if (!provider) {
-    return "default";
+    return "Provider status unavailable.";
   }
 
+  const comparison =
+    provider.comparison_status === "ran"
+      ? "comparison ran"
+      : provider.comparison_status === "skipped"
+        ? "comparison skipped"
+        : provider.comparison_status === "configured_not_run"
+          ? "comparison configured, not run"
+          : null;
+
   if (provider.name === "openai" && hasRequestKey) {
-    const details = ["ready with request key"];
+    const details = ["Runnable with request key"];
     if (provider.default_model) {
-      details.push(provider.default_model);
+      details.push(`default model ${provider.default_model}`);
+    }
+    if (comparison) {
+      details.push(comparison);
     }
     return details.join(" - ");
   }
 
-  const details = [provider.configured ? "ready" : "skipped"];
+  const status = provider.runnable ? "Runnable" : provider.skipped_reason || !provider.configured ? "Skipped" : "Configured";
+  const details = [status];
 
   if (provider.skipped_reason) {
     details.push(provider.skipped_reason);
   }
   if (provider.default_model) {
-    details.push(provider.default_model);
+    details.push(`default model ${provider.default_model}`);
+  }
+  if (comparison) {
+    details.push(comparison);
   }
 
   return details.join(" - ");
@@ -44,6 +61,7 @@ export default function UrlForm({
   apiKey,
   isLoading,
   onApiKeyChange,
+  onCancel,
   onPostUrlChange,
   onProviderChange,
   onSubmit,
@@ -104,6 +122,11 @@ export default function UrlForm({
         <button className="submit-button" disabled={isLoading} type="submit">
           {isLoading ? "Explaining..." : "Explain"}
         </button>
+        {isLoading ? (
+          <button className="cancel-button" onClick={onCancel} type="button">
+            Cancel
+          </button>
+        ) : null}
         <span className="submit-helper" aria-hidden="true">
           &nbsp;
         </span>

@@ -1,4 +1,4 @@
-"""Gate 6 retrieval diagnostics shaped for eval metric consumers."""
+"""Retrieval diagnostics shaped for eval metric consumers."""
 
 from __future__ import annotations
 

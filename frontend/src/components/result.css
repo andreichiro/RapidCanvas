@@ -1,3 +1,5 @@
+@import "./runtime.css";
+
 .notice {
   border-radius: 6px;
   padding: 12px 14px;
@@ -345,7 +347,7 @@
 
 .trace-panel div {
   display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
+  grid-template-columns: 140px minmax(0, 1fr);
   gap: 10px;
 }
 

@@ -1,6 +1,6 @@
 # Current Handoff
 
-Updated: 2026-05-01
+Updated: 2026-05-06
 Repository: `andreichiro/RapidCanvas`
 Current baseline: Gate 7 final A/B/C integration branch
 `codex/g7bc-final-integration` from `origin/main` Gate 6 integration commit
@@ -10,6 +10,28 @@ GitHub file-list labels were refreshed with the final beyond-scope note commit.
 
 ## Gate 7 Final Truth Snapshot
 
+- P0 source quality and citation eligibility are now implemented as a
+  deterministic runtime policy: search/fetch metadata is normalized, sources get
+  quality scores/reasons/eligibility/roles, RAG combines vector, reranker,
+  quality, and channel-prior scores, public citations exclude ineligible sources
+  and snippet-only evidence unless secondary, and trust scoring downgrades weak,
+  off-topic, ineligible, single-source, or snippet-only support.
+- P0 claim support, citations, and explanation usefulness are now implemented:
+  factual bullets are checked against cited source text for material terms,
+  dates, named entities, and causal/definition/announcement markers; revisions
+  and final repair re-run the same support map; unsafe echoes use the explicit
+  `unsafe_echo` label; DSPy validation labels are normalized to the explicit
+  support contract; snippet-only document metadata is mapped to public citation
+  source IDs; live metrics score cited sources for relevance/off-topic checks;
+  and source-backed partial fallbacks can pass usefulness without letting normal
+  abstentions pass.
+- Latest transient-key proof for this P0: `make eval-cached` passed with
+  `public_live_quality_pass=1.0`, `OPENAI_API_KEY=... make eval` passed with 10
+  true live successes plus 9 exact-post cache fallbacks and
+  `public_live_quality_pass=0.8`, `OPENAI_API_KEY=... make live-quality-review`
+  passed with 9/10 useful rows and zero off-topic/ineligible/non-live-adapter
+  passing rows, and `OPENAI_API_KEY=... make live-quality-smoke` passed with
+  OpenAI configured and other providers explicitly skipped.
 - Gate 6 is landed and reproducible in the Gate 7 integration clone: `make setup`,
   `make eval-cached`, `make requirements-review`, `make check-secrets`, and
   `make deep-review` all passed.
@@ -24,9 +46,36 @@ GitHub file-list labels were refreshed with the final beyond-scope note commit.
   synthetic attack/edge fixtures. Expected key points remain the curated truth
   layer.
 - Runtime Search/RAG is a real one-shot integrated route when modules and
-  providers are available. `ThreadContextEvidenceRetriever` remains only an
+  providers are available. `ThreadContextFallbackRetriever` remains only an
   explicit fallback/injected path. Capped adaptive retrieval is enabled with max
   one extra safe query, pre-retrieval prompt-injection skip, and trace warnings.
+- P1 clean runtime architecture is now enforced in production code:
+  dependency wiring uses `_build_runtime_explainer()` and
+  `_runtime_retrieval_settings()`, fallback trace output uses
+  `thread_context_fallback_guardrails_active`, public adapter mode is
+  `deterministic_fallback` (rendered as deterministic fallback), and
+  `scripts/review_quality.py` fails on old production-facing Gate/Dev labels.
+- P1 finalization is decoupled from `BlueskyExplainer` internals:
+  `FinalizationContext` now lives at the finalization boundary, the finalizer
+  accepts a typed `finalization_context()` protocol instead of `Any`, and tests
+  prove a context-only object can finalize a response without private program
+  fields.
+- P1 Qdrant concurrency and retrieval scalability are now implemented:
+  vector-store calls use `ensure_collection()`, namespace-scoped `upsert()` and
+  `query()`, and `clear_namespace()` instead of shared collection recreation;
+  Qdrant collection names are model/dimension scoped; request namespaces include
+  a stable post/query fingerprint plus a per-request suffix; in-memory fallback
+  is namespace-isolated; linked-page fetch and search collection run with bounded
+  concurrency, deterministic ordering, and partial-result timeout warnings.
+  Acceptance tests now scan production vector code for shared collection
+  deletion/recreation regressions and assert namespace lifecycle signatures.
+- P1 safe fetch, robots, and search stability are now implemented:
+  linked-page fetches validate public HTTP(S) targets, userinfo, DNS, redirects,
+  peer addresses, content types, extraction, and robots.txt before accepting
+  page evidence. Robots checks use a small-timeout cached policy: explicit
+  disallow prevents page fetch, transient robots failures degrade to warnings,
+  and web search may keep only a snippet-only low-confidence fallback that is
+  marked `robots_disallowed` and rejected for citation eligibility.
 - The frontend now requires a masked OpenAI API-key field, and the default
   backend route requires either that transient `api_key` or local
   `OPENAI_API_KEY` before it runs embeddings/model-backed explanations. The
@@ -42,15 +91,27 @@ GitHub file-list labels were refreshed with the final beyond-scope note commit.
   source dev servers in one terminal. The frontend also falls back from `/api`
   to `http://127.0.0.1:8000` to avoid generic local `Failed to fetch` errors
   when the backend is reachable.
+- Ops hardening is implemented for the local review path: `make docker-up` runs
+  `scripts/check_docker_prereqs.py`, Docker Compose gates services with
+  healthchecks, FastAPI attaches sanitized `X-Request-ID` request context/logs,
+  and rate limiting trusts `X-Forwarded-For` only from configured proxy hosts.
+  CI now runs `make eval-cached` after `make deep-review`; live quality has a
+  separate manual workflow that requires the repository `OPENAI_API_KEY` secret
+  and uploads ignored report artifacts.
 - GEPA in this integration branch is real compiled metadata at
   `backend/app/agent/optimized/program.json` with a saved DSPy program under
   `backend/app/agent/optimized/program_compiled/`. The examples come from
   finalized cached Gate 6 eval fixtures.
 - Image support is default-enabled runtime vision evidence for image posts when
-  a request key or local `OPENAI_API_KEY` is available, with untrusted alt-text
-  fallback when vision is unavailable. G7-C ran a live helper smoke: one
-  upstream image URL failed to download, and a second public image succeeded in
-  3.3s. This is not a full browser/UI visual QA pass.
+  a request key or local `OPENAI_API_KEY` is available, with capped/sanitized
+  untrusted alt-text fallback when vision is unavailable. Image trace rows now
+  carry `vision_model`, `vision_used`, `alt_text_used`, `image_evidence_role`,
+  `image_index`, `vision_warning`, and `prompt_injection_flags`; no-alt/no-vision
+  images degrade to a non-citable diagnostic source rather than disappearing.
+  Cached eval reports `image_expected_point_recall=1.0` and
+  `image_evidence_used=1.0`. G7-C ran a live helper smoke: one upstream image URL
+  failed to download, and a second public image succeeded in 3.3s. This is not a
+  full browser/UI visual QA pass.
 - Provider comparison now has a generated report path through
   `make provider-comparison` plus a configured-provider live smoke command
   through `make live-quality-smoke`; selecting Anthropic with only the OpenAI
@@ -88,6 +149,7 @@ GitHub file-list labels were refreshed with the final beyond-scope note commit.
 - Gate 2 is implemented: FastAPI/domain contracts are frozen in `backend/app/schemas/`, `backend/app/api/routes.py`, and `backend/app/deps.py`.
 - Gate 3 is implemented: `/api/explain` performs real Bluesky post/thread fetching and returns a schema-valid cited safe summary.
 - Gate 4 Dev A is merged into the baseline: Backend/API/Bluesky normalization covers URL parsing, DID/handle AT URI construction, real thread fetch, parent context, quote text, external links, image alt text/fullsize/thumb URLs, unavailable/blocked warnings, concise upstream error wrapping, and a read-only Bluesky `search_posts()` wrapper returning `ContextDocument` objects.
+- P1 Bluesky client split is implemented: `backend/app/clients/bsky.py` is a thin read-only ATProto wrapper, while `bsky_url.py`, `bsky_embeds.py`, and `bsky_normalize.py` own URL/AT URI helpers, embed extraction, thread normalization, deterministic timestamp fallback, and visible malformed/missing timestamp warnings.
 - Gate 4 Dev B is merged into the baseline: Search/RAG/source-safety modules cover web and Bluesky search adapters, safe linked-page fetching, prompt-injection scanning, sanitization, embeddings, Qdrant/in-memory retrieval, retrieval diagnostics, and reranking.
 - Gate 4 Dev E is merged into the baseline: the React frontend is componentized, typed against the API contract, and renders URL/provider input, a masked required OpenAI API-key field, loading/error states, cited bullets, sources, trust/fallback states, guardrail flags, and a trace panel.
 - Gate 4 Dev D is merged into the baseline: eval/docs/skills cover research docs, task packets, local project skills and validators, 18 synthetic cached eval cases, prompt-injection fixtures, deterministic metrics, selectable DSPy/Ragas/composite judges, fake/API eval modes, JSONL/Markdown/confusion/SVG/summary reports, and requirement-matrix coverage.

@@ -1,4 +1,4 @@
-"""Route-compatible service wrapper for the Dev C agent program."""
+"""Route-compatible service wrapper for the runtime agent program."""
 
 from __future__ import annotations
 
@@ -22,12 +22,12 @@ from app.schemas.api import ExplainRequest, ExplainResponse
 from app.schemas.domain import ContextDocument, Evidence, PostContext
 
 
-class ThreadContextEvidenceRetriever:
-    """Temporary Dev C retriever using normalized Bluesky thread context as evidence."""
+class ThreadContextFallbackRetriever:
+    """Fallback retriever using normalized Bluesky thread context as evidence."""
 
     warnings: Sequence[str] = (
         "search_rag_not_connected_using_thread_context_evidence",
-        "dev_c_api_path_uses_agent_guardrails",
+        "thread_context_fallback_guardrails_active",
     )
 
     def retrieve(
@@ -98,7 +98,7 @@ class ThreadContextEvidenceRetriever:
 
 
 class PostContextFetcher(Protocol):
-    """Protocol for Dev A's Bluesky client without importing the client module."""
+    """Protocol for a normalized Bluesky context fetcher."""
 
     def fetch_context(self, url: str) -> PostContext:
         """Fetch a normalized public post context."""
@@ -114,7 +114,7 @@ class EvidenceRetriever(Protocol):
 
 
 class AgentExplainerService:
-    """Route-compatible service that wires fetch, retrieval, and the Dev C program."""
+    """Route-compatible service that wires fetch, retrieval, and the agent program."""
 
     def __init__(
         self,
@@ -255,7 +255,7 @@ def build_agent_explainer_service(
     extra_warnings: Sequence[str] = (),
     provider_aware: bool = True,
 ) -> AgentExplainerService:
-    """Build the Dev C C3 service for Dev A route wiring."""
+    """Build the runtime explainer service for route wiring."""
 
     if provider_aware:
         if not prefer_dspy:

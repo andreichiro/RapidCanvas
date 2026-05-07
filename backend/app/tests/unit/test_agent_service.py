@@ -194,4 +194,4 @@ def test_c3_builder_returns_route_compatible_service() -> None:
     )
 
     assert response.trace.fallback_mode == "none"
-    assert response.trace.adapter_mode == "deterministic_dev"
+    assert response.trace.adapter_mode == "deterministic_fallback"

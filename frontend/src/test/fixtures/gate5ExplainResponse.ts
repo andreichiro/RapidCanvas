@@ -32,6 +32,9 @@ export const gate5ExplainResponse: ExplainResponse = {
       url: "https://bsky.app/profile/bsky.app/post/3mk6ipt5iv22y",
       type: "thread",
       snippet: "Photo carousel feedback is acknowledged in the original post.",
+      quality_score: 0.96,
+      quality_reasons: ["target post context"],
+      citation_eligible: true,
     },
     {
       id: "bluesky-context",
@@ -39,6 +42,9 @@ export const gate5ExplainResponse: ExplainResponse = {
       url: "https://bsky.app/profile/bsky.app/post/3mk6ipt5iv22y/replies",
       type: "bluesky",
       snippet: "Replies discuss how the carousel affected post presentation.",
+      quality_score: 0.84,
+      quality_reasons: ["thread context"],
+      citation_eligible: true,
     },
     {
       id: "web-result",
@@ -46,6 +52,9 @@ export const gate5ExplainResponse: ExplainResponse = {
       url: "https://example.com/bluesky-carousel-feedback",
       type: "web",
       snippet: "Coverage summarizes user feedback and planned changes.",
+      quality_score: 0.72,
+      quality_reasons: ["fetched web page"],
+      citation_eligible: true,
     },
     {
       id: "image-context",
@@ -53,9 +62,15 @@ export const gate5ExplainResponse: ExplainResponse = {
       url: "https://cdn.example.com/carousel-preview.png",
       type: "image",
       snippet: "Image metadata describes a carousel preview attachment.",
+      quality_score: 0.78,
+      quality_reasons: ["image metadata"],
+      citation_eligible: true,
     },
   ],
   trace: {
+    request_id: "req-gate5-fixture",
+    provider: "openai",
+    vector_store_backend: "in_memory_fallback",
     category: "product_change",
     queries: [
       "bluesky photo carousel rollout feedback",
@@ -70,8 +85,24 @@ export const gate5ExplainResponse: ExplainResponse = {
     trust_score: 0.84,
     fallback_mode: "none",
     guardrail_flags: [],
-    adapter_mode: "deterministic_dev",
+    adapter_mode: "deterministic_fallback",
     adapter_notes: ["openai/gpt-4.1-mini was used by the integrated explainer service"],
+    source_quality: [
+      {
+        source_id: "web-result",
+        quality_score: 0.72,
+        citation_eligible: true,
+      },
+    ],
+    image_status: [
+      {
+        image_index: 1,
+        image_evidence_role: "supporting_context",
+        vision_used: false,
+        alt_text_used: true,
+      },
+    ],
+    live_quality_notes: ["fixture response"],
   },
 };
 

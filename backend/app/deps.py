@@ -11,7 +11,7 @@ from threading import Thread
 from typing import Any, cast
 
 from app.agent.loader import load_program
-from app.agent.service import AgentExplainerService, ThreadContextEvidenceRetriever
+from app.agent.service import AgentExplainerService, ThreadContextFallbackRetriever
 from app.clients.bsky import BlueskyClient
 from app.config import Settings, get_settings
 from app.schemas.domain import ProviderInfo
@@ -58,7 +58,7 @@ def get_provider_catalog(settings: Settings | None = None) -> list[ProviderInfo]
 
 
 class PostContextWarningRetriever:
-    """Retriever wrapper that carries Dev A Bluesky warnings into public trace."""
+    """Retriever wrapper that carries Bluesky context warnings into public trace."""
 
     def __init__(self, retriever: Any) -> None:
         self._retriever = retriever
@@ -89,7 +89,7 @@ class PostContextWarningRetriever:
 
 
 class QueryAwareRetrievalRetriever:
-    """Sync route adapter for Dev B retrieval that preserves Dev C query plans."""
+    """Sync route adapter for retrieval that preserves planned query intent."""
 
     def __init__(self, retrieval_service: Any) -> None:
         self._retrieval_service = retrieval_service
@@ -109,24 +109,24 @@ def build_current_explainer(
 ) -> AgentExplainerService:
     """Build the current explain service.
 
-    The default route path uses real Bluesky fetching, Dev B Search/RAG
-    retrieval, and the Dev C agent service when those modules are present.
-    Thread-context evidence remains only the explicit fallback or injected test
-    path, and any fallback warnings stay visible in trace output.
+    The default route path uses real Bluesky fetching, Search/RAG retrieval,
+    and the agent service when those modules are present. Thread-context
+    evidence remains only the explicit fallback or injected test path, and any
+    fallback warnings stay visible in trace output.
     """
 
     active_settings = settings or get_settings()
     if retriever is None and program is None:
-        gate5_service = _build_gate5_explainer(bluesky_client, active_settings)
-        if gate5_service is not None:
-            return cast(AgentExplainerService, gate5_service)
+        runtime_service = _build_runtime_explainer(bluesky_client, active_settings)
+        if runtime_service is not None:
+            return cast(AgentExplainerService, runtime_service)
     extra_warnings: Sequence[str] = ()
     active_program = program
     if active_program is None:
         program_result = load_program(settings=active_settings)
         active_program = program_result.program
         extra_warnings = program_result.warnings
-    active_retriever = PostContextWarningRetriever(retriever or ThreadContextEvidenceRetriever())
+    active_retriever = PostContextWarningRetriever(retriever or ThreadContextFallbackRetriever())
     return AgentExplainerService(
         fetcher=bluesky_client or BlueskyClient(),
         retriever=active_retriever,
@@ -151,7 +151,7 @@ def build_gate3_explainer(
     )
 
 
-def _build_gate5_explainer(bluesky_client: Any | None, settings: Settings) -> Any | None:
+def _build_runtime_explainer(bluesky_client: Any | None, settings: Settings) -> Any | None:
     try:
         agent_service = import_module("app.agent.service")
         retrieval_adapter = import_module("app.ml.retrieval_adapter")
@@ -187,13 +187,13 @@ def _build_runtime_retrieval_service(
 ) -> Any:
     kwargs: dict[str, Any] = {"settings": settings}
     if _accepts_keyword(retrieval_builder, "retrieval_settings"):
-        retrieval_settings = _gate7_retrieval_settings(retrieval_module, settings)
+        retrieval_settings = _runtime_retrieval_settings(retrieval_module, settings)
         if retrieval_settings is not None:
             kwargs["retrieval_settings"] = retrieval_settings
     return retrieval_builder(**kwargs)
 
 
-def _gate7_retrieval_settings(retrieval_module: Any, settings: Settings) -> Any | None:
+def _runtime_retrieval_settings(retrieval_module: Any, settings: Settings) -> Any | None:
     settings_type = getattr(retrieval_module, "RetrievalSettings", None)
     if not callable(settings_type):
         return None
@@ -202,6 +202,9 @@ def _gate7_retrieval_settings(retrieval_module: Any, settings: Settings) -> Any 
             max_queries=settings.retrieval_max_queries,
             search_limit_per_provider=settings.retrieval_search_limit_per_provider,
             linked_page_limit=settings.retrieval_linked_page_limit,
+            linked_page_concurrency=settings.retrieval_linked_page_concurrency,
+            search_concurrency=settings.retrieval_search_concurrency,
+            retrieval_timeout_seconds=settings.retrieval_timeout_seconds,
         )
     except TypeError:
         return settings_type()
@@ -234,8 +237,10 @@ def _accepts_keyword(callable_obj: Any, keyword: str) -> bool:
         return False
     return any(
         param.kind is Parameter.VAR_KEYWORD
-        or (param.kind in {Parameter.KEYWORD_ONLY, Parameter.POSITIONAL_OR_KEYWORD}
-            and param.name == keyword)
+        or (
+            param.kind in {Parameter.KEYWORD_ONLY, Parameter.POSITIONAL_OR_KEYWORD}
+            and param.name == keyword
+        )
         for param in params
     )
 

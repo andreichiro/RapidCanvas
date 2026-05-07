@@ -44,6 +44,9 @@ FORBIDDEN_IMPORT_PREFIXES = (
 def test_gate6_dev_c_public_trace_schema_stays_frozen() -> None:
     assert set(Trace.model_fields) == {
         "category",
+        "request_id",
+        "provider",
+        "vector_store_backend",
         "queries",
         "warnings",
         "latency_ms",
@@ -52,6 +55,9 @@ def test_gate6_dev_c_public_trace_schema_stays_frozen() -> None:
         "guardrail_flags",
         "adapter_mode",
         "adapter_notes",
+        "source_quality",
+        "image_status",
+        "live_quality_notes",
     }
 
 
@@ -143,6 +149,21 @@ def test_explanation_signatures_require_english_output_for_non_english_posts() -
     assert "revise once in english" in validate
 
 
+def test_validate_explanation_signature_names_required_issue_labels() -> None:
+    definition = SIGNATURE_DEFINITIONS["ValidateExplanation"]
+    serialized = f"{definition.instructions} {definition.outputs}".lower()
+
+    for label in (
+        "unsupported_claim",
+        "weak_citation_support",
+        "off_topic_citation",
+        "needs_primary_source",
+        "unsafe_echo",
+        "non_english_output",
+    ):
+        assert label in serialized
+
+
 def test_gate6_dev_c_quality_modules_keep_lane_boundaries() -> None:
     violations: list[str] = []
     for path in DEV_C_FILES:
@@ -176,7 +197,7 @@ def test_gate6_dev_c_runtime_labels_do_not_regress_to_gate4() -> None:
         if "gate4-dev-c" in text or "mlflow_gate4" in text:
             stale_labels.append(str(path.relative_to(ROOT)))
 
-    assert DEFAULT_POLICY.version == "gate6-dev-c-v1"
+    assert DEFAULT_POLICY.version == "runtime-guardrails-v1"
     assert stale_labels == []
 
 

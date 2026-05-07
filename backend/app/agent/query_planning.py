@@ -15,7 +15,7 @@ _SENSITIVE_TOKEN_RE = re.compile(r"\bsk-[A-Za-z0-9_-]{8,}\b")
 
 
 def runtime_queries(post: PostContext, category: str, planned_queries: Sequence[str]) -> list[str]:
-    """Merge model-planned and post-context search hints under the Gate 7 cap."""
+    """Merge model-planned and post-context search hints under the runtime cap."""
 
     planned = bounded_queries(planned_queries)
     base = planned[:1] or [_post_category_query(post, category)]
@@ -61,6 +61,10 @@ def _context_queries(post: PostContext, category: str) -> list[str]:
     thread_part = _thread_context_part(post)
     if thread_part:
         queries.append(f"{thread_part} {category} context")
+    image_part = _image_context_part(post)
+    if image_part:
+        post_part = _compact_query_part(post.text, max_words=8) or post.author
+        queries.append(f"{post_part} {image_part} {category} visual context")
     link_part = _link_context_part(post)
     if link_part:
         post_part = _compact_query_part(post.text, max_words=8) or post.author
@@ -100,6 +104,15 @@ def _link_context_part(post: PostContext) -> str:
             break
     parts.extend(_host_parts(post.links, limit=3))
     return _compact_query_part(" ".join(parts), max_words=14)
+
+
+def _image_context_part(post: PostContext) -> str:
+    parts: list[str] = []
+    for image in post.images[:3]:
+        alt = _compact_query_part(image.alt_text or "", max_words=12)
+        if alt:
+            parts.append(alt)
+    return _compact_query_part(" ".join(parts), max_words=16)
 
 
 def _first_texts(values: Sequence[object], *, limit: int) -> list[str]:

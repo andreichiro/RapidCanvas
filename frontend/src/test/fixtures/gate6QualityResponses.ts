@@ -3,6 +3,9 @@ import { type ExplainResponse, type Trace } from "../../api/client";
 type Gate6TracePatch = Partial<Trace>;
 
 const baseTrace: Trace = {
+  request_id: "req-gate6-quality-smoke",
+  provider: "openai",
+  vector_store_backend: "qdrant_vector_store",
   category: "gate6_quality_smoke",
   queries: [
     "bluesky context quality smoke",
@@ -16,6 +19,24 @@ const baseTrace: Trace = {
   guardrail_flags: [],
   adapter_mode: "none",
   adapter_notes: [],
+  source_quality: [
+    {
+      source_id: "S-web",
+      quality_score: 0.91,
+      citation_eligible: true,
+      reasons: ["linked primary context", "high lexical overlap"],
+    },
+  ],
+  image_status: [
+    {
+      image_index: 1,
+      image_evidence_role: "supporting_context",
+      vision_used: true,
+      alt_text_used: true,
+      vision_warning: null,
+    },
+  ],
+  live_quality_notes: ["fixture-backed UI quality trace"],
 };
 
 export const gate6NormalResponse: ExplainResponse = {
@@ -50,6 +71,9 @@ export const gate6NormalResponse: ExplainResponse = {
       url: "https://bsky.app/profile/example.com/post/3gate6normal",
       type: "thread",
       snippet: "What is this launch drama about?",
+      quality_score: 0.97,
+      quality_reasons: ["target post context"],
+      citation_eligible: true,
     },
     {
       id: "S-thread",
@@ -57,6 +81,9 @@ export const gate6NormalResponse: ExplainResponse = {
       url: "https://bsky.app/profile/example.com/post/3gate6normal/replies",
       type: "bluesky",
       snippet: "Replies discuss rollout timing and feature availability.",
+      quality_score: 0.88,
+      quality_reasons: ["parent thread context"],
+      citation_eligible: true,
     },
     {
       id: "S-web",
@@ -64,6 +91,9 @@ export const gate6NormalResponse: ExplainResponse = {
       url: "https://example.com/launch-coverage",
       type: "web",
       snippet: "Coverage describes a staged launch and user-facing availability differences.",
+      quality_score: 0.91,
+      quality_reasons: ["authoritative linked coverage", "current source"],
+      citation_eligible: true,
     },
     {
       id: "S-image",
@@ -71,6 +101,9 @@ export const gate6NormalResponse: ExplainResponse = {
       url: "https://cdn.example.com/launch-screenshot.png",
       type: "image",
       snippet: "Screenshot shows the launch banner that users are discussing.",
+      quality_score: 0.82,
+      quality_reasons: ["image evidence"],
+      citation_eligible: true,
     },
   ],
   trace: baseTrace,
@@ -105,7 +138,7 @@ export const gate6SafeSummaryResponse = gate6ResponseWithTrace({
   fallback_mode: "safe_summary",
   warnings: ["provider_upstream_error: DSPy provider failed, so only visible post context was summarized"],
   guardrail_flags: ["dspy_provider_error"],
-  adapter_mode: "deterministic_dev",
+  adapter_mode: "deterministic_fallback",
   adapter_notes: ["Provider fallback was trace-marked by the backend."],
 });
 

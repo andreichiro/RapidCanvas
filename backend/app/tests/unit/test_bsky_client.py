@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 from pytest import raises
@@ -131,6 +132,7 @@ class FakeAdvancedAtprotoClient:
                         "record": {
                             "value": {
                                 "text": "Quoted post text",
+                                "created_at": "2026-04-29T11:58:00Z",
                             }
                         },
                         "media": {
@@ -196,9 +198,7 @@ class FakeSearchFeed:
                     "record": {
                         "text": "Search result post",
                         "created_at": "2026-04-29T10:00:00Z",
-                        "facets": [
-                            {"features": [{"uri": "https://example.com/search-context"}]}
-                        ],
+                        "facets": [{"features": [{"uri": "https://example.com/search-context"}]}],
                     },
                     "embed": {
                         "images": [
@@ -343,3 +343,18 @@ def test_search_posts_wraps_upstream_failure_without_raw_body() -> None:
     message = str(error.value)
     assert message == "Unable to search Bluesky posts: ExplodingSearchError status=403"
     assert "SECRET" not in message
+
+
+def test_bsky_client_module_stays_as_thin_atproto_wrapper() -> None:
+    module_text = (Path(__file__).parents[2] / "clients" / "bsky.py").read_text()
+
+    assert len(module_text.splitlines()) <= 140
+    for old_dense_helper in (
+        "_embed_images",
+        "_external_links",
+        "_normalize_thread",
+        "_parse_datetime",
+        "_parent_posts_and_warnings",
+        "_quoted_posts",
+    ):
+        assert old_dense_helper not in module_text

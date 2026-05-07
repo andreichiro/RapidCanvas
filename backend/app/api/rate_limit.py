@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from collections import defaultdict, deque
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from time import monotonic
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp
+
+from app.api.request_context import client_ip_for_request
 
 
 class InMemoryRateLimiter:
@@ -51,9 +53,11 @@ class ExplainRateLimitMiddleware(BaseHTTPMiddleware):
         api_prefix: str,
         max_requests: int,
         window_seconds: int,
+        trusted_proxy_hosts: Sequence[str] = (),
     ) -> None:
         super().__init__(app)
         self._explain_path = f"{api_prefix.rstrip('/')}/explain"
+        self._trusted_proxy_hosts = tuple(trusted_proxy_hosts)
         self._limiter = InMemoryRateLimiter(
             max_requests=max_requests,
             window_seconds=window_seconds,
@@ -63,7 +67,7 @@ class ExplainRateLimitMiddleware(BaseHTTPMiddleware):
         """Reject excess explain calls with a structured 429 response."""
 
         if request.method == "POST" and request.url.path == self._explain_path:
-            client_host = request.client.host if request.client else "unknown"
+            client_host = client_ip_for_request(request, self._trusted_proxy_hosts)
             if not self._limiter.allow(client_host):
                 return JSONResponse(
                     status_code=429,

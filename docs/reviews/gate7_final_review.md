@@ -6,16 +6,15 @@ Baseline: `origin/main` at Gate 6 integration commit `4728cc3`
 
 ## P1 Eval, GEPA, MLflow Proof Addendum
 
-Date: 2026-05-07
-Working tree reviewed: `/Users/akatsurada/Documents/RapidCanvas_main_tmp`
+Date: 2026-05-06
+Working branch: `codex/qdrant-retrieval-scalability`
 Scope reviewed: P1 Eval, GEPA, MLflow Proof
 
-This addendum closes the P1 proof gap in the source-of-truth clone. The GEPA
-dataset bridge now carries citation-eligible source IDs, expected citation
-relevance, expected source-quality score, and `source_quality_policy_version`.
-The GEPA metric combines expected-point recall, citation coverage, citation
-relevance, unsupported-claim penalty, prompt-injection resistance, fallback
-correctness, and source-quality score/penalty. The saved optimized program now
+This addendum closes the P1 proof gap that remained after the earlier Gate 7
+review: the GEPA dataset bridge now carries source-quality and
+citation-relevance fields, the blended GEPA metric includes citation relevance,
+unsupported-claim penalty, prompt-injection resistance, fallback correctness,
+and source-quality score/penalty, and the saved optimized program explicitly
 states whether it is dry-run metadata or a real compiled DSPy artifact.
 
 Current optimized artifact status:
@@ -23,18 +22,18 @@ Current optimized artifact status:
 - `backend/app/agent/optimized/program.json`: `mode=real`,
   `metric_score=0.875`, `artifact_status.kind=real_compiled_dspy_artifact`,
   `compiled_artifact_present=true`.
-- Dataset bridge: 19 finalized cached cases split into 10 train, 4 validation,
-  and 5 holdout examples, with `source_quality_policy_version=source_quality_v1`,
-  `average_expected_source_quality_score=0.759`, and
+- Dataset bridge: 19 finalized cached cases split into 10 train, 4 dev, and
+  5 holdout examples, with `source_quality_policy_version=source_quality_v1`,
+  `average_expected_source_quality_score=0.761`, and
   `average_expected_citation_relevance_score=1.0`.
 - GEPA compile proof remains the checked-in DSPy save directory at
   `backend/app/agent/optimized/program_compiled/` with `metadata.json` and
   `program.pkl`.
 
-MLflow proof was expanded from a thin smoke manifest to a runtime proof bundle.
-`reports/mlflow_runtime_manifest.json` records provider metadata, models,
-chunk/retrieval settings, source-quality policy version, retrieval backend,
-vision status, cached eval metrics, provider-comparison status,
+MLflow proof was expanded from a thin smoke manifest to a full local proof
+bundle. `reports/mlflow_runtime_manifest.json` records provider metadata,
+models, chunk/retrieval settings, source-quality policy version, retrieval
+backend, vision status, cached eval metrics, provider-comparison status,
 live-quality report snapshot, optimized-program artifact status, and a
 requirements-matrix snapshot. `make mlflow-log` logs those reports plus the
 optimized program and requirements matrix as MLflow artifacts while leaving
@@ -44,11 +43,11 @@ P1 command evidence from this addendum:
 
 | Command | Result | Notes |
 |---|---|---|
-| `make optimize` | passed | Enriched the preserved real GEPA metadata without rerunning live compile; output stayed `mode=real`, `metric_score=0.875`. |
-| Focused unit tests | passed | 33 tests cover GEPA dataset/metric/persistence/optimizer, saved-program review, MLflow params/manifest/artifact bundle, and MLflow fallback behavior. |
-| `make eval-cached` | passed | 19 cached rows; `expected_point_recall=1.0`, `citation_coverage=1.0`, `unsupported_claim_rate=0.0`, `unsafe_output_rate=0.0`. |
+| `make optimize` | passed | Enriched the preserved real GEPA metadata without rerunning live compile; output stays `mode=real`, `metric_score=0.875`. |
+| Focused unit tests | passed | `37 passed`: GEPA optimize/metric, saved-program review, MLflow params/manifest/artifact bundle, and MLflow fallback tests. |
+| `make eval-cached` | passed | 19 cached rows; `expected_point_recall=1.0`, `citation_coverage=1.0`, `unsupported_claim_rate=0.0`, `unsafe_output_rate=0.0`, `image_expected_point_recall=1.0`. |
 | `make provider-comparison` | passed | Generated honest skipped-provider catalog report; no provider was claimed as run without credentials. |
-| `make mlflow-log` | passed | Local MLflow run completed; artifacts include eval reports, provider report, live-quality doc, optimized program, compiled metadata/pickle, and requirements matrix. |
+| `make mlflow-log` | passed | Local MLflow run `18236eab0b4a4acc83cd62b81bcafb9e`; artifacts include eval reports, provider report, live-quality doc, optimized program, compiled metadata/pickle, and requirements matrix. |
 
 ## Executive Summary
 
@@ -221,7 +220,7 @@ reports/eval/metric_bars.svg
 reports/eval/summary.json
 reports/provider_comparison.md
 reports/provider_comparison.json
-reports/mlflow_runtime_manifest.json      # created by make mlflow-log, then cleaned
+reports/mlflow_gate6_dev_c_manifest.json  # created by make mlflow-log, then cleaned
 backend/mlruns/                           # created by make mlflow-log, then cleaned
 backend/.venv/
 frontend/node_modules/

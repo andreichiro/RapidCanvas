@@ -1,8 +1,7 @@
-"""Gate 3 deterministic adapter around real Bluesky fetch.
+"""Deterministic fallback adapter around real Bluesky fetch.
 
-This module is intentionally not the final Search/RAG/DSPy implementation. It
-exists so the frontend, API, trace, and citation contracts can run end to end
-while later gates replace the adapter with real retrieval and DSPy modules.
+This module exists so the frontend, API, trace, and citation contracts can run
+end to end when full retrieval or provider-backed generation is unavailable.
 """
 
 from __future__ import annotations
@@ -22,7 +21,7 @@ class BlueskyContextFetcher(Protocol):
 
 
 class Gate3Explainer:
-    """Real Bluesky fetch plus trace-marked deterministic dev explanation."""
+    """Real Bluesky fetch plus trace-marked deterministic fallback explanation."""
 
     def __init__(self, bluesky_client: BlueskyContextFetcher) -> None:
         self._bluesky_client = bluesky_client
@@ -45,26 +44,27 @@ class Gate3Explainer:
             bullets=bullets,
             sources=sources,
             trace=Trace(
-                category="gate3_vertical_slice",
+                category="thread_context_fallback",
                 queries=[],
                 warnings=[
                     "real_bluesky_fetch_enabled",
-                    "search_rag_uses_deterministic_dev_adapter",
-                    "dspy_uses_deterministic_dev_adapter",
+                    "search_rag_uses_deterministic_fallback_adapter",
+                    "dspy_uses_deterministic_fallback_adapter",
                 ],
                 latency_ms=latency_ms,
                 trust_score=0.35,
                 fallback_mode="safe_summary",
                 guardrail_flags=[
-                    "dev_adapter_search_rag",
-                    "dev_adapter_dspy",
-                    "not_final_explanation",
+                    "deterministic_fallback_search_rag",
+                    "deterministic_fallback_dspy",
+                    "limited_context_fallback",
                 ],
-                adapter_mode="deterministic_dev",
+                adapter_mode="deterministic_fallback",
                 adapter_notes=[
                     "Real Bluesky post/thread fetch is active.",
-                    "Search/RAG and DSPy are deterministic dev adapters for Gate 3 only.",
-                    "This response cannot satisfy final Search/RAG, DSPy, eval, or citation rows.",
+                    "External retrieval or provider-backed synthesis was "
+                    "unavailable for this response.",
+                    "The deterministic fallback is limited to fetched Bluesky context.",
                 ],
             ),
         )
@@ -112,8 +112,8 @@ def _bullets_from_context(context: PostContext, source_ids: list[str]) -> list[B
         ),
         Bullet(
             text=(
-                "This Gate 3 result is a safe summary from fetched Bluesky context; "
-                "broader Search/RAG and DSPy synthesis are not final yet."
+                "This result is a safe summary from fetched Bluesky context; "
+                "external retrieval and provider-backed synthesis were unavailable."
             ),
             source_ids=["S1"],
         ),

@@ -24,7 +24,7 @@ def test_qdrant_vector_store_uses_remote_url_when_configured(
             return FakeQdrantModule
         raise AssertionError(name)
 
-    monkeypatch.setattr("app.ml.vector_store.importlib.import_module", fake_import_module)
+    monkeypatch.setattr("app.ml.vector_backends.importlib.import_module", fake_import_module)
 
     QdrantVectorStore(url="http://qdrant:6333", path="/tmp/not-used")
 

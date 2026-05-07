@@ -92,12 +92,14 @@ def chunk_metadata(
     }
 
 
-def qdrant_point_id(chunk: object) -> str:
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, _chunk_text(chunk, "id")))
+def qdrant_point_id(chunk: object, namespace: object) -> str:
+    payload_key = f"{_namespace_text(namespace)}:{_chunk_text(chunk, 'id')}"
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, payload_key))
 
 
-def qdrant_payload(chunk: object) -> dict[str, object]:
+def qdrant_payload(chunk: object, namespace: object) -> dict[str, object]:
     return {
+        "namespace": _namespace_text(namespace),
         "chunk_id": _chunk_text(chunk, "id"),
         "document_id": _chunk_text(chunk, "document_id"),
         "source_id": _chunk_text(chunk, "source_id"),
@@ -113,3 +115,7 @@ def _chunk_text(chunk: object, name: str) -> str:
         boundary_attr(chunk, name, f"chunk_{name}_field_failed"),
         f"chunk_{name}_text_failed",
     )
+
+
+def _namespace_text(namespace: object) -> str:
+    return boundary_text(namespace, "namespace_text_failed") or "default"

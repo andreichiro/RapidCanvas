@@ -1,4 +1,4 @@
-"""Dev C-owned normalizer for Dev B-shaped retrieval output."""
+"""Normalizer for retrieval output consumed by the agent."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel
 
-from app.schemas.domain import ContextDocument, Evidence
+from app.schemas.domain import ContextDocument, Evidence, TrustAssessment
 
 
 @dataclass(frozen=True)
@@ -54,6 +54,57 @@ def normalize_retrieval_output(
         ),
         source_safety_diagnostics=source_safety_diagnostics,
     )
+
+
+def combined_flags(*groups: Sequence[str]) -> list[str]:
+    return [flag for group in groups for flag in group]
+
+
+def source_text_by_id(evidence: Sequence[Evidence]) -> dict[str, str]:
+    source_text: dict[str, list[str]] = {}
+    for item in evidence:
+        source_text.setdefault(item.source_id, []).append(item.text)
+    return {source_id: "\n".join(texts) for source_id, texts in source_text.items()}
+
+
+def snippet_only_source_ids(
+    documents: Sequence[ContextDocument],
+    evidence: Sequence[Evidence] = (),
+) -> set[str]:
+    snippet_document_ids = {
+        document.id for document in documents if document.metadata.get("snippet_only") is True
+    }
+    return {
+        *snippet_document_ids,
+        *(item.source_id for item in evidence if item.document_id in snippet_document_ids),
+    }
+
+
+def citable_evidence(
+    evidence: Sequence[Evidence],
+    allowed_source_ids: set[str],
+) -> list[Evidence]:
+    return [item for item in evidence if item.source_id in allowed_source_ids]
+
+
+def calibrated_runner_trust_flags(
+    runner_flags: Sequence[str],
+    base_assessment: TrustAssessment,
+) -> list[str]:
+    """Keep model trust labels from overriding clean deterministic evidence."""
+
+    flags = list(runner_flags)
+    dspy_flags = [flag for flag in flags if flag.startswith("dspy_trust_")]
+    if not dspy_flags:
+        return flags
+    critical_flags = set(base_assessment.flags) - {
+        "low_evidence",
+        "low_source_diversity",
+        "weak_retrieval_score",
+    }
+    if base_assessment.score >= 0.5 and not critical_flags:
+        return [flag for flag in flags if not flag.startswith("dspy_trust_")]
+    return flags
 
 
 def _base_bundle(output: RetrievalOutput) -> EvidenceBundle:

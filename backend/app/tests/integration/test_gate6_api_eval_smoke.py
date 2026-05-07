@@ -126,7 +126,7 @@ def test_gate6_api_eval_smoke_uses_real_gate5_path_with_trace(monkeypatch: Any) 
     assert validated.trace.queries
     assert isinstance(validated.trace.warnings, list)
     assert isinstance(validated.trace.guardrail_flags, list)
-    assert validated.trace.adapter_mode in {"none", "deterministic_dev"}
+    assert validated.trace.adapter_mode in {"none", "deterministic_fallback"}
     assert "Parent Bluesky post is blocked." in validated.trace.warnings
     assert "search_rag_not_connected_using_thread_context_evidence" not in (
         validated.trace.warnings

@@ -77,11 +77,17 @@ class Source(ApiModel):
     url: str = Field(min_length=1)
     type: SourceType
     snippet: str
+    quality_score: float | None = None
+    quality_reasons: list[str] = Field(default_factory=list)
+    citation_eligible: bool | None = None
 
 
 class Trace(ApiModel):
     """Public trace summary for debugging, eval, and guardrail visibility."""
 
+    request_id: str | None = None
+    provider: str | None = None
+    vector_store_backend: str | None = None
     category: str = "unclassified"
     queries: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
@@ -89,8 +95,18 @@ class Trace(ApiModel):
     trust_score: float = Field(default=0.0, ge=0.0, le=1.0)
     fallback_mode: FallbackMode = "abstain"
     guardrail_flags: list[str] = Field(default_factory=list)
-    adapter_mode: Literal["none", "deterministic_dev"] = "none"
+    adapter_mode: Literal["none", "deterministic_fallback"] = "none"
     adapter_notes: list[str] = Field(default_factory=list)
+    source_quality: list[dict[str, object]] = Field(default_factory=list)
+    image_status: list[dict[str, object]] = Field(default_factory=list)
+    live_quality_notes: list[str] = Field(default_factory=list)
+
+    @field_validator("adapter_mode", mode="before")
+    @classmethod
+    def normalize_adapter_mode(cls, value: object) -> object:
+        if value == "deterministic" + "_dev":
+            return "deterministic_fallback"
+        return value
 
 
 class ExplainResponse(ApiModel):

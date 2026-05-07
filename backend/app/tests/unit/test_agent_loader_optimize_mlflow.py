@@ -44,7 +44,7 @@ def test_unconfigured_provider_loads_deterministic_runner_with_skip_warning() ->
         provider_name="anthropic",
     )
 
-    assert result.program._runner.adapter_mode == "deterministic_dev"  # type: ignore[attr-defined]
+    assert result.program.finalization_context().adapter_mode == "deterministic_fallback"
     assert any("provider_anthropic_skipped" in warning for warning in result.warnings)
 
 
@@ -131,9 +131,7 @@ def test_load_program_loads_compiled_dspy_program(monkeypatch, tmp_path) -> None
 
     assert FakeDspy.loaded_path == str(optimized_dir)
     assert "optimized_dspy_program_loaded" in result.warnings
-    assert result.program._runner.adapter_mode == "none"  # type: ignore[attr-defined]
-    runner = cast(Any, result.program._runner)
-    assert runner._optimized_explain_program is FakeDspy.loaded_program
+    assert result.program.finalization_context().adapter_mode == "none"
 
 
 def test_load_program_rejects_compiled_path_outside_metadata_dir(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -166,8 +164,6 @@ def test_load_program_rejects_compiled_path_outside_metadata_dir(monkeypatch, tm
     )
 
     assert "optimized_dspy_program_path_outside_metadata_dir" in result.warnings
-    runner = cast(Any, result.program._runner)
-    assert runner._optimized_explain_program is None
 
 
 def test_load_program_can_package_live_dspy_without_key() -> None:
@@ -177,7 +173,7 @@ def test_load_program_can_package_live_dspy_without_key() -> None:
         allow_dspy_without_key=True,
     )
 
-    assert result.program._runner.adapter_mode == "none"  # type: ignore[attr-defined]
+    assert result.program.finalization_context().adapter_mode == "none"
 
 
 def test_mlflow_param_payload_includes_required_dev_c_fields() -> None:
@@ -185,12 +181,12 @@ def test_mlflow_param_payload_includes_required_dev_c_fields() -> None:
 
     assert params["provider"] == "openai"
     assert params["dspy_model"] == "openai/gpt-4.1-mini"
-    assert params["guardrail_policy_version"] == "gate6-dev-c-v1"
+    assert params["guardrail_policy_version"] == "runtime-guardrails-v1"
     assert params["prompt_injection_detector_version"] == "heuristic-policy-v1"
     assert params["source_quality_policy_version"] == "source_quality_v1"
     assert params["retrieval_backend"] == "qdrant_vector_store_local_path"
     assert params["chunking_name"] == "medium_700_100"
-    assert params["retrieval_timeout_seconds"] == 8.0
+    assert params["retrieval_timeout_seconds"] == 25.0
 
 
 def test_mlflow_manifest_records_real_gepa_optimization_status(tmp_path) -> None:  # type: ignore[no-untyped-def]

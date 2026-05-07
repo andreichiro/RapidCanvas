@@ -3,7 +3,7 @@ SHELL := /bin/bash
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 
-.PHONY: help setup setup-backend setup-backend-full setup-frontend lint backend-lint frontend-lint test backend-test frontend-test run dev start dev-backend dev-frontend docker-config docker-up docker-down eval eval-cached eval-api provider-comparison live-quality-smoke live-quality-review world-class-review gate6-shipping-audit gate7-final-truth-audit optimize mlflow-log mlflow-ui clean clean-generated check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review skills-review maintainability-review api-smoke frontend-smoke user-smoke deep-review
+.PHONY: help setup setup-backend setup-backend-full setup-frontend lint backend-lint frontend-lint test backend-test frontend-test run dev start dev-backend dev-frontend docker-config docker-up docker-down eval eval-cached eval-api provider-comparison live-quality-smoke live-quality-review world-class-review gate6-shipping-audit gate7-final-truth-audit optimize mlflow-log mlflow-ui clean clean-generated check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review staff-review-ledger skills-review maintainability-review api-smoke frontend-smoke user-smoke deep-review
 
 help:
 	@echo "Bluesky Contextual Post Explainer"
@@ -15,6 +15,7 @@ help:
 	@echo "  make test               Run backend and frontend tests"
 	@echo "  make deep-review        Run the full local review gate"
 	@echo "  make requirements-review Validate Gate 1 requirement mappings"
+	@echo "  make staff-review-ledger Validate staff line-review ledger coverage"
 	@echo "  make skills-review      Validate local project skills"
 	@echo "  make user-smoke         Exercise the scaffold as a user would"
 	@echo "  make run                One-command full Docker stack: UI, API, Qdrant, MLflow"
@@ -84,6 +85,9 @@ maintainability-review:
 requirements-review:
 	python3 scripts/check_requirements_matrix.py
 
+staff-review-ledger:
+	python3 scripts/check_staff_review_matrix.py
+
 skills-review:
 	python3 scripts/quick_validate.py .codex/skills/*
 
@@ -125,7 +129,7 @@ frontend-smoke:
 
 user-smoke: api-smoke frontend-smoke
 
-deep-review: lint test check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review skills-review clean-generated maintainability-review user-smoke
+deep-review: lint test check-secrets config-check frontend-audit frontend-build extras-dry-run requirements-review staff-review-ledger skills-review clean-generated maintainability-review user-smoke
 
 run: docker-up
 
@@ -199,7 +203,8 @@ docker-config:
 	docker compose config
 
 docker-up:
-	docker compose up --build
+	python3 scripts/check_docker_prereqs.py
+	docker compose up --build $(DOCKER_UP_FLAGS)
 
 docker-down:
 	docker compose down
@@ -220,7 +225,7 @@ live-quality-smoke:
 	cd $(BACKEND_DIR) && uv run python -m app.eval.provider_comparison --live --require-openai --max-cases 2
 
 live-quality-review:
-	cd $(BACKEND_DIR) && RETRIEVAL_MAX_QUERIES=2 RETRIEVAL_SEARCH_LIMIT_PER_PROVIDER=2 RETRIEVAL_LINKED_PAGE_LIMIT=1 uv run python ../scripts/write_live_quality_review.py --max-cases 6
+	cd $(BACKEND_DIR) && RETRIEVAL_MAX_QUERIES=2 RETRIEVAL_SEARCH_LIMIT_PER_PROVIDER=2 RETRIEVAL_LINKED_PAGE_LIMIT=1 uv run python ../scripts/write_live_quality_review.py --max-cases 10
 
 world-class-review: deep-review eval-cached provider-comparison optimize mlflow-log gate7-final-truth-audit
 	@if [[ -n "$${OPENAI_API_KEY:-}" ]]; then \

@@ -12,6 +12,29 @@ from app.guardrails.output import BulletDraft, ExplanationDraft
 from app.guardrails.policies import compact_text
 from app.schemas.domain import Evidence, FallbackMode, PostContext, SourceType
 
+_VALIDATION_ISSUE_ALIASES = {
+    "unsupported": "unsupported_claim",
+    "unsupported_claim": "unsupported_claim",
+    "unsupported_claims": "unsupported_claim",
+    "hallucination": "unsupported_claim",
+    "weak_citation": "weak_citation_support",
+    "weak_citation_support": "weak_citation_support",
+    "weak_support": "weak_citation_support",
+    "off_topic": "off_topic_citation",
+    "off_topic_citation": "off_topic_citation",
+    "off_topic_source": "off_topic_citation",
+    "needs_primary": "needs_primary_source",
+    "needs_primary_source": "needs_primary_source",
+    "snippet_only": "needs_primary_source",
+    "instruction_echo": "unsafe_echo",
+    "leaked_instruction_or_secret": "unsafe_echo",
+    "unsafe_echo": "unsafe_echo",
+    "unsafe_instruction_echo": "unsafe_echo",
+    "language": "non_english_output",
+    "non_english": "non_english_output",
+    "non_english_output": "non_english_output",
+}
+
 
 def thread_context(post: PostContext) -> str:
     parts = [*post.parent_texts, *post.quoted_texts]
@@ -76,6 +99,17 @@ def json_list(value: str) -> list[str]:
     return [str(item) for item in parsed] if isinstance(parsed, list) else []
 
 
+def validation_issue_labels(value: str) -> list[str]:
+    """Normalize model-provided validation labels to the explicit public set."""
+
+    labels: list[str] = []
+    for item in json_list(value):
+        normalized = _VALIDATION_ISSUE_ALIASES.get(_label_key(item))
+        if normalized is not None and normalized not in labels:
+            labels.append(normalized)
+    return labels
+
+
 def json_mapping(value: str) -> dict[str, object]:
     parsed = _parse_json(value)
     return parsed if isinstance(parsed, dict) else {}
@@ -119,3 +153,7 @@ def _parse_json(value: str) -> object:
         return json.loads(value)
     except json.JSONDecodeError:
         return None
+
+
+def _label_key(value: str) -> str:
+    return "_".join(value.strip().lower().replace("-", "_").split())

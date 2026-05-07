@@ -11,7 +11,7 @@
   },
   "dataset_bridge": {
     "average_expected_citation_relevance_score": 1.0,
-    "average_expected_source_quality_score": 0.759,
+    "average_expected_source_quality_score": 0.761,
     "case_count": 19,
     "contains_attack_or_fallback_cases": true,
     "contains_source_quality_fields": true,
@@ -84,7 +84,7 @@
     "Real GEPA compile produced a DSPy saved program; loader uses it when DSPy and provider credentials are available."
   ],
   "optimizer": "GEPA",
-  "policy_version": "gate6-dev-c-v1",
+  "policy_version": "runtime-guardrails-v1",
   "saved_at": "2026-05-01T18:36:43.739059+00:00",
   "schema_version": 1
 }

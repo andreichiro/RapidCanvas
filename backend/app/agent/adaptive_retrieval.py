@@ -1,4 +1,4 @@
-"""Small capped adaptive retrieval helpers for the Gate 7 runtime path."""
+"""Small capped adaptive retrieval helpers for the runtime path."""
 
 from __future__ import annotations
 

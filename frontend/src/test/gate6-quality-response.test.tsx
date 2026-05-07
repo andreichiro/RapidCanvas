@@ -21,7 +21,9 @@ const providersPayload = {
       name: "openai",
       configured: true,
       skipped_reason: null,
+      runnable: true,
       default_model: "openai/gpt-4.1-mini",
+      comparison_status: "configured_not_run",
     },
   ],
 };
@@ -85,6 +87,14 @@ test("renders a normal Gate 6 quality response with 3-5 cited bullets and source
   for (const typeLabel of ["Thread", "Bluesky", "Web", "Image"]) {
     expect(within(sources).getByText(typeLabel)).toBeVisible();
   }
+  expect(within(sources).getByLabelText("source quality S-web")).toHaveTextContent("Quality 91%");
+  expect(within(sources).getByLabelText("source quality S-web")).toHaveTextContent("Citation eligible");
+  expect(within(sources).getByText("authoritative linked coverage")).toBeVisible();
+  expect(within(sources).getByText("current source")).toBeVisible();
+  expect(screen.getByLabelText("runtime summary")).toHaveTextContent("Vector backend");
+  expect(screen.getByLabelText("runtime summary")).toHaveTextContent("qdrant vector store");
+  expect(screen.getByLabelText("image and video evidence")).toHaveTextContent("Image 1");
+  expect(screen.getByLabelText("image and video evidence")).toHaveTextContent("vision yes");
 });
 
 test("links citations to source cards even when backend source ids need fragment encoding", () => {
@@ -146,6 +156,23 @@ test("renders prompt-injection, contradictory-source, and low-trust warning stat
   expect(screen.getByLabelText("guardrail flags")).toHaveTextContent("weak retrieval score");
 });
 
+test("renders explicit video-unparsed evidence status without implying frame analysis", () => {
+  render(
+    <ResultView
+      result={gate6ResponseWithTrace({
+        image_status: [],
+        warnings: [
+          "video_embed_unparsed: the post contains video, and this build uses text/thread/link/image evidence without parsing video frames.",
+        ],
+      })}
+    />,
+  );
+
+  expect(screen.getByLabelText("image and video evidence")).toHaveTextContent("Video evidence");
+  expect(screen.getByLabelText("image and video evidence")).toHaveTextContent("video frames are not parsed");
+  expect(screen.getByLabelText("warnings")).toHaveTextContent("This post contains a video");
+});
+
 test("trace panel exposes backend quality fields without frontend scoring", () => {
   render(
     <ResultView
@@ -159,7 +186,7 @@ test("trace panel exposes backend quality fields without frontend scoring", () =
         trust_score: 0.37,
         fallback_mode: "partial",
         guardrail_flags: ["conflicting_sources"],
-        adapter_mode: "deterministic_dev",
+        adapter_mode: "deterministic_fallback",
         adapter_notes: ["fixture-only adapter note mirrors a backend trace field"],
       })}
     />,
@@ -170,6 +197,9 @@ test("trace panel exposes backend quality fields without frontend scoring", () =
   const tracePanel = screen.getByLabelText("trace panel");
   for (const label of [
     "Category",
+    "Request ID",
+    "Provider",
+    "Vector backend",
     "Latency",
     "Trust score",
     "Fallback mode",
@@ -178,14 +208,20 @@ test("trace panel exposes backend quality fields without frontend scoring", () =
     "Warnings",
     "Guardrail flags",
     "Adapter notes",
+    "Source quality",
+    "Image status",
+    "Live quality notes",
   ]) {
     expect(within(tracePanel).getByText(label)).toBeVisible();
   }
   expect(within(tracePanel).getByText("contradiction_check")).toBeVisible();
+  expect(within(tracePanel).getByText("req-gate6-quality-smoke")).toBeVisible();
+  expect(within(tracePanel).getByText("openai")).toBeVisible();
+  expect(within(tracePanel).getByText("qdrant vector store")).toBeVisible();
   expect(within(tracePanel).getByText("987 ms")).toBeVisible();
   expect(within(tracePanel).getByText("37%")).toBeVisible();
   expect(within(tracePanel).getByText("partial")).toBeVisible();
-  expect(within(tracePanel).getByText("deterministic dev")).toBeVisible();
+  expect(within(tracePanel).getByText("deterministic fallback")).toBeVisible();
   expect(within(tracePanel).getByText("conflicting_sources")).toBeVisible();
   expect(within(tracePanel).getByText("very long contradiction query with source ids and quoted terms that should remain readable in the trace panel")).toBeVisible();
   expect(screen.getAllByText("contradictory_sources: backend kept the answer partial")).toHaveLength(2);
@@ -203,13 +239,23 @@ test("renders unavailable or deleted post errors clearly", async () => {
 });
 
 test("renders provider or upstream errors clearly", async () => {
-  mockAppFetch({ detail: { message: "Provider upstream failed; try again later." } }, 502);
+  mockAppFetch(
+    {
+      detail: {
+        code: "provider_upstream_error",
+        message: "Provider upstream failed; try again later.",
+      },
+    },
+    502,
+  );
   render(<App />);
 
   await fillAppForm();
   fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Provider upstream failed; try again later.");
+  expect(screen.getByRole("alert")).toHaveTextContent("provider_upstream_error");
+  expect(screen.getByRole("alert")).toHaveTextContent("HTTP 502");
 });
 
 test("renders FastAPI validation detail arrays clearly", async () => {

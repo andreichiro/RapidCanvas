@@ -21,8 +21,6 @@ SOURCE_QUALITY_POLICY_VERSION = "source_quality_v1"
 DEFAULT_CHUNKING_NAME = "medium_700_100"
 DEFAULT_CHUNK_SIZE = 700
 DEFAULT_CHUNK_OVERLAP = 100
-DEFAULT_RETRIEVAL_CONCURRENCY = 1
-DEFAULT_RETRIEVAL_TIMEOUT_SECONDS = 8.0
 
 
 @dataclass(frozen=True)
@@ -72,27 +70,10 @@ def build_default_mlflow_params(settings: Settings) -> dict[str, str | int | flo
         "retrieval_max_queries": settings.retrieval_max_queries,
         "retrieval_search_limit_per_provider": settings.retrieval_search_limit_per_provider,
         "retrieval_linked_page_limit": settings.retrieval_linked_page_limit,
-        "retrieval_linked_page_concurrency": _setting(
-            settings,
-            "retrieval_linked_page_concurrency",
-            DEFAULT_RETRIEVAL_CONCURRENCY,
-        ),
-        "retrieval_search_concurrency": _setting(
-            settings,
-            "retrieval_search_concurrency",
-            DEFAULT_RETRIEVAL_CONCURRENCY,
-        ),
-        "retrieval_timeout_seconds": _setting(
-            settings,
-            "retrieval_timeout_seconds",
-            DEFAULT_RETRIEVAL_TIMEOUT_SECONDS,
-        ),
+        "retrieval_linked_page_concurrency": settings.retrieval_linked_page_concurrency,
+        "retrieval_search_concurrency": settings.retrieval_search_concurrency,
+        "retrieval_timeout_seconds": settings.retrieval_timeout_seconds,
     }
-
-
-def _setting(settings: Settings, name: str, default: int | float) -> int | float:
-    value = getattr(settings, name, default)
-    return value if isinstance(value, (int, float)) else default
 
 
 def _configured_retrieval_backend(settings: Settings) -> str:

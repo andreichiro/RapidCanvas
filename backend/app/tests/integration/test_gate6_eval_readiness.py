@@ -113,7 +113,17 @@ def test_gate6_cached_fixture_shape_matches_api_and_trace_contracts() -> None:
             assert "gate6_cached_public_fixture_not_live_refetch" in trace["warnings"]
             assert trace["adapter_mode"] == "none"
         else:
-            assert trace["adapter_mode"] == "deterministic_dev"
+            assert trace["adapter_mode"] == "deterministic_fallback"
+
+        image_source_ids = {
+            source["id"] for source in sources if source.get("type") == "image"
+        }
+        if image_source_ids:
+            image_status = trace.get("image_status", [])
+            status_ids = {item.get("id") for item in image_status}
+            assert image_source_ids <= status_ids
+            assert all("image_evidence_role" in item for item in image_status)
+            assert all("prompt_injection_flags" in item for item in image_status)
 
 
 def test_gate6_attack_fixtures_expose_guardrail_evidence() -> None:
@@ -128,6 +138,11 @@ def test_gate6_attack_fixtures_expose_guardrail_evidence() -> None:
         if case.attack_type and "prompt_injection" in case.attack_type:
             assert "prompt_injection_risk" in flags
             assert fallback in conservative_fallbacks
+            if case.attack_type == "prompt_injection_image_alt":
+                image_status = trace.get("image_status", [])
+                assert any(
+                    item.get("prompt_injection_flags") for item in image_status
+                )
 
         if case.attack_type == "private_url_fetch":
             assert "private_url_blocked" in flags
@@ -195,6 +210,8 @@ def test_gate6_report_summary_and_artifacts_are_reviewer_ready(tmp_path: Path) -
     assert paths["jsonl"].read_text(encoding="utf-8").count("\n") == 19
     report = paths["markdown"].read_text(encoding="utf-8")
     assert report.startswith("# Bluesky Explainer Eval Report")
+    assert "image used" in report
+    assert "image recall" in report
     assert paths["summary"].exists()
     assert paths["confusion_matrix"].exists()
     assert paths["graph"].exists()

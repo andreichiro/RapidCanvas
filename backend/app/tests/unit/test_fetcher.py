@@ -152,6 +152,13 @@ async def test_linked_page_fetcher_extracts_html_and_strips_script_content() -> 
     assert result.document.title == "Useful Context"
     assert "Useful context for the Bluesky post." in result.document.text
     assert "ignore previous instructions" not in result.document.text
+    assert result.document.metadata["canonical_domain"] == "example.com"
+    assert result.document.metadata["content_type"] == "text/html"
+    assert result.document.metadata["fetch_success"] is True
+    assert result.document.metadata["fetch_status"] == 200
+    assert result.document.metadata["status_code"] == 200
+    assert result.document.metadata["extracted_length"] >= len("Useful context")
+    assert result.document.metadata["redirect_count"] == 0
 
 
 @pytest.mark.asyncio

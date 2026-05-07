@@ -12,6 +12,11 @@ from typing import Any
 from app.config import Settings
 from app.deps import get_provider_catalog
 from app.eval.dataset import DEFAULT_CASES_PATH, REPO_ROOT, load_eval_cases
+from app.eval.provider_quality import (
+    payload_answer_usefulness_score,
+    payload_source_relevance_score,
+    trace_provider_quality_score,
+)
 
 DEFAULT_OUTPUT_MARKDOWN = REPO_ROOT / "reports" / "provider_comparison.md"
 DEFAULT_OUTPUT_JSON = REPO_ROOT / "reports" / "provider_comparison.json"
@@ -31,6 +36,9 @@ class ProviderRun:
     fallback_mode: str | None = None
     adapter_mode: str | None = None
     quality_pass: bool = False
+    source_relevance_score: float = 0.0
+    answer_usefulness_score: float = 0.0
+    provider_quality_score: float = 0.0
     warning_count: int = 0
 
     def as_dict(self) -> dict[str, object]:
@@ -47,6 +55,9 @@ class ProviderRun:
             "fallback_mode": self.fallback_mode,
             "adapter_mode": self.adapter_mode,
             "quality_pass": self.quality_pass,
+            "source_relevance_score": self.source_relevance_score,
+            "answer_usefulness_score": self.answer_usefulness_score,
+            "provider_quality_score": self.provider_quality_score,
             "warning_count": self.warning_count,
         }
 
@@ -87,9 +98,12 @@ def build_provider_comparison(
             )
             continue
         runs.extend(_run_provider_cases(provider.name, urls, active_settings, client=client))
+    ran_count = len({run.provider for run in runs if _provider_actually_ran(run)})
     return {
         "mode": "live" if live else "catalog",
         "case_count": len(urls),
+        "ran_provider_count": ran_count,
+        "comparison_status": ("comparison complete" if ran_count >= 2 else "comparison incomplete"),
         "credential_scope": (
             "configured means server environment credentials; the OpenAI "
             "per-request key path is exercised by the UI/API and is not stored"
@@ -143,6 +157,16 @@ def _provider_run_from_response(provider_name: str, url: str, response: Any) -> 
     adapter = _optional_text(trace.get("adapter_mode"))
     cited_count = _cited_bullet_count(bullets)
     status_code = int(response.status_code)
+    source_relevance = payload_source_relevance_score(bullets, sources)
+    usefulness = payload_answer_usefulness_score(
+        status_code=status_code,
+        bullet_count=len(bullets),
+        cited_bullet_count=cited_count,
+        source_count=len(sources),
+        fallback_mode=fallback,
+        source_relevance_score=source_relevance,
+    )
+    provider_quality = trace_provider_quality_score(trace)
     return ProviderRun(
         provider=provider_name,
         status=_provider_status(status_code),
@@ -161,7 +185,13 @@ def _provider_run_from_response(provider_name: str, url: str, response: Any) -> 
             cited_bullet_count=cited_count,
             source_count=len(sources),
             fallback_mode=fallback,
+            source_relevance_score=source_relevance,
+            answer_usefulness_score=usefulness,
+            provider_quality_score=provider_quality,
         ),
+        source_relevance_score=source_relevance,
+        answer_usefulness_score=usefulness,
+        provider_quality_score=provider_quality,
         warning_count=_warning_count(trace),
     )
 
@@ -208,6 +238,9 @@ def _quality_pass(
     cited_bullet_count: int,
     source_count: int,
     fallback_mode: str | None,
+    source_relevance_score: float,
+    answer_usefulness_score: float,
+    provider_quality_score: float,
 ) -> bool:
     return all(
         (
@@ -216,8 +249,15 @@ def _quality_pass(
             cited_bullet_count == bullet_count,
             source_count > 0,
             fallback_mode != "abstain",
+            source_relevance_score >= 0.20,
+            answer_usefulness_score >= 0.80,
+            provider_quality_score >= 1.0,
         )
     )
+
+
+def _provider_actually_ran(run: ProviderRun) -> bool:
+    return run.status == "ran" and run.quality_pass
 
 
 def _provider_status(status_code: int) -> str:
@@ -248,22 +288,27 @@ def _markdown(result: dict[str, object]) -> str:
         "",
         f"- Mode: `{result.get('mode')}`",
         f"- Case count: `{result.get('case_count')}`",
+        f"- Providers with live quality-passing runs: `{result.get('ran_provider_count')}`",
+        f"- Comparison status: `{result.get('comparison_status')}`",
         f"- Credential scope: {result.get('credential_scope')}",
         "",
-        "| Provider | Status | Configured | Quality Pass | Bullets | Sources | Fallback | Notes |",
-        "|---|---|---:|---:|---:|---:|---|---|",
+        "| Provider | Status | Configured | Quality Pass | Usefulness | Source Relevance | "
+        "Bullets | Sources | Fallback | Notes |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---|---|",
     ]
     if isinstance(rows, list):
         for row in rows:
             if not isinstance(row, dict):
                 continue
             lines.append(
-                "| {provider} | {status} | {configured} | {quality} | {bullets} | "
-                "{sources} | {fallback} | {notes} |".format(
+                "| {provider} | {status} | {configured} | {quality} | {usefulness:.3f} | "
+                "{source_relevance:.3f} | {bullets} | {sources} | {fallback} | {notes} |".format(
                     provider=row.get("provider"),
                     status=row.get("status"),
                     configured=row.get("configured"),
                     quality=row.get("quality_pass"),
+                    usefulness=float(row.get("answer_usefulness_score", 0.0)),
+                    source_relevance=float(row.get("source_relevance_score", 0.0)),
                     bullets=row.get("bullet_count"),
                     sources=row.get("source_count"),
                     fallback=row.get("fallback_mode") or "",

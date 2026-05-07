@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from app.guardrails.output import BulletDraft, ExplanationDraft, OutputGuardrail
 from app.guardrails.trust import TrustScorer
-from app.schemas.domain import Evidence, PostContext
+from app.schemas.domain import ContextDocument, Evidence, PostContext
 
 
 def _post(text: str = "A post about a niche news reference.") -> PostContext:
@@ -70,6 +70,74 @@ def test_trust_scorer_uses_source_safety_and_contradiction_flags() -> None:
 
     assert "conflicting_sources" in assessment.flags
     assert "source_safety_private_url_blocked" in assessment.flags
+    assert assessment.fallback_mode in {"partial", "safe_summary", "abstain"}
+
+
+def test_trust_scorer_penalizes_weak_or_ineligible_cited_evidence() -> None:
+    evidence = [
+        Evidence(
+            id="E1",
+            document_id="BAD",
+            text="Unrelated trading card marketplace snippet.",
+            score=0.91,
+            source_id="BAD",
+        )
+    ]
+    documents = [
+        ContextDocument(
+            id="BAD",
+            source_type="web",
+            title="Catalog page",
+            url="https://tcdb.com/card",
+            text="Trading card catalog marketplace coupon.",
+            metadata={
+                "source_quality_score": 0.18,
+                "source_quality_reasons": [
+                    "commercial_catalog_domain",
+                    "off_topic_low_lexical_overlap",
+                ],
+                "citation_eligible": False,
+            },
+        )
+    ]
+
+    assessment = TrustScorer().assess(_post(), evidence, documents=documents)
+
+    assert "weak_source_quality" in assessment.flags
+    assert "ineligible_citation" in assessment.flags
+    assert "off_topic_citation" in assessment.flags
+    assert assessment.fallback_mode in {"partial", "safe_summary", "abstain"}
+
+
+def test_trust_scorer_penalizes_snippet_only_single_source_support() -> None:
+    evidence = [
+        Evidence(
+            id="E1",
+            document_id="SNIP",
+            text="Snippet-only context for a broad announcement.",
+            score=0.9,
+            source_id="SNIP",
+        )
+    ]
+    documents = [
+        ContextDocument(
+            id="SNIP",
+            source_type="web",
+            title="Search result",
+            url="https://example.com/result",
+            text="Snippet-only context for a broad announcement.",
+            metadata={
+                "snippet_only": True,
+                "source_quality_score": 0.74,
+                "citation_eligible": True,
+            },
+        )
+    ]
+
+    assessment = TrustScorer().assess(_post(), evidence, documents=documents)
+
+    assert "snippet_only_citation" in assessment.flags
+    assert "low_source_diversity" in assessment.flags
     assert assessment.fallback_mode in {"partial", "safe_summary", "abstain"}
 
 
@@ -148,6 +216,37 @@ def test_output_guardrail_rejects_retrieved_instruction_echoes() -> None:
 
     assert validation.is_valid is False
     assert "leaked_instruction_or_secret" in validation.issues
+    assert "unsafe_echo" in validation.issues
+
+
+def test_output_guardrail_repair_uses_source_support_map() -> None:
+    guardrail = OutputGuardrail()
+    draft = ExplanationDraft(
+        bullets=[
+            BulletDraft(
+                text="Maryland passed the grocery pricing rule in 2026.",
+                source_ids=["S1"],
+            ),
+            BulletDraft(text="The source discusses committee review.", source_ids=["S1"]),
+            BulletDraft(text="The post asks for verified context.", source_ids=["S-post"]),
+        ]
+    )
+
+    repaired = guardrail.repair(
+        draft,
+        {"S1", "S-post"},
+        fallback_mode="partial",
+        post=_post(text="What happened with the grocery pricing rule?"),
+        post_source_id="S-post",
+        source_text_by_id={
+            "S1": "California approved a grocery pricing rule after committee review."
+        },
+    )
+
+    serialized = " ".join(bullet.text for bullet in repaired)
+    assert "Maryland passed" not in serialized
+    assert len(repaired) == 3
+    assert all(bullet.source_ids for bullet in repaired)
 
 
 def test_output_guardrail_fallback_does_not_echo_malicious_visible_post() -> None:

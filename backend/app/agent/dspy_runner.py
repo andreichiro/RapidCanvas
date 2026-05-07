@@ -7,7 +7,12 @@ from importlib import import_module
 from typing import Any
 
 from app.agent import dspy_parsing as parsed
-from app.agent.runner import AdapterMode, ClassificationResult, HeuristicSignatureRunner
+from app.agent.runner import (
+    DETERMINISTIC_FALLBACK_ADAPTER,
+    AdapterMode,
+    ClassificationResult,
+    HeuristicSignatureRunner,
+)
 from app.agent.signatures import build_dspy_signature_classes
 from app.guardrails.output import (
     ExplanationDraft,
@@ -180,7 +185,7 @@ class DspySignatureRunner:
         )
         return ValidationResult(
             is_valid=str(getattr(prediction, "is_valid", "false")).lower() == "true",
-            issues=parsed.json_list(str(getattr(prediction, "issues_json", "[]"))),
+            issues=parsed.validation_issue_labels(str(getattr(prediction, "issues_json", "[]"))),
             revised_bullets=revised_draft.bullets,
         )
 
@@ -231,7 +236,7 @@ class DspySignatureRunner:
             return None
 
     def _record_provider_failure(self, step: str, exc: Exception) -> None:
-        self.adapter_mode = "deterministic_dev"
+        self.adapter_mode = DETERMINISTIC_FALLBACK_ADAPTER
         self._runtime_guardrail_flags.append("dspy_provider_error")
         note = f"DSPy provider failed during {step}; guarded fallback handled it."
         detail = f"DSPy provider error class: {exc.__class__.__name__}."

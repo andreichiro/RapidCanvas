@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from pathlib import Path
 
+from app.agent.finalize import FinalizationContext
 from app.agent.program import BlueskyExplainer
 from app.agent.quality_trace import quality_trace_payload
 from app.agent.runner import (
@@ -64,7 +66,7 @@ def test_bluesky_explainer_returns_three_to_five_cited_bullets_with_trace() -> N
     assert {source.id for source in response.sources} == {POST_SOURCE_ID, "S1", "S2", "S3"}
     assert response.trace.fallback_mode == "none"
     assert response.trace.trust_score > 0.8
-    assert response.trace.adapter_mode == "deterministic_dev"
+    assert response.trace.adapter_mode == "deterministic_fallback"
     assert [event.step for event in program.last_trace_events if event.status == "completed"] == [
         "prompt_injection_scan",
         "classify",
@@ -89,6 +91,55 @@ def test_bluesky_explainer_returns_three_to_five_cited_bullets_with_trace() -> N
     assert payload["guardrails"]["source_support_validation_status"] == "supported"
     assert "system prompt" not in str(payload).lower()
     assert "developer message" not in str(payload).lower()
+
+
+def test_bluesky_explainer_quality_trace_reports_safe_cost_metadata_when_available() -> None:
+    program = BlueskyExplainer(
+        provider_metadata={
+            "cost_metadata": {
+                "available": True,
+                "input_tokens": 120,
+                "output_tokens": 40,
+                "total_tokens": 160,
+                "estimated_cost_usd": 0.0012,
+                "raw_response": {"must": "not leak"},
+            }
+        }
+    )
+
+    program.explain_context(post=_post(), evidence=_evidence(), documents=_documents())
+    quality_trace = program.last_quality_trace
+
+    assert quality_trace is not None
+    assert quality_trace.provider.cost_metadata == {
+        "available": True,
+        "input_tokens": 120,
+        "output_tokens": 40,
+        "total_tokens": 160,
+        "estimated_cost_usd": 0.0012,
+    }
+
+
+def test_bluesky_explainer_quality_trace_redacts_cost_metadata_strings() -> None:
+    program = BlueskyExplainer(
+        provider_metadata={
+            "cost_metadata": {
+                "available": False,
+                "skip_reason": "usage unavailable for sk-test-redacted123",
+                "raw_response": {"must": "not leak"},
+            }
+        }
+    )
+
+    program.explain_context(post=_post(), evidence=_evidence(), documents=_documents())
+    quality_trace = program.last_quality_trace
+
+    assert quality_trace is not None
+    assert quality_trace.provider.cost_metadata == {
+        "available": False,
+        "skip_reason": "usage unavailable for [redacted]",
+    }
+    assert "sk-test-redacted123" not in str(quality_trace.provider.cost_metadata)
 
 
 def test_bluesky_explainer_flags_prompt_injection_from_untrusted_evidence() -> None:
@@ -149,7 +200,7 @@ class RevisingRunner:
             bullets=[
                 BulletDraft(text="Good point one.", source_ids=["S1"]),
                 BulletDraft(text="Missing citation.", source_ids=[]),
-                BulletDraft(text="Good point three.", source_ids=["S3"]),
+                BulletDraft(text="Evidence 3 explains a verifiable part.", source_ids=["S3"]),
             ]
         )
 
@@ -184,9 +235,9 @@ class RevisingRunner:
         self.revision_attempts += 1
         return ExplanationDraft(
             bullets=[
-                BulletDraft(text="Good point one.", source_ids=["S1"]),
-                BulletDraft(text="Revised cited point.", source_ids=["S2"]),
-                BulletDraft(text="Good point three.", source_ids=["S3"]),
+                BulletDraft(text="Evidence 1 explains a verifiable part.", source_ids=["S1"]),
+                BulletDraft(text="Evidence 2 explains a verifiable part.", source_ids=["S2"]),
+                BulletDraft(text="Evidence 3 explains a verifiable part.", source_ids=["S3"]),
             ]
         )
 
@@ -205,16 +256,41 @@ def test_validator_triggers_one_revision_attempt() -> None:
     assert program.last_quality_trace.guardrails.revision_succeeded is True
 
 
+def test_finalization_context_exposes_runtime_state_after_revision() -> None:
+    runner = RevisingRunner()
+    program = BlueskyExplainer(runner=runner)
+
+    program.explain_context(post=_post(), evidence=_evidence(), documents=_documents())
+    context = program.finalization_context()
+
+    assert isinstance(context, FinalizationContext)
+    assert context.adapter_mode == "none"
+    assert context.adapter_notes == ()
+    assert context.revision_attempted is True
+    assert context.revision_succeeded is True
+    assert [event.step for event in context.trace_events]
+
+
+def test_finalizer_uses_public_finalization_context() -> None:
+    finalizer = Path(__file__).parents[2] / "agent" / "finalize.py"
+    text = finalizer.read_text()
+
+    assert "program._" not in text
+    assert "_runner" not in text
+    assert "_output_guardrail" not in text
+    assert "_revision" not in text
+
+
 def test_low_trust_path_returns_schema_valid_fallback() -> None:
     program = BlueskyExplainer()
     response = program.explain_context(post=_post(), evidence=[], documents=[])
 
     assert len(response.bullets) == 3
-    assert response.trace.fallback_mode == "abstain"
+    assert response.trace.fallback_mode == "partial"
     assert "low_evidence" in response.trace.guardrail_flags
     assert all(bullet.source_ids == [POST_SOURCE_ID] for bullet in response.bullets)
     assert program.last_quality_trace is not None
-    assert program.last_quality_trace.guardrails.abstention_reasons
+    assert program.last_quality_trace.guardrails.fallback_reasons
 
 
 class SixBulletRunner(RevisingRunner):
@@ -249,8 +325,9 @@ def test_invalid_normal_shape_forces_partial_trace_not_none() -> None:
 
     assert response.trace.fallback_mode == "partial"
     assert "invalid_output_shape" in response.trace.guardrail_flags
-    assert len(response.bullets) == 5
-    assert all("Safe summary." not in bullet.text for bullet in response.bullets)
+    assert len(response.bullets) == 3
+    assert all("Extra cited point" not in bullet.text for bullet in response.bullets)
+    assert all(bullet.source_ids == [POST_SOURCE_ID] for bullet in response.bullets)
 
 
 class AbstainingTrustRunner(RevisingRunner):
@@ -268,14 +345,26 @@ class AbstainingTrustRunner(RevisingRunner):
         )
 
 
-def test_runner_trust_abstain_forces_final_fallback() -> None:
+def test_runner_trust_abstain_is_advisory_when_deterministic_evidence_is_clean() -> None:
     response = BlueskyExplainer(runner=AbstainingTrustRunner()).explain_context(
         post=_post(),
         evidence=_evidence(),
         documents=_documents(),
     )
 
-    assert response.trace.fallback_mode == "abstain"
+    assert response.trace.fallback_mode == "none"
+    assert "dspy_trust_abstain" not in response.trace.guardrail_flags
+
+
+def test_runner_trust_abstain_still_forces_fallback_when_guardrails_find_risk() -> None:
+    response = BlueskyExplainer(runner=AbstainingTrustRunner()).explain_context(
+        post=_post(),
+        evidence=_evidence()[:1],
+        documents=_documents()[:1],
+        retrieval_guardrail_flags=["prompt_injection_risk"],
+    )
+
+    assert response.trace.fallback_mode in {"abstain", "safe_summary"}
     assert "dspy_trust_abstain" in response.trace.guardrail_flags
     assert any(
         "DSPy trust assessment requested abstain" in item for item in response.trace.warnings

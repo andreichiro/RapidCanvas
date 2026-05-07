@@ -1,4 +1,4 @@
-"""Shared guardrail policy constants for the Dev C agent lane."""
+"""Shared guardrail policy constants for runtime agent output."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ _PROMPT_INJECTION_PATTERNS: tuple[str, ...] = (
     r"\bdo\s+not\s+cite\b",
     r"\bdisable\s+citations?\b",
     r"\btool\s+call\b",
-    r"\bpost\s+to\b",
+    r"\bpost\s+to\s+(this\s+)?(endpoint|api|account|server|url)\b",
     r"\bdelete\b",
 )
 
@@ -45,7 +45,7 @@ _FORBIDDEN_OUTPUT_PATTERNS: tuple[str, ...] = (
 class GuardrailPolicy:
     """Versioned thresholds and patterns used by output and trust guardrails."""
 
-    version: str = "gate6-dev-c-v1"
+    version: str = "runtime-guardrails-v1"
     min_bullets: int = 3
     max_bullets: int = 5
     min_normal_trust: float = 0.62

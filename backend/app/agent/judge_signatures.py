@@ -1,4 +1,4 @@
-"""Gate 6 judge helpers for Dev D without eval-runner coupling."""
+"""Judge helpers without eval-runner coupling."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ class JudgeModel(BaseModel):
 
 
 class JudgeSupportStatus(JudgeModel):
-    """Callable status for the Dev C judge path."""
+    """Callable status for the agent judge path."""
 
     callable: bool
     backend: str
@@ -55,7 +55,7 @@ def judge_support_status(runner: Any | None = None) -> JudgeSupportStatus:
             skip_reason="no_runner_supplied_using_deterministic_overlap_judge",
         )
     if callable(getattr(runner, "judge_evaluation_case", None)):
-        deterministic = getattr(runner, "adapter_mode", "deterministic_dev") != "none"
+        deterministic = getattr(runner, "adapter_mode", "deterministic_fallback") != "none"
         return JudgeSupportStatus(
             callable=True,
             backend="runner_judge",

@@ -7,6 +7,7 @@ from typing import Protocol
 
 from fastapi import APIRouter, HTTPException, status
 
+from app.api.request_context import current_request_id
 from app.clients.bsky import BlueskyClientError, InvalidBlueskyPostUrlError
 from app.config import Settings
 from app.deps import build_current_explainer, get_provider_catalog
@@ -78,7 +79,9 @@ def create_api_router(settings: Settings, explainer: ExplainerService | None = N
     )
     def explain(request: ExplainRequest) -> ExplainResponse:
         try:
-            return explainer_resolver.for_request(request).explain(request)
+            response = explainer_resolver.for_request(request).explain(request)
+            response.trace.request_id = response.trace.request_id or current_request_id()
+            return response
         except HTTPException:
             raise
         except Exception as exc:

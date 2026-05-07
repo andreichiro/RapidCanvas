@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from pytest import raises
 
-from app.agent.service import ThreadContextEvidenceRetriever
+from app.agent.service import ThreadContextFallbackRetriever
 from app.clients.bsky import BlueskyClientError, InvalidBlueskyPostUrlError
 from app.deps import PostContextWarningRetriever, build_gate3_explainer
 from app.main import create_app
@@ -63,7 +63,7 @@ class FakeExplainer:
             bullets=[
                 Bullet(text="Fetched post text is available.", source_ids=["S1"]),
                 Bullet(text="Trace marks deterministic adapters.", source_ids=["S1"]),
-                Bullet(text="This is not final Search/RAG or DSPy behavior.", source_ids=["S1"]),
+                Bullet(text="Fallback output stays limited to fetched context.", source_ids=["S1"]),
             ],
             sources=[
                 Source(
@@ -79,12 +79,13 @@ class FakeExplainer:
                 warnings=["real_bluesky_fetch_enabled"],
                 trust_score=0.35,
                 fallback_mode="safe_summary",
-                guardrail_flags=["dev_adapter_search_rag", "dev_adapter_dspy"],
-                adapter_mode="deterministic_dev",
-                adapter_notes=["Real Bluesky fetch active; adapters are non-final."],
+                guardrail_flags=[
+                    "deterministic_fallback_dspy", "limited_context_fallback",
+                ],
+                adapter_mode="deterministic_fallback",
+                adapter_notes=["Fallback stays limited to fetched context."],
             ),
         )
-
 
 class FailingExplainer:
     def explain(self, request: ExplainRequest) -> ExplainResponse:
@@ -97,7 +98,7 @@ class FakeBlueskyClient:
             url=url,
             at_uri="at://did:plc:example/app.bsky.feed.post/3abcxyz",
             author="example.com",
-            text="A fetched post routed through the Dev C agent.",
+            text="A fetched post routed through the runtime agent.",
             created_at=datetime(2026, 4, 29, tzinfo=UTC),
             parent_texts=[
                 "Parent context explains the reference.",
@@ -181,8 +182,25 @@ def test_explain_route_returns_schema_valid_gate3_response() -> None:
     payload = response.json()
     assert len(payload["bullets"]) == 3
     assert payload["trace"]["fallback_mode"] == "safe_summary"
-    assert payload["trace"]["adapter_mode"] == "deterministic_dev"
-    assert "dev_adapter_dspy" in payload["trace"]["guardrail_flags"]
+    assert payload["trace"]["adapter_mode"] == "deterministic_fallback"
+    assert "deterministic_fallback_dspy" in payload["trace"]["guardrail_flags"]
+
+
+def test_explain_route_returns_request_id_header_and_trace() -> None:
+    route_client = TestClient(create_app(explainer=FakeExplainer()))
+    response = route_client.post(
+        "/api/explain",
+        headers={"X-Request-ID": "review-request-1"},
+        json={
+            "post_url": "https://bsky.app/profile/example.com/post/3abcxyz",
+            "provider": "openai",
+            "include_trace": True,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["x-request-id"] == "review-request-1"
+    assert response.json()["trace"]["request_id"] == "review-request-1"
 
 
 def test_explainer_uses_dev_c_agent_program_with_thread_context_fallback() -> None:
@@ -190,7 +208,7 @@ def test_explainer_uses_dev_c_agent_program_with_thread_context_fallback() -> No
         create_app(
             explainer=build_gate3_explainer(
                 bluesky_client=FakeBlueskyClient(),
-                retriever=ThreadContextEvidenceRetriever(),
+                retriever=ThreadContextFallbackRetriever(),
             )
         )
     )
@@ -208,8 +226,8 @@ def test_explainer_uses_dev_c_agent_program_with_thread_context_fallback() -> No
     payload = response.json()
     assert len(payload["bullets"]) == 3
     assert payload["trace"]["category"] != "gate3_vertical_slice"
-    assert payload["trace"]["adapter_mode"] == "deterministic_dev"
-    assert "dev_c_api_path_uses_agent_guardrails" in payload["trace"]["warnings"]
+    assert payload["trace"]["adapter_mode"] == "deterministic_fallback"
+    assert "thread_context_fallback_guardrails_active" in payload["trace"]["warnings"]
     assert "Parent Bluesky post is unavailable or deleted." in payload["trace"]["warnings"]
 
 

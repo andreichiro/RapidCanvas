@@ -14,7 +14,7 @@ const baseResponse: ExplainResponse = {
   bullets: [
     { text: "Fetched post text is available.", source_ids: ["S1"] },
     { text: "Trace marks deterministic adapters.", source_ids: ["S1", "S2"] },
-    { text: "This is not final Search/RAG or DSPy behavior.", source_ids: ["S1"] },
+    { text: "Fallback output stays limited to fetched context.", source_ids: ["S1"] },
   ],
   sources: [
     {
@@ -39,9 +39,13 @@ const baseResponse: ExplainResponse = {
     latency_ms: 12,
     trust_score: 0.35,
     fallback_mode: "safe_summary",
-    guardrail_flags: ["dev_adapter_search_rag", "dev_adapter_dspy"],
-    adapter_mode: "deterministic_dev",
-    adapter_notes: ["Adapters are non-final."],
+    guardrail_flags: [
+      "deterministic_fallback_search_rag",
+      "deterministic_fallback_dspy",
+      "limited_context_fallback",
+    ],
+    adapter_mode: "deterministic_fallback",
+    adapter_notes: ["Fallback stays limited to fetched context."],
   },
 };
 
@@ -51,13 +55,17 @@ const providersPayload = {
       name: "openai",
       configured: false,
       skipped_reason: "OPENAI_API_KEY is not configured",
+      runnable: false,
       default_model: "openai/gpt-4.1-mini",
+      comparison_status: "skipped",
     },
     {
       name: "ollama",
       configured: true,
       skipped_reason: null,
+      runnable: true,
       default_model: "llama3.2",
+      comparison_status: "configured_not_run",
     },
   ],
 };
@@ -115,7 +123,11 @@ test("renders the application shell and provider selector", async () => {
   expect(await screen.findByLabelText("OpenAI API key")).toHaveAttribute("type", "password");
   expect(screen.getByText("Required for embeddings and model calls. Not saved.")).toBeVisible();
   expect(await screen.findByRole("combobox", { name: "Provider" })).toHaveTextContent("openai");
-  expect(screen.getByText("skipped - OPENAI_API_KEY is not configured - openai/gpt-4.1-mini")).toBeVisible();
+  expect(
+    screen.getByText(
+      "Skipped - OPENAI_API_KEY is not configured - default model openai/gpt-4.1-mini - comparison skipped",
+    ),
+  ).toBeVisible();
 });
 
 test("submits a Bluesky URL through the typed API client", async () => {
@@ -123,7 +135,7 @@ test("submits a Bluesky URL through the typed API client", async () => {
   render(<App />);
 
   await fillRequiredFields();
-  expect(screen.getByText("ready with request key - openai/gpt-4.1-mini")).toBeVisible();
+  expect(screen.getByText("Runnable with request key - default model openai/gpt-4.1-mini - comparison skipped")).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Explain" }));
 
   expect(await screen.findByText("Fetched post text is available.")).toBeVisible();
@@ -192,7 +204,7 @@ test("keeps optional provider skip reasons visible when only OpenAI request key 
   const providerSelect = await screen.findByRole("combobox", { name: "Provider" });
   fireEvent.change(providerSelect, { target: { value: "ollama" } });
 
-  expect(screen.getByText("ready - llama3.2")).toBeVisible();
+  expect(screen.getByText("Runnable - default model llama3.2 - comparison configured, not run")).toBeVisible();
 });
 
 test("falls back to the local backend when same-origin preview is not the API", async () => {
@@ -261,14 +273,14 @@ test("toggles trace details with trust, fallback, warnings, and guardrail flags"
   fireEvent.click(await screen.findByRole("button", { name: "Explain" }));
 
   expect(await screen.findByLabelText("trust and fallback status")).toHaveTextContent("Safe summary");
-  expect(screen.getByLabelText("guardrail flags")).toHaveTextContent("dev adapter dspy");
+  expect(screen.getByLabelText("guardrail flags")).toHaveTextContent("deterministic fallback dspy");
 
   fireEvent.click(screen.getByRole("button", { name: "Show trace" }));
 
   await waitFor(() => {
     expect(screen.getByText("gate3_vertical_slice")).toBeVisible();
     expect(screen.getAllByText("real_bluesky_fetch_enabled")[0]).toBeVisible();
-    expect(screen.getByText("deterministic dev")).toBeVisible();
+    expect(screen.getByText("deterministic fallback")).toBeVisible();
   });
 });
 

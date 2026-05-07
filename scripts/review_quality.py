@@ -31,6 +31,11 @@ MAX_SOURCE_LINES = 380
 MAX_DOC_LINES = 360
 MAX_FUNCTION_LINES = 60
 MAX_BRANCHES_PER_FUNCTION = 8
+RUNTIME_LEAK_PATTERN = re.compile(
+    "Gate 5|Gate 6|Gate 7|Dev C|dev_c|gate5|gate6|gate7|"
+    "deterministic_dev|ThreadContextEvidenceRetriever|_build_gate5_explainer|"
+    "_gate7_retrieval_settings|dev_c_api_path_uses_agent_guardrails"
+)
 
 
 @dataclass(frozen=True)
@@ -142,7 +147,7 @@ def check_make_targets() -> list[Issue]:
     ]
     expected_chain = (
         "deep-review: lint test check-secrets config-check frontend-audit frontend-build "
-        "extras-dry-run requirements-review skills-review clean-generated "
+        "extras-dry-run requirements-review staff-review-ledger skills-review clean-generated "
         "maintainability-review user-smoke"
     )
     if expected_chain not in text:
@@ -295,6 +300,26 @@ def check_generated_artifacts_absent() -> list[Issue]:
     return issues
 
 
+def check_runtime_architecture_public_names() -> list[Issue]:
+    issues: list[Issue] = []
+    backend_root = ROOT / "backend" / "app"
+    for path in backend_root.rglob("*"):
+        if not path.is_file() or "tests" in path.relative_to(backend_root).parts:
+            continue
+        if path.suffix.lower() not in {".py", ".json"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for match in RUNTIME_LEAK_PATTERN.finditer(text):
+            line_no = text[: match.start()].count("\n") + 1
+            issues.append(
+                Issue(
+                    path,
+                    f"production runtime naming leak near line {line_no}: {match.group(0)}",
+                )
+            )
+    return issues
+
+
 def main() -> int:
     checks = [
         check_required_handoff_files,
@@ -308,6 +333,7 @@ def main() -> int:
         check_frontend_user_text_matches_plan,
         check_no_viewport_scaled_font_size,
         check_generated_artifacts_absent,
+        check_runtime_architecture_public_names,
     ]
     issues = [issue for check in checks for issue in check()]
     if issues:

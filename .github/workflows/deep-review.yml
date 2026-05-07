@@ -36,3 +36,6 @@ jobs:
 
       - name: Run deep review gate
         run: make deep-review
+
+      - name: Run cached eval audit
+        run: make eval-cached

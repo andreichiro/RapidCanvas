@@ -15,6 +15,9 @@ def test_settings_defaults_load_without_env() -> None:
     assert settings.retrieval_max_queries == 3
     assert settings.retrieval_search_limit_per_provider == 3
     assert settings.retrieval_linked_page_limit == 3
+    assert settings.retrieval_linked_page_concurrency == 4
+    assert settings.retrieval_search_concurrency == 4
+    assert settings.retrieval_timeout_seconds == 25.0
 
 
 def test_safe_dump_masks_secrets() -> None:

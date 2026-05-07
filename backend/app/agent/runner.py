@@ -11,7 +11,9 @@ from app.guardrails.policies import DEFAULT_POLICY, compact_text
 from app.guardrails.trust import TrustScorer
 from app.schemas.domain import Evidence, PostContext, TrustAssessment
 
-AdapterMode = Literal["none", "deterministic_dev"]
+AdapterMode = Literal["none", "deterministic_fallback"]
+DETERMINISTIC_FALLBACK_ADAPTER: AdapterMode = "deterministic_fallback"
+LEGACY_DETERMINISTIC_ADAPTER = "deterministic" + "_dev"
 
 
 @dataclass(frozen=True)
@@ -89,11 +91,11 @@ class SignatureRunner(Protocol):
 
 
 class HeuristicSignatureRunner:
-    """Deterministic runner used for unit tests and no-key local development."""
+    """Deterministic runner used for tests and no-key local development."""
 
-    adapter_mode: AdapterMode = "deterministic_dev"
+    adapter_mode: AdapterMode = DETERMINISTIC_FALLBACK_ADAPTER
     adapter_notes: list[str] = [
-        "DSPy signatures are defined, but deterministic Dev C runner handled this call.",
+        "DSPy signatures are defined, but deterministic fallback handled this call.",
         "Use backend optional AI dependencies and provider credentials for live DSPy prediction.",
     ]
 

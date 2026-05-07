@@ -13,10 +13,7 @@ from app.schemas.domain import ContextDocument, PostContext
 
 class KeywordEmbeddingProvider:
     def embed(self, texts: list[str]) -> list[list[float]]:
-        return [
-            normalize_vector([1.0 if "mars" in text.lower() else 0.0, 0.0])
-            for text in texts
-        ]
+        return [normalize_vector([1.0 if "mars" in text.lower() else 0.0, 0.0]) for text in texts]
 
 
 class RaisingEmbeddingProvider:
@@ -138,12 +135,12 @@ def test_zero_retrieval_limit_skips_embedding_work() -> None:
 def test_in_memory_vector_store_clamps_non_positive_query_limit() -> None:
     store = InMemoryVectorStore()
 
-    assert store.query([1.0, 0.0], limit=-1) == []
-    assert store.query([1.0, 0.0], limit=0) == []
+    assert store.query("test", [1.0, 0.0], limit=-1) == []
+    assert store.query("test", [1.0, 0.0], limit=0) == []
 
 
 def test_in_memory_vector_store_treats_bad_query_limit_as_zero() -> None:
-    assert InMemoryVectorStore().query([1.0, 0.0], limit=cast(Any, BadLimit())) == []
+    assert InMemoryVectorStore().query("test", [1.0, 0.0], limit=cast(Any, BadLimit())) == []
 
 
 def test_direct_model_rerankers_skip_work_for_zero_limit() -> None:
@@ -151,12 +148,16 @@ def test_direct_model_rerankers_skip_work_for_zero_limit() -> None:
     cross_model = CountingCrossEncoder()
     predictor = CountingPredictor()
 
-    assert CrossEncoderReranker[ContextDocument](model=cross_model).rerank(
-        "mars", [candidate], limit=0
-    ) == []
-    assert DSPyReranker[ContextDocument](predictor=predictor).rerank(
-        "mars", [candidate], limit=0
-    ) == []
+    assert (
+        CrossEncoderReranker[ContextDocument](model=cross_model).rerank(
+            "mars", [candidate], limit=0
+        )
+        == []
+    )
+    assert (
+        DSPyReranker[ContextDocument](predictor=predictor).rerank("mars", [candidate], limit=0)
+        == []
+    )
     assert cross_model.calls == 0
     assert predictor.calls == 0
 
@@ -166,15 +167,24 @@ def test_direct_model_rerankers_skip_work_for_bad_limit() -> None:
     cross_model = CountingCrossEncoder()
     predictor = CountingPredictor()
 
-    assert CrossEncoderReranker[ContextDocument](model=cross_model).rerank(
-        "mars", [candidate], limit=cast(Any, BadLimit())
-    ) == []
-    assert DSPyReranker[ContextDocument](predictor=predictor).rerank(
-        "mars", [candidate], limit=cast(Any, BadLimit())
-    ) == []
-    assert SimilarityReranker[ContextDocument]().rerank(
-        "mars", [candidate], limit=cast(Any, BadLimit())
-    ) == []
+    assert (
+        CrossEncoderReranker[ContextDocument](model=cross_model).rerank(
+            "mars", [candidate], limit=cast(Any, BadLimit())
+        )
+        == []
+    )
+    assert (
+        DSPyReranker[ContextDocument](predictor=predictor).rerank(
+            "mars", [candidate], limit=cast(Any, BadLimit())
+        )
+        == []
+    )
+    assert (
+        SimilarityReranker[ContextDocument]().rerank(
+            "mars", [candidate], limit=cast(Any, BadLimit())
+        )
+        == []
+    )
     assert cross_model.calls == 0
     assert predictor.calls == 0
 
@@ -184,8 +194,7 @@ def test_direct_model_rerankers_skip_work_for_empty_candidates() -> None:
     predictor = CountingPredictor()
 
     assert (
-        CrossEncoderReranker[ContextDocument](model=cross_model).rerank("mars", [], limit=5)
-        == []
+        CrossEncoderReranker[ContextDocument](model=cross_model).rerank("mars", [], limit=5) == []
     )
     assert DSPyReranker[ContextDocument](predictor=predictor).rerank("mars", [], limit=5) == []
     assert cross_model.calls == 0

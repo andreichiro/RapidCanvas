@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import Any, Protocol, TypeVar, cast
 
 from app.ml.boundary import boundary_attr, boundary_text, bounded_items, safe_limit
@@ -24,32 +25,52 @@ def ranked_rag_candidates(
     *,
     query_text: str,
     chunks: Sequence[T],
+    namespace: str,
     embedding_provider: Any,
     vector_store: Any,
     reranker: Any,
     retrieve_limit: int,
     evidence_limit: int,
 ) -> tuple[list[RerankCandidate[T]], list[str]]:
+    warnings: list[str] = []
+    ranked: list[RerankCandidate[T]] = []
+    namespace_opened = False
     try:
         chunk_embeddings = embedding_provider.embed([chunk.text for chunk in chunks])
         if not _valid_embedding_batch(chunk_embeddings, len(chunks)):
             return [], ["rag_embedding_shape_invalid"]
-        vector_store.recreate_collection(vector_size=len(chunk_embeddings[0]))
-        vector_store.upsert(chunks, chunk_embeddings)
+        vector_store.ensure_collection(vector_size=len(chunk_embeddings[0]))
+        namespace_opened = True
+        vector_store.upsert(namespace, chunks, chunk_embeddings)
         query_embeddings = embedding_provider.embed([query_text])
         if not _valid_embedding_batch(query_embeddings, 1):
-            return [], ["rag_query_embedding_shape_invalid"]
+            warnings.append("rag_query_embedding_shape_invalid")
+            return [], warnings
         search_results = vector_store.query(
+            namespace,
             query_embeddings[0],
             limit=min(retrieve_limit, len(chunks)),
         )
         candidates: list[RerankCandidate[T]] = [
-            RerankCandidate(item=result.chunk, score=result.score) for result in search_results
+            RerankCandidate(
+                item=_with_vector_score(result.chunk, result.score),
+                score=result.score,
+            )
+            for result in search_results
         ]
         ranked = reranker.rerank(query_text, candidates, limit=evidence_limit)
-        return _safe_ranked_candidates(ranked, candidates, evidence_limit)
+        ranked, reranker_warnings = _safe_ranked_candidates(ranked, candidates, evidence_limit)
+        warnings.extend(reranker_warnings)
+        return _quality_adjusted_candidates(ranked, evidence_limit), warnings
     except Exception as exc:
-        return [], [f"rag_runtime_failed:{exc.__class__.__name__}"]
+        warnings.append(f"rag_runtime_failed:{exc.__class__.__name__}")
+        return [], warnings
+    finally:
+        if namespace_opened:
+            try:
+                vector_store.clear_namespace(namespace)
+            except Exception as exc:
+                warnings.append(f"rag_namespace_clear_failed:{exc.__class__.__name__}")
 
 
 def _valid_embedding_batch(value: object, expected_count: int) -> bool:
@@ -76,9 +97,83 @@ def _safe_ranked_candidates(
 
 def _chunk_candidates(items: Sequence[object]) -> list[RerankCandidate[T]]:
     return [
-        candidate for candidate in items
+        candidate
+        for candidate in items
         if isinstance(candidate, RerankCandidate) and _has_chunk_item(candidate.item)
     ]
+
+
+def _quality_adjusted_candidates(
+    candidates: Sequence[RerankCandidate[T]],
+    limit: int,
+) -> list[RerankCandidate[T]]:
+    adjusted = [
+        RerankCandidate(
+            item=candidate.item,
+            score=_combined_candidate_score(candidate),
+        )
+        for candidate in candidates
+    ]
+    return sorted(
+        adjusted,
+        key=lambda candidate: (
+            candidate.score,
+            _chunk_quality_score(candidate.item),
+            _chunk_channel_prior(candidate.item),
+        ),
+        reverse=True,
+    )[: safe_limit(limit)]
+
+
+def _combined_candidate_score(candidate: RerankCandidate[T]) -> float:
+    vector = _chunk_vector_score(candidate.item, candidate.score)
+    reranker = public_score(candidate.score)
+    quality = _chunk_quality_score(candidate.item)
+    channel_prior = _chunk_channel_prior(candidate.item)
+    return public_score(0.25 * vector + 0.20 * reranker + 0.45 * quality + 0.10 * channel_prior)
+
+
+def _with_vector_score(item: T, score: float) -> T:
+    metadata = getattr(item, "metadata", {})
+    if not isinstance(metadata, dict):
+        return item
+    try:
+        return cast(
+            T,
+            replace(
+                cast(Any, item),
+                metadata={**metadata, "vector_score": public_score(score)},
+            ),
+        )
+    except Exception:
+        return item
+
+
+def _chunk_vector_score(item: object, fallback: float) -> float:
+    metadata = getattr(item, "metadata", {})
+    if not isinstance(metadata, dict):
+        return public_score(fallback)
+    return public_score(metadata.get("vector_score", fallback))
+
+
+def _chunk_quality_score(item: object) -> float:
+    metadata = getattr(item, "metadata", {})
+    if not isinstance(metadata, dict):
+        return 0.5
+    return public_score(metadata.get("source_quality_score", 0.5))
+
+
+def _chunk_channel_prior(item: object) -> float:
+    metadata = getattr(item, "metadata", {})
+    source_type = ""
+    if isinstance(metadata, dict):
+        source_type = boundary_text(metadata.get("source_type", ""), "source_type_text_failed")
+    return {
+        "thread": 0.92,
+        "image": 0.72,
+        "bluesky": 0.66,
+        "web": 0.5,
+    }.get(source_type, 0.4)
 
 
 def _has_chunk_item(value: object) -> bool:

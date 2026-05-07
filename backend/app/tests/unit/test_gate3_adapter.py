@@ -35,6 +35,10 @@ def test_gate3_adapter_returns_cited_safe_summary_with_trace_flags() -> None:
     assert all(bullet.source_ids for bullet in response.bullets)
     assert response.sources[0].id == "S1"
     assert response.trace.fallback_mode == "safe_summary"
-    assert response.trace.adapter_mode == "deterministic_dev"
-    assert "dev_adapter_search_rag" in response.trace.guardrail_flags
+    assert response.trace.adapter_mode == "deterministic_fallback"
+    assert "deterministic_fallback_search_rag" in response.trace.guardrail_flags
+    assert "limited_context_fallback" in response.trace.guardrail_flags
     assert "real_bluesky_fetch_enabled" in response.trace.warnings
+    assert any(
+        "limited to fetched Bluesky context" in note for note in response.trace.adapter_notes
+    )

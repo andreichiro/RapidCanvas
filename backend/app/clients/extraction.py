@@ -255,6 +255,7 @@ def sanitize_search_hit_document(
     query: str,
     index: int,
     fetch_fallback: bool = False,
+    fetch_status: int | None = None,
 ) -> tuple[ContextDocument, PromptInjectionScanResult]:
     base_title = hit.get("title") or boundary_attr(document, "title", "document_title_field_failed")
     title = sanitize_untrusted_text(bt(base_title), max_chars=200)
@@ -265,10 +266,18 @@ def sanitize_search_hit_document(
     base_text = bt(boundary_attr(document, "text", "document_text_field_failed"))
     metadata = {
         **metadata_mapping(boundary_attr(document, "metadata", "metadata_field_failed")),
+        "provider": "web_search",
+        "query": query,
         "rank": index,
+        "domain": _canonical_domain(
+            bt(boundary_attr(document, "url", "document_url_field_failed"))
+        ),
         "search_query": query,
         "search_title": title,
         "search_snippet": snippet,
+        "snippet_only": fetch_fallback,
+        "fetch_success": not fetch_fallback,
+        "fetch_status": fetch_status if fetch_status is not None else "unknown",
     }
     if fetch_fallback:
         metadata["fetch_fallback"] = True
@@ -289,6 +298,13 @@ def _search_hit_context(text: str, title: str, snippet: str) -> str:
         f"Search result snippet: {snippet}" if snippet else "",
     ]
     return "\n".join(part for part in parts if part)
+
+
+def _canonical_domain(url: str) -> str:
+    try:
+        return (urlsplit(url).hostname or "").lower().removeprefix("www.")
+    except ValueError:
+        return ""
 
 
 def _extract_with_trafilatura(raw: str) -> str:

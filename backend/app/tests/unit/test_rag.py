@@ -16,6 +16,7 @@ from app.ml.vector_store import (
     QdrantVectorStore,
     RagService,
     chunk_document,
+    retrieval_namespace,
 )
 from app.schemas.domain import ContextDocument
 
@@ -64,9 +65,9 @@ def test_in_memory_vector_store_insert_and_query_orders_by_similarity() -> None:
     ]
     embeddings = [[1.0, 0.0], [0.0, 1.0]]
 
-    store.recreate_collection(vector_size=2)
-    store.upsert(chunks, embeddings)
-    results = store.query([1.0, 0.0], limit=2)
+    store.ensure_collection(vector_size=2)
+    store.upsert("test-namespace", chunks, embeddings)
+    results = store.query("test-namespace", [1.0, 0.0], limit=2)
 
     assert [result.chunk.id for result in results] == ["C1", "C2"]
     assert results[0].score > results[1].score
@@ -257,8 +258,8 @@ def test_rag_service_clamps_public_scores_after_raw_rerank_ordering() -> None:
     evidence = service.retrieve("mars rover", documents)
 
     assert [item.document_id for item in evidence] == ["S2", "S1"]
-    assert [item.score for item in evidence] == [0.0, 0.0]
-    assert service.last_diagnostics.reranker_scores == {"E1": -0.2, "E2": -1.0}
+    assert [item.score for item in evidence] == [0.525, 0.525]
+    assert service.last_diagnostics.reranker_scores == {"E1": 0.525, "E2": 0.525}
 
 
 def test_rag_service_public_scores_are_finite_after_raw_rerank_ordering() -> None:
@@ -292,23 +293,41 @@ def test_rag_service_public_scores_are_finite_after_raw_rerank_ordering() -> Non
     evidence = service.retrieve("mars rover", documents)
 
     assert [item.document_id for item in evidence] == ["S3", "S1", "S2"]
-    assert [item.score for item in evidence] == [1.0, 1.0, 0.0]
-    assert service.last_diagnostics.reranker_scores == {"E2": 2.5}
+    assert [item.score for item in evidence] == [
+        pytest.approx(0.725),
+        pytest.approx(0.725),
+        0.525,
+    ]
+    assert service.last_diagnostics.reranker_scores == {
+        "E1": pytest.approx(0.725),
+        "E2": pytest.approx(0.725),
+        "E3": 0.525,
+    }
 
 
-def test_qdrant_vector_store_recreate_and_query_when_dependency_available(
+def test_qdrant_vector_store_namespaces_and_queries_when_dependency_available(
     tmp_path: Path,
 ) -> None:
     pytest.importorskip("qdrant_client")
     store = QdrantVectorStore(path=tmp_path)
     chunk = DocumentChunk(id="C1", document_id="D1", source_id="D1", text="mars rover")
 
-    store.recreate_collection(vector_size=2)
-    store.upsert([chunk], [[1.0, 0.0]])
-    first_results = store.query([1.0, 0.0], limit=1)
-    store.recreate_collection(vector_size=2)
-    store.upsert([chunk], [[1.0, 0.0]])
-    second_results = store.query([1.0, 0.0], limit=1)
+    store.ensure_collection(vector_size=2)
+    store.upsert("alpha", [chunk], [[1.0, 0.0]])
+    first_results = store.query("alpha", [1.0, 0.0], limit=1)
+    store.upsert("beta", [chunk], [[0.0, 1.0]])
+    second_results = store.query("beta", [0.0, 1.0], limit=1)
+    store.clear_namespace("alpha")
 
     assert first_results[0].chunk.text == "mars rover"
     assert second_results[0].chunk.document_id == "D1"
+    assert store.query("alpha", [1.0, 0.0], limit=1) == []
+
+
+def test_retrieval_namespace_uses_request_key_in_stable_prefix() -> None:
+    docs = [document("D1", "Mars rover evidence.")]
+
+    first = retrieval_namespace("mars", docs, request_key="at://post/alpha").rsplit("-", 1)[0]
+    second = retrieval_namespace("mars", docs, request_key="at://post/beta").rsplit("-", 1)[0]
+
+    assert first != second

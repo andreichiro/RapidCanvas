@@ -1,0 +1,70 @@
+name: Manual Live Eval
+
+on:
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  live-eval:
+    name: Live quality review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install full review dependencies
+        run: make setup
+
+      - name: Verify live secret is configured
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "OPENAI_API_KEY secret is required for manual live eval."
+            exit 1
+          fi
+
+      - name: Run live API eval
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: make eval
+
+      - name: Run live quality review
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: make live-quality-review
+
+      - name: Run live quality smoke
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: make live-quality-smoke
+
+      - name: Verify secret hygiene
+        run: make check-secrets
+
+      - name: Upload live reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-eval-reports
+          path: |
+            reports/eval/**
+            docs/reviews/live_quality_review.md
+          if-no-files-found: ignore

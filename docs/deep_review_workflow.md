@@ -2,7 +2,9 @@
 
 This workflow is the registered review gate for the RapidCanvas repository.
 It is available locally through `make deep-review` and in GitHub Actions through
-`.github/workflows/deep-review.yml`.
+`.github/workflows/deep-review.yml`. GitHub Actions also runs
+`make eval-cached` after the deep review gate so cached quality drift is caught
+before handoff.
 
 ## Local Command
 
@@ -140,4 +142,6 @@ Use this checklist for advanced human or agent review:
 
 The current scaffold gates are accepted only when `make deep-review` passes
 locally and the GitHub Actions `Deep Review` workflow is registered for pushes
-and pull requests.
+and pull requests. Manual provider-backed live quality runs belong in
+`.github/workflows/live-eval.yml`, which requires the repository
+`OPENAI_API_KEY` secret and uploads ignored report artifacts.

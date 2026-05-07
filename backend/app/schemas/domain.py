@@ -120,4 +120,6 @@ class ProviderInfo(DomainModel):
     name: str = Field(min_length=1)
     configured: bool
     skipped_reason: str | None = None
+    runnable: bool = False
     default_model: str | None = None
+    comparison_status: Literal["ran", "skipped", "configured_not_run"] | None = None

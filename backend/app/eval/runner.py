@@ -87,7 +87,7 @@ def _run_metadata(mode: str, judge_name: str, row_count: int) -> dict[str, float
         "judge_backend": judge_name,
         "case_count": float(row_count),
         "cached_case_count": float(row_count if cached_predictions else 0),
-        "live_case_count": float(row_count if api_mode else 0),
+        "api_attempted_case_count": float(row_count if api_mode else 0),
         "api_network_calls_allowed": api_mode,
         "model_judge_calls_allowed": model_judge,
     }
@@ -153,11 +153,25 @@ def _cache_policy_metadata(
     fallback_count = sum(
         1 for row in rows if float(row.get("exact_post_cache_fallback", 0.0)) > 0
     )
+    live_success_count = _live_prediction_success_count(rows, mode)
     return {
         "cache_policy": cache_policy,
         "exact_post_cache_fallback_count": float(fallback_count),
-        "live_prediction_success_count": float(len(rows) - fallback_count if mode == "api" else 0),
+        "live_case_count": float(live_success_count),
+        "live_prediction_success_count": float(live_success_count),
     }
+
+
+def _live_prediction_success_count(rows: list[dict[str, Any]], mode: str) -> int:
+    if mode != "api":
+        return 0
+    return sum(1 for row in rows if _live_prediction_succeeded(row))
+
+
+def _live_prediction_succeeded(row: dict[str, Any]) -> bool:
+    if float(row.get("exact_post_cache_fallback", 0.0)) > 0:
+        return False
+    return str(row.get("predicted_category", "")) != "api_error"
 
 
 def run_cached_eval(

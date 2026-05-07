@@ -145,11 +145,11 @@ def _mlflow_metrics(settings: Settings) -> dict[str, float]:
         "latency_p95_ms",
         "provider_quality_score",
     )
-    metrics: dict[str, float] = {}
-    for key in keys:
-        value = summary.get(key)
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
-            metrics[key] = float(value)
+    metrics = {
+        key: float(summary[key])
+        for key in keys
+        if isinstance(summary.get(key), int | float) and not isinstance(summary.get(key), bool)
+    }
     if metrics:
         return metrics
     return {
@@ -224,12 +224,11 @@ def _provider_metadata(program_result: ProgramLoadResult) -> dict[str, Any]:
 
 
 def _provider_comparison_summary(settings: Settings) -> dict[str, Any]:
-    path = Path(settings.reports_dir) / "provider_comparison.json"
-    payload = _read_json_object(path)
+    payload = _read_json_object(Path(settings.reports_dir) / "provider_comparison.json")
     providers = payload.get("providers", [])
     provider_rows = providers if isinstance(providers, list) else []
     return {
-        "path": str(path),
+        "path": str(Path(settings.reports_dir) / "provider_comparison.json"),
         "exists": bool(payload),
         "mode": payload.get("mode"),
         "comparison_status": payload.get("comparison_status"),

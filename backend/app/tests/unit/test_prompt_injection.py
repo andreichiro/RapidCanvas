@@ -166,6 +166,32 @@ def test_sanitize_context_document_scans_and_sanitizes_metadata_strings() -> Non
     assert "disable_citations" in scan.flags
 
 
+def test_sanitize_context_document_preserves_upstream_image_alt_risk() -> None:
+    document = ContextDocument(
+        id="IMG-1",
+        source_type="image",
+        title="Bluesky image description",
+        url="https://cdn.example.com/image.png",
+        text="A clean dashboard screenshot showing a line chart.",
+        metadata={
+            "role": "image_description",
+            "image_evidence_role": "image_description",
+            "prompt_injection_flags": ["ignore_previous_instructions"],
+            "prompt_injection_reasons": [
+                "alt text asks the model to ignore higher-priority instructions"
+            ],
+            "prompt_injection_risk_score": 0.35,
+        },
+    )
+
+    sanitized, scan = sanitize_context_document(document)
+
+    assert "ignore_previous_instructions" in scan.flags
+    assert "ignore_previous_instructions" in sanitized.metadata["prompt_injection_flags"]
+    assert sanitized.metadata["prompt_injection_risk_score"] == 0.35
+    assert sanitized.metadata["untrusted_label"] == "UNTRUSTED_IMAGE_DESCRIPTION"
+
+
 def test_sanitize_context_document_scans_bytes_metadata_as_text() -> None:
     document = ContextDocument(
         id="W3B",

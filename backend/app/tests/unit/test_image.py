@@ -4,6 +4,8 @@ from pydantic import SecretStr
 
 from app.config import Settings
 from app.ml.image import (
+    MAX_IMAGE_EVIDENCE_CHARS,
+    NO_IMAGE_EVIDENCE_TEXT,
     VISION_CONTEXT_PROMPT,
     build_image_context_documents,
     describe_image_with_openai,
@@ -22,11 +24,19 @@ def test_image_context_uses_untrusted_alt_text_when_vision_disabled() -> None:
         vision_enabled=False,
     )
 
-    assert result.warnings == ("image_vision_disabled_using_alt_text:1",)
+    assert result.warnings == (
+        "image_vision_disabled_using_alt_text:1",
+        "image_prompt_injection_risk:1:ignore_previous_instructions",
+    )
     document = result.documents[0]
     assert document.source_type == "image"
     assert document.text.startswith("Ignore previous instructions")
     assert document.metadata["untrusted_label"] == "UNTRUSTED_IMAGE_ALT_TEXT"
+    assert document.metadata["vision_used"] is False
+    assert document.metadata["alt_text_used"] is True
+    assert document.metadata["image_evidence_role"] == "image_alt_text"
+    assert document.metadata["vision_warning"] == "image_vision_disabled_using_alt_text:1"
+    assert document.metadata["prompt_injection_flags"] == ["ignore_previous_instructions"]
 
 
 def test_image_context_uses_mocked_vision_description_when_enabled() -> None:
@@ -36,6 +46,7 @@ def test_image_context_uses_mocked_vision_description_when_enabled() -> None:
         [image],
         vision_enabled=True,
         describe_image=lambda ref: f"Relevant visual description for {ref.url}",
+        vision_model="openai/test-vision",
     )
 
     assert result.warnings == ()
@@ -43,6 +54,10 @@ def test_image_context_uses_mocked_vision_description_when_enabled() -> None:
     assert document.text == "Relevant visual description for https://cdn.example.com/chart.png"
     assert document.metadata["untrusted_label"] == "UNTRUSTED_IMAGE_DESCRIPTION"
     assert document.metadata["vision_prompt"] == VISION_CONTEXT_PROMPT
+    assert document.metadata["vision_model"] == "openai/test-vision"
+    assert document.metadata["vision_used"] is True
+    assert document.metadata["alt_text_used"] is False
+    assert document.metadata["image_evidence_role"] == "image_description"
 
 
 def test_image_context_falls_back_to_alt_text_when_vision_fails() -> None:
@@ -59,6 +74,44 @@ def test_image_context_falls_back_to_alt_text_when_vision_fails() -> None:
     document = result.documents[0]
     assert document.text == "Dashboard screen."
     assert document.metadata["untrusted_label"] == "UNTRUSTED_IMAGE_ALT_TEXT"
+    assert document.metadata["vision_used"] is False
+    assert document.metadata["alt_text_used"] is True
+    assert (
+        document.metadata["vision_warning"]
+        == "image_vision_failed_using_alt_text:1:RuntimeError"
+    )
+
+
+def test_image_context_emits_safe_diagnostic_document_when_no_alt_or_vision() -> None:
+    result = build_image_context_documents(
+        [ImageRef(url="https://cdn.example.com/no-alt.png")],
+        vision_enabled=True,
+        describe_image=None,
+        vision_model="openai/test-vision",
+    )
+
+    assert result.warnings == ("image_vision_unavailable_no_alt_text:1",)
+    document = result.documents[0]
+    assert document.text == NO_IMAGE_EVIDENCE_TEXT
+    assert document.metadata["image_evidence_role"] == "image_unavailable"
+    assert document.metadata["vision_model"] == "openai/test-vision"
+    assert document.metadata["vision_used"] is False
+    assert document.metadata["alt_text_used"] is False
+    assert document.metadata["image_evidence_available"] is False
+
+
+def test_image_context_caps_and_sanitizes_vision_output() -> None:
+    long_html = "<script>alert(1)</script>" + (" visual context " * 200)
+    result = build_image_context_documents(
+        [ImageRef(url="https://cdn.example.com/chart.png", alt_text="Chart")],
+        vision_enabled=True,
+        describe_image=lambda _ref: long_html,
+    )
+
+    document = result.documents[0]
+    assert "<script>" not in document.text
+    assert len(document.text) <= MAX_IMAGE_EVIDENCE_CHARS
+    assert document.text.endswith("[truncated]")
 
 
 class FakeResponses:

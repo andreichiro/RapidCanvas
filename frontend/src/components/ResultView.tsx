@@ -36,6 +36,72 @@ function code(...parts: string[]): string {
   return parts.join("_");
 }
 
+function readableTraceValue(value: string): string {
+  return value.replaceAll("_", " ");
+}
+
+function formatBooleanLabel(label: string, value: unknown): string | null {
+  if (typeof value !== "boolean") {
+    return null;
+  }
+  return `${label} ${value ? "yes" : "no"}`;
+}
+
+function formatRecordValue(value: unknown): string | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  if (Array.isArray(value)) {
+    return value.map(formatRecordValue).filter(Boolean).join(", ") || null;
+  }
+  if (typeof value === "boolean") {
+    return value ? "yes" : "no";
+  }
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? String(value) : value.toFixed(2);
+  }
+  return String(value);
+}
+
+function runtimeSummary(trace: ExplainResponse["trace"]): Array<{ label: string; value: string }> {
+  return [
+    trace.provider ? { label: "Provider", value: trace.provider } : null,
+    trace.vector_store_backend ? { label: "Vector backend", value: readableTraceValue(trace.vector_store_backend) } : null,
+    trace.request_id ? { label: "Request ID", value: trace.request_id } : null,
+  ].filter((item): item is { label: string; value: string } => Boolean(item));
+}
+
+function imageEvidenceSummary(trace: ExplainResponse["trace"]): string[] {
+  const imageIndexKey = code("image", "index");
+  const imageEvidenceRoleKey = code("image", "evidence", "role");
+  const visionUsedKey = code("vision", "used");
+  const altTextUsedKey = code("alt", "text", "used");
+  const visionWarningKey = code("vision", "warning");
+  const promptInjectionFlagsKey = code("prompt", "injection", "flags");
+
+  const images = (trace.image_status ?? []).map((status, index) => {
+    const imageNumber = formatRecordValue(status[imageIndexKey]) ?? String(index + 1);
+    const role = formatRecordValue(status[imageEvidenceRoleKey] ?? status.role ?? status.status);
+    const parts = [
+      `Image ${imageNumber}`,
+      role ? readableTraceValue(role) : null,
+      formatBooleanLabel("vision", status[visionUsedKey]),
+      formatBooleanLabel("alt text", status[altTextUsedKey]),
+      formatRecordValue(status[visionWarningKey]),
+      formatRecordValue(status[promptInjectionFlagsKey]),
+    ].filter(Boolean);
+    return parts.join(" - ");
+  });
+
+  const hasVideoWarning = trace.warnings.some((warning) => warning.startsWith("video_embed_unparsed"));
+  return hasVideoWarning
+    ? [
+        ...images,
+        "Video evidence: video frames are not parsed; this explanation uses text, thread, link, and image evidence only.",
+      ]
+    : images;
+}
+
 function warningSummary(warnings: string[]): string[] {
   const optimizedProgramLoaded = code("optimized", "program", "loaded");
   const optimizedDspyProgramLoaded = code("optimized", "dspy", "program", "loaded");
@@ -90,6 +156,8 @@ export default function ResultView({ result }: ResultViewProps) {
   );
   const fallbackMessage = fallbackCopy(result.trace.fallback_mode);
   const visibleWarnings = warningSummary(result.trace.warnings);
+  const runtimeItems = runtimeSummary(result.trace);
+  const visualEvidence = imageEvidenceSummary(result.trace);
 
   return (
     <section className={`result-view fallback-${result.trace.fallback_mode}`} aria-label="explanation result">
@@ -114,6 +182,17 @@ export default function ResultView({ result }: ResultViewProps) {
         <GuardrailFlags flags={result.trace.guardrail_flags} />
       </div>
 
+      {runtimeItems.length ? (
+        <dl className="runtime-summary" aria-label="runtime summary">
+          {runtimeItems.map((item) => (
+            <div key={item.label}>
+              <dt>{item.label}</dt>
+              <dd>{item.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
       {fallbackMessage ? (
         <div className="fallback-banner" role="status">
           {fallbackMessage}
@@ -126,6 +205,17 @@ export default function ResultView({ result }: ResultViewProps) {
           <ul>
             {visibleWarnings.map((warning, index) => (
               <li key={`${warning}-${index}`}>{warning}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {visualEvidence.length ? (
+        <section className="visual-evidence-summary" aria-label="image and video evidence">
+          <h2>Image and video evidence</h2>
+          <ul>
+            {visualEvidence.map((item, index) => (
+              <li key={`${item}-${index}`}>{item}</li>
             ))}
           </ul>
         </section>

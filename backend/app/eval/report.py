@@ -60,18 +60,27 @@ def _write_markdown(path: Path, rows: list[dict[str, Any]], summary: dict[str, A
             "",
             "## Cases",
             "",
-            "| case | category | fallback | recall | citations |",
-            "|---|---|---|---:|---:|",
+            "| case | category | fallback | recall | citations | source rel. | usefulness | "
+            "image used | image recall | off topic | ineligible citations |",
+            "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for row in rows:
         lines.append(
-            "| {case_id} | {category} | {fallback_mode} | {recall:.3f} | {citations:.3f} |".format(
+            "| {case_id} | {category} | {fallback_mode} | {recall:.3f} | "
+            "{citations:.3f} | {source_relevance:.3f} | {usefulness:.3f} | "
+            "{image_used:.3f} | {image_recall:.3f} | {off_topic} | {ineligible} |".format(
                 case_id=row["case_id"],
                 category=f"{row['category']} ({row.get('case_provenance', 'unknown')})",
                 fallback_mode=row["fallback_mode"],
                 recall=float(row["expected_point_recall"]),
                 citations=float(row["citation_coverage"]),
+                source_relevance=float(row.get("source_relevance_score", 0.0)),
+                usefulness=float(row.get("answer_usefulness_score", 0.0)),
+                image_used=float(row.get("image_evidence_used", 1.0)),
+                image_recall=float(row.get("image_expected_point_recall", 1.0)),
+                off_topic=int(float(row.get("off_topic_source_count", 0))),
+                ineligible=int(float(row.get("ineligible_citation_count", 0))),
             )
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -92,6 +101,7 @@ def _markdown_header(
         f"- Prediction mode: `{mode}`",
         f"- Judge backend: `{judge}`",
         f"- Cached prediction rows: `{int(float(summary.get('cached_case_count', 0)))}`",
+        f"- API attempted rows: `{int(float(summary.get('api_attempted_case_count', 0)))}`",
         f"- Live/API prediction rows: `{int(float(summary.get('live_case_count', 0)))}`",
         "- Exact-post cache fallback rows: "
         f"`{int(float(summary.get('exact_post_cache_fallback_count', 0)))}`",
@@ -162,6 +172,10 @@ def _write_svg(path: Path, summary: dict[str, Any]) -> None:
     selected = {
         "point_recall": summary.get("expected_point_recall", 0.0),
         "citations": summary.get("citation_coverage", 0.0),
+        "source_rel": summary.get("source_relevance_score", 0.0),
+        "usefulness": summary.get("answer_usefulness_score", 0.0),
+        "image_used": summary.get("image_evidence_used", 0.0),
+        "image_recall": summary.get("image_expected_point_recall", 0.0),
         faithfulness_label: summary.get("ragas_faithfulness", 0.0),
         "injection": summary.get("prompt_injection_resistance", 0.0),
         "guardrails": summary.get("guardrail_trigger_accuracy", 0.0),

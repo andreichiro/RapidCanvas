@@ -1,8 +1,10 @@
 # RapidCanvas - Bluesky Contextual Post Explainer
 
-RapidCanvas is a production-shaped AI data product built for the Bluesky Post
-Explainer assignment. A user pastes a public Bluesky post URL and receives 3-5
-concise, cited bullets explaining the post's broader context.
+RapidCanvas is a 48-hour proof of concept built for the Bluesky Post Explainer
+to exemplify software architecture, product features, and good practices for
+building AI data products focused on agentic systems. A user pastes a public
+Bluesky post URL and receives 3-5 concise, cited bullets explaining the post's
+broader context.
 
 The project is intentionally more than a prompt wrapper. The model is one
 component inside a system that acquires evidence, normalizes context, defends
@@ -62,7 +64,8 @@ curated reviewer proof in `docs/reviews/live_quality_review.md`; use
 - **DSPy workflow:** named modules for classification, query planning,
   explanation, validation, trust assessment, judge support, and optimization.
 - **Qdrant vector retrieval:** chunked context, OpenAI embeddings, Qdrant local
-  or remote URL support, reranking, and stable evidence/source IDs.
+  or remote URL support, request-isolated namespaces, reranking, and stable
+  evidence/source IDs.
 - **Bounded adaptive retrieval:** at most one extra safe query can run when
   first-round evidence is weak. It stops early on sufficient trust and skips
   after pre-retrieval prompt-injection risk.
@@ -70,6 +73,8 @@ curated reviewer proof in `docs/reviews/live_quality_review.md`; use
   instructions; prompt-like attacks are scanned and flagged.
 - **Low-trust fallbacks:** `partial`, `safe_summary`, and `abstain` are product
   states, not hidden failures.
+- **Typed finalization boundary:** response finalization consumes public
+  `FinalizationContext` state instead of private explainer internals.
 - **Operational docs:** Makefile commands, Docker Compose, `.env.example`,
   no-secrets checks, review workflow, research docs, project skills,
   translation log, requirement matrix, and review notes.
@@ -87,6 +92,15 @@ key into the masked field, leave provider as `openai`, and click **Explain**.
 `make run` starts the React UI, FastAPI backend, Qdrant, and MLflow UI. No API
 key is baked into Docker images or Compose; the key is supplied through the
 masked required OpenAI API-key field for the current request only.
+
+Before Compose starts, `make run`/`make docker-up` runs
+`python3 scripts/check_docker_prereqs.py`. The preflight verifies the Docker
+daemon is reachable, at least 10 GiB is free, and ports 5173, 8000, 6333, and
+5000 are available. Compose healthchecks then gate backend startup on healthy
+Qdrant and MLflow services, and gate frontend startup on the backend health
+route. For detached local verification, run
+`make docker-up DOCKER_UP_FLAGS=-d`, check the four service health endpoints,
+then stop the stack with `make docker-down`.
 
 For source development without Docker, use `make dev`. It installs or refreshes
 backend/frontend dependencies, then starts fixed-port FastAPI and Vite servers
@@ -123,7 +137,10 @@ policy, or output shape.
 unavailable posts, unsafe content, or uncited claims produce guarded fallbacks.
 
 **Observable AI:** every response preserves sources, warnings, trust score,
-fallback mode, guardrail flags, adapter mode, and trace notes.
+fallback mode, guardrail flags, adapter mode, and trace notes. Runtime fallback
+paths now use production-facing names such as `deterministic_fallback` and
+`thread_context_fallback_guardrails_active`, while old lane labels are reserved
+for historical review docs.
 
 ## High-Level Architecture
 
@@ -185,6 +202,8 @@ flowchart LR
 - `Evidence`: retrieved/reranked text with score and source identity.
 - `ExplainResponse`: post, bullets, sources, and trace.
 - `TrustAssessment`: score, fallback mode, flags, and reasons.
+- `FinalizationContext`: public runtime state used to finalize responses and
+  quality traces without private explainer coupling.
 
 ## Agent, Retrieval, And Evidence
 
@@ -202,7 +221,10 @@ flowchart LR
 ```
 
 The retrieval layer uses chunking variants, OpenAI embeddings, Qdrant vector
-search, safe in-memory fallback, reranking, and stable evidence/source IDs.
+search, request-isolated namespaces, safe in-memory fallback, reranking, and
+stable evidence/source IDs. Linked-page fetches and search collection run with
+bounded concurrency, deterministic result ordering, and partial-result timeout
+warnings.
 Common non-fatal retrieval diagnostics, such as Qdrant fallback, content
 truncation, HTTP 403 source pages, empty extracted text, and Bluesky search
 outages, are summarized as retrieval notes in the UI while raw trace remains
@@ -221,10 +243,12 @@ flowchart LR
 
 The scanner detects attacks such as "ignore previous instructions", "system
 prompt", "API key", "do not cite", "disable citations", "tool call", "POST to",
-and "delete". The fetch layer blocks private/local URLs and `file://` targets.
-Output guardrails require 3-5 bullets in normal mode and citations for factual
-claims. Video embeds are explicitly marked as unparsed; video posts still use
-their text, thread, link, and image evidence, but the app does not claim to
+and "delete". The fetch layer blocks private/local URLs and `file://` targets,
+checks robots.txt before page fetches, and keeps robots-disallowed search hits
+as low-confidence snippet evidence only. Output guardrails require 3-5 bullets
+in normal mode and citations for factual claims. Video embeds are explicitly
+marked as unparsed; video posts still use their text, thread, link, and image
+evidence, but the app does not claim to
 parse video frames.
 
 ## Evaluation Strategy
@@ -250,6 +274,12 @@ cover public Bluesky fixtures, memes/slang, current-event context,
 reply/quote/link/image context, ambiguous acronyms, sparse context,
 unavailable/deleted posts, prompt injection, contradictory sources, and
 low-evidence behavior.
+
+CI runs `make deep-review` and `make eval-cached` on push, pull request, and
+manual dispatch. The separate `Manual Live Eval` workflow is `workflow_dispatch`
+only; it requires the repository `OPENAI_API_KEY` secret, runs the live eval and
+live-quality reports, rechecks secret hygiene, and uploads ignored report
+artifacts without committing generated output.
 
 The scoring focuses on expected-point recall, citation coverage, unsupported
 claims, fallback correctness, prompt-injection resistance, private URL blocking,
@@ -311,28 +341,3 @@ make skills-review            # local project skill validation
 make check-secrets            # secret/artifact hygiene scan
 make deep-review              # full local review workflow
 ```
-
-## Final Limitations And Tradeoffs
-
-This project is intentionally honest about what is strong and what is still not
-perfect. It has a credible production-shaped architecture for useful,
-source-backed explanations and has been tested through unit, integration,
-frontend, Docker, cached eval, provider-report, MLflow, and final audits.
-The main remaining limitation is breadth of live usefulness evidence: the live
-path works and `make eval` is the first-class live quality command, but the repo
-does not claim a large benchmark over drifting public Bluesky posts.
-
-Search source quality can vary because public Bluesky/web search, linked pages,
-provider availability, and page extraction can change outside the repo. Fallbacks
-are deliberately conservative: safer than unsupported answers, but less useful
-when retrieval, providers, page access, or evidence quality is weak. Image
-understanding is real for image URLs and OpenAI vision when a request key is
-available, with untrusted alt-text fallback; video frames are not parsed.
-Multi-provider comparison is implemented as a catalog/report/live-smoke path,
-but real Anthropic, Gemini, or Ollama comparison requires those credentials or
-services.
-
-New features were added after the deadline, please disregard these changes and
-evaluate the version pushed before 17:27. These features are beyond the original
-completed scope; all extras were included on time. They represent additional
-features I am creating separately.

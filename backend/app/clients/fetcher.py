@@ -6,6 +6,7 @@ import hashlib
 import ipaddress
 from collections.abc import Callable
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 import httpx
 
@@ -16,6 +17,7 @@ from app.clients.extraction import (
     first_blocked_address_warning,
     validate_public_http_url,
 )
+from app.clients.robots import RobotsCheck, RobotsPolicy
 from app.guardrails.prompt_injection import sanitize_context_document
 from app.ml.boundary import boundary_text
 from app.schemas.domain import ContextDocument
@@ -50,12 +52,20 @@ class LinkedPageFetcher:
         max_redirects: int = 3,
         resolver: Resolver = default_resolver,
         client_factory: ClientFactory | None = None,
+        robots_policy: RobotsPolicy | None = None,
     ) -> None:
         self._timeout_seconds = timeout_seconds
         self._max_bytes = max_bytes
         self._max_redirects = max_redirects
         self._resolver = resolver
         self._client_factory = client_factory or self._default_client_factory
+        self._robots_policy = (
+            robots_policy
+            if robots_policy is not None
+            else RobotsPolicy(timeout_seconds=min(timeout_seconds, 1.0), resolver=resolver)
+            if client_factory is None
+            else None
+        )
 
     @property
     def resolver(self) -> Resolver:
@@ -92,12 +102,25 @@ class LinkedPageFetcher:
                 return FetchResult(document=None, warnings=safety.warnings, blocked=True)
             current_url = _url_text(current_url)
 
+            robots_result = await self._robots_check(current_url)
+            if robots_result is not None:
+                for warning in robots_result.warnings:
+                    if warning not in warnings:
+                        warnings.append(warning)
+                if not robots_result.allowed:
+                    return FetchResult(document=None, warnings=tuple(warnings))
+
             step = await self._fetch_step(client, current_url, source_id, warnings, redirect_count)
             if step.result is not None:
                 return step.result
             if step.next_url is not None:
                 current_url = step.next_url
         return FetchResult(document=None, warnings=("redirect_loop_unresolved",))
+
+    async def _robots_check(self, url: str) -> RobotsCheck | None:
+        if self._robots_policy is None:
+            return None
+        return await self._robots_policy.allowed(url)
 
     async def _fetch_step(
         self,
@@ -125,7 +148,14 @@ class LinkedPageFetcher:
             redirect_step = self._redirect_step(response, warnings, redirect_count)
             if redirect_step is not None:
                 return redirect_step
-            return _FetchStep(result=await self._response_result(response, source_id, warnings))
+            return _FetchStep(
+                result=await self._response_result(
+                    response,
+                    source_id,
+                    warnings,
+                    redirect_count=redirect_count,
+                )
+            )
 
     def _redirect_step(
         self,
@@ -161,6 +191,8 @@ class LinkedPageFetcher:
         response: httpx.Response,
         source_id: str | None,
         warnings: list[str],
+        *,
+        redirect_count: int,
     ) -> FetchResult:
         status_result = _status_or_content_type_result(response, warnings)
         if status_result is not None:
@@ -182,7 +214,15 @@ class LinkedPageFetcher:
                 warnings=tuple(warnings + ["empty_extracted_text"]),
                 status_code=response.status_code,
             )
-        document = _build_web_document(response, source_id, content_type, title, text, warnings)
+        document = _build_web_document(
+            response,
+            source_id,
+            content_type,
+            title,
+            text,
+            warnings,
+            redirect_count=redirect_count,
+        )
         sanitized_document, scan = sanitize_context_document(document)
         metadata = {
             **sanitized_document.metadata,
@@ -271,6 +311,8 @@ def _build_web_document(
     title: str,
     text: str,
     warnings: list[str],
+    *,
+    redirect_count: int,
 ) -> ContextDocument:
     response_url = boundary_text(response.url, "response_url_text_failed")
     document_id = boundary_text(source_id, "source_id_text_failed")
@@ -283,8 +325,13 @@ def _build_web_document(
         url=response_url,
         text=text,
         metadata={
+            "canonical_domain": _canonical_domain(response_url),
             "content_type": content_type or "unknown",
+            "fetch_success": True,
+            "fetch_status": response.status_code,
             "status_code": response.status_code,
+            "extracted_length": len(text.strip()),
+            "redirect_count": redirect_count,
             "warnings": list(warnings),
         },
     )
@@ -292,6 +339,10 @@ def _build_web_document(
 
 def _stable_hash(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _canonical_domain(url: str) -> str:
+    return (urlparse(url).hostname or "").lower().removeprefix("www.")
 
 
 def _url_text(url: object) -> str:

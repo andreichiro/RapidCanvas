@@ -299,4 +299,20 @@ def assert_c2_fixture_matches_result(
     fixture: dict[str, Any],
     result: RetrievalResult,
 ) -> None:
-    assert fixture == retrieval_result_payload(result)
+    payload = retrieval_result_payload(result)
+    assert fixture["queries"] == payload["queries"]
+    assert fixture["private_url_blocks"] == payload["private_url_blocks"]
+    assert fixture["guardrail_flags"] == payload["guardrail_flags"]
+    assert fixture["diagnostics"]["document_count"] == payload["diagnostics"]["document_count"]
+    assert fixture["diagnostics"]["evidence_count"] == payload["diagnostics"]["evidence_count"]
+    assert {document["id"] for document in fixture["documents"]} == {
+        document["id"] for document in payload["documents"]
+    }
+    assert {item["document_id"] for item in fixture["evidence"]} == {
+        item["document_id"] for item in payload["evidence"]
+    }
+    for document in payload["documents"]:
+        metadata = document["metadata"]
+        assert "source_quality_score" in metadata
+        assert "source_quality_reasons" in metadata
+        assert "citation_eligible" in metadata

@@ -43,9 +43,9 @@
     "provider_model": "openai/gpt-4.1-mini",
     "provider_configured": false,
     "provider_fallback_reason": "OPENAI_API_KEY is not configured",
-    "adapter_mode": "deterministic_dev",
+    "adapter_mode": "deterministic_fallback",
     "adapter_notes": [
-      "DSPy signatures are defined, but deterministic Dev C runner handled this call.",
+      "DSPy signatures are defined, but deterministic fallback runner handled this call.",
       "Use backend optional AI dependencies and provider credentials for live DSPy prediction."
     ],
     "latency_ms": 0,

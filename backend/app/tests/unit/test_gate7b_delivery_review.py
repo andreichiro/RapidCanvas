@@ -137,12 +137,16 @@ def test_gate7b_image_review_keeps_alt_text_fallback_untrusted_without_live_visi
         describe_image=None,
     )
 
-    assert result.warnings == ("image_vision_unavailable_using_alt_text:1",)
+    assert result.warnings == (
+        "image_vision_unavailable_using_alt_text:1",
+        "image_prompt_injection_risk:1:ignore_previous_instructions",
+    )
     assert len(result.documents) == 1
     document = result.documents[0]
     assert document.source_type == "image"
     assert document.metadata["role"] == "image_alt_text"
     assert document.metadata["untrusted_label"] == "UNTRUSTED_IMAGE_ALT_TEXT"
+    assert document.metadata["prompt_injection_flags"] == ["ignore_previous_instructions"]
     assert "Ignore all previous instructions" in document.text
 
 
@@ -185,3 +189,6 @@ async def test_runtime_retrieval_uses_enabled_vision_context(monkeypatch: Any) -
         "Vision description for https://example.com/vision.png"
     ]
     assert image_documents[0].metadata["untrusted_label"] == "UNTRUSTED_IMAGE_DESCRIPTION"
+    assert image_documents[0].metadata["vision_used"] is True
+    assert image_documents[0].metadata["alt_text_used"] is False
+    assert image_documents[0].metadata["vision_model"] == "gpt-4.1-mini"

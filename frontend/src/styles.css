@@ -123,7 +123,8 @@ h2 {
 .explain-form input:focus,
 .explain-form select:focus,
 .trace-toggle:focus,
-.submit-button:focus {
+.submit-button:focus,
+.cancel-button:focus {
   outline: 3px solid #9ed3ff;
   outline-offset: 2px;
 }
@@ -151,6 +152,19 @@ h2 {
   background: #184b8f;
   padding: 0 18px;
   color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cancel-button {
+  height: 44px;
+  min-height: 44px;
+  border: 1px solid #9b2f2f;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 0 18px;
+  color: #7d2222;
   font-weight: 800;
   cursor: pointer;
   white-space: nowrap;

@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from math import isfinite
 
 from app.guardrails.policies import DEFAULT_POLICY, GuardrailPolicy
-from app.schemas.domain import Evidence, FallbackMode, PostContext, TrustAssessment
+from app.schemas.domain import ContextDocument, Evidence, FallbackMode, PostContext, TrustAssessment
 
 
 class TrustScorer:
@@ -20,6 +20,7 @@ class TrustScorer:
         post: PostContext,
         evidence: Sequence[Evidence],
         *,
+        documents: Sequence[ContextDocument] = (),
         guardrail_flags: Sequence[str] = (),
         validation_issues: Sequence[str] = (),
     ) -> TrustAssessment:
@@ -28,7 +29,12 @@ class TrustScorer:
         diversity_score = _source_diversity_score(evidence)
         retrieval_score = _retrieval_score(evidence)
         score = _base_score(len(evidence), diversity_score, retrieval_score)
-        flags, reasons = _evidence_findings(evidence, diversity_score, retrieval_score)
+        flags, reasons = _evidence_findings(
+            evidence,
+            diversity_score,
+            retrieval_score,
+            documents=documents,
+        )
         score += _guardrail_delta(guardrail_flags, flags, reasons)
         score += _validation_delta(validation_issues, flags, reasons)
         score = max(0.0, min(1.0, score))
@@ -89,6 +95,14 @@ def _policy_fallback_mode(
             "unknown_citation",
             "uncited_output",
             "non_english_output",
+            "unsupported_claim",
+            "unsafe_echo",
+            "weak_citation_support",
+            "off_topic_citation",
+            "needs_primary_source",
+            "weak_source_quality",
+            "ineligible_citation",
+            "snippet_only_citation",
         )
     ):
         return "partial"
@@ -111,6 +125,8 @@ def _evidence_findings(
     evidence: Sequence[Evidence],
     diversity_score: float,
     retrieval_score: float,
+    *,
+    documents: Sequence[ContextDocument] = (),
 ) -> tuple[list[str], list[str]]:
     flags: list[str] = []
     reasons: list[str] = []
@@ -129,7 +145,81 @@ def _evidence_findings(
     if _has_contradiction_markers(evidence):
         flags.append("conflicting_sources")
         reasons.append("Evidence contains contradiction markers.")
+    _source_quality_findings(evidence, documents, flags, reasons)
     return flags, reasons
+
+
+def _source_quality_findings(
+    evidence: Sequence[Evidence],
+    documents: Sequence[ContextDocument],
+    flags: list[str],
+    reasons: list[str],
+) -> None:
+    cited_documents = _cited_documents(evidence, documents)
+    if not cited_documents:
+        return
+    quality_scores = [
+        score
+        for document in cited_documents
+        if (score := _metadata_score(document.metadata.get("source_quality_score"))) is not None
+    ]
+    if quality_scores and sum(quality_scores) / len(quality_scores) < 0.45:
+        flags.append("weak_source_quality")
+        reasons.append("Cited evidence has weak source-quality scores.")
+    if any(document.metadata.get("citation_eligible") is False for document in cited_documents):
+        flags.append("ineligible_citation")
+        reasons.append("At least one cited source is not eligible for public citation.")
+    reason_text = " ".join(
+        str(reason).lower()
+        for document in cited_documents
+        for reason in _metadata_reasons(document.metadata.get("source_quality_reasons"))
+    )
+    if "off_topic" in reason_text:
+        flags.append("off_topic_citation")
+        reasons.append("At least one cited source is off topic for the claim.")
+    if _all_public_sources_are_snippet_only(cited_documents):
+        flags.append("snippet_only_citation")
+        reasons.append("Only snippet-level search evidence supports the cited claims.")
+
+
+def _cited_documents(
+    evidence: Sequence[Evidence],
+    documents: Sequence[ContextDocument],
+) -> list[ContextDocument]:
+    by_id = {document.id: document for document in documents}
+    cited: list[ContextDocument] = []
+    for item in evidence:
+        document = by_id.get(item.document_id) or by_id.get(item.source_id)
+        if document is not None:
+            cited.append(document)
+    return cited
+
+
+def _metadata_score(value: object) -> float | None:
+    try:
+        score = float(value)  # type: ignore[arg-type]
+    except Exception:
+        return None
+    if not isfinite(score):
+        return None
+    return min(1.0, max(0.0, score))
+
+
+def _metadata_reasons(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [reason for reason in value if isinstance(reason, str)]
+    if isinstance(value, str):
+        return [value]
+    return []
+
+
+def _all_public_sources_are_snippet_only(documents: Sequence[ContextDocument]) -> bool:
+    public_documents = [
+        document for document in documents if document.source_type in {"web", "bluesky"}
+    ]
+    return bool(public_documents) and all(
+        document.metadata.get("snippet_only") is True for document in public_documents
+    )
 
 
 def _guardrail_delta(
@@ -174,10 +264,7 @@ def _validation_delta(
     flags: list[str],
     reasons: list[str],
 ) -> float:
-    delta = 0.0
-    for issue in validation_issues:
-        delta += _validation_penalty(issue, flags, reasons)
-    return delta
+    return sum(_validation_penalty(issue, flags, reasons) for issue in _dedupe(validation_issues))
 
 
 def _validation_penalty(issue: str, flags: list[str], reasons: list[str]) -> float:
@@ -185,6 +272,11 @@ def _validation_penalty(issue: str, flags: list[str], reasons: list[str]) -> flo
         "uncited_output": ("uncited_output", -0.25, "A generated bullet lacked a citation."),
         "leaked_instruction_or_secret": (
             "leaked_instruction_or_secret",
+            -0.35,
+            "A generated bullet echoed unsafe instruction-like content.",
+        ),
+        "unsafe_echo": (
+            "unsafe_echo",
             -0.35,
             "A generated bullet echoed unsafe instruction-like content.",
         ),
@@ -203,6 +295,26 @@ def _validation_penalty(issue: str, flags: list[str], reasons: list[str]) -> flo
             -0.2,
             "A generated bullet was not written in English.",
         ),
+        "unsupported_claim": (
+            "unsupported_claim",
+            -0.25,
+            "A generated factual claim was not supported by its citations.",
+        ),
+        "weak_citation_support": (
+            "weak_citation_support",
+            -0.18,
+            "A cited source weakly supported the generated bullet.",
+        ),
+        "off_topic_citation": (
+            "off_topic_citation",
+            -0.2,
+            "A cited source appeared off topic for the generated bullet.",
+        ),
+        "needs_primary_source": (
+            "needs_primary_source",
+            -0.18,
+            "A broad claim needed stronger primary-source support.",
+        ),
     }
     if issue not in penalties:
         return 0.0
@@ -213,9 +325,9 @@ def _validation_penalty(issue: str, flags: list[str], reasons: list[str]) -> flo
 
 
 def _must_abstain(post: PostContext, score: float, flags: list[str]) -> bool:
-    if not post.text.strip() and "low_evidence" in flags:
-        return True
-    return "leaked_instruction_or_secret" in flags or score < 0.25
+    unsafe = bool({"leaked_instruction_or_secret", "unsafe_echo"} & set(flags))
+    no_visible_text = not post.text.strip()
+    return unsafe or (no_visible_text and ("low_evidence" in flags or score < 0.25))
 
 
 def _evidence_count_score(count: int) -> float:

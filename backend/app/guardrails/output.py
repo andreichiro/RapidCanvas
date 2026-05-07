@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.guardrails.citation_support import check_bullet_support
+from app.guardrails.fallback_bullets import (
+    direct_fallback_bullet_specs,
+    fallback_bullet_specs,
+)
 from app.guardrails.policies import DEFAULT_POLICY, GuardrailPolicy, compact_text
 from app.schemas.api import Bullet
 from app.schemas.domain import FallbackMode, PostContext
@@ -50,6 +56,8 @@ class OutputGuardrail:
         allowed_source_ids: set[str],
         *,
         fallback_mode: FallbackMode = "none",
+        source_text_by_id: Mapping[str, str] | None = None,
+        snippet_only_source_ids: set[str] | None = None,
     ) -> ValidationResult:
         """Check whether a draft can be emitted without fallback."""
 
@@ -62,7 +70,12 @@ class OutputGuardrail:
             issues.append("invalid_bullet_count")
 
         for bullet in draft.bullets:
-            bullet_issues = self._bullet_issues(bullet, allowed_source_ids)
+            bullet_issues = self._bullet_issues(
+                bullet,
+                allowed_source_ids,
+                source_text_by_id=source_text_by_id,
+                snippet_only_source_ids=snippet_only_source_ids,
+            )
             if bullet_issues:
                 issues.extend(bullet_issues)
                 continue
@@ -87,29 +100,94 @@ class OutputGuardrail:
         fallback_mode: FallbackMode,
         post: PostContext,
         post_source_id: str,
+        source_text_by_id: Mapping[str, str] | None = None,
+        snippet_only_source_ids: set[str] | None = None,
     ) -> list[Bullet]:
         """Return schema-valid bullets after removing unsafe or unsupported claims."""
 
-        validation = self.validate(draft, allowed_source_ids, fallback_mode=fallback_mode)
+        support_text = dict(source_text_by_id or {})
+        support_text.setdefault(post_source_id, post.text)
+        validation = self.validate(
+            draft,
+            allowed_source_ids,
+            fallback_mode=fallback_mode,
+            source_text_by_id=support_text,
+            snippet_only_source_ids=snippet_only_source_ids,
+        )
         if fallback_mode == "none" and validation.is_valid:
             return _to_api_bullets(validation.revised_bullets[: self._policy.max_bullets])
 
+        fallback_drafts = self._validated_fallback_drafts(
+            fallback_mode,
+            post,
+            post_source_id,
+            allowed_source_ids,
+            support_text,
+            snippet_only_source_ids,
+        )
         safe_bullets = validation.revised_bullets[: self._policy.max_bullets]
         if fallback_mode == "partial" and safe_bullets:
             return _to_api_bullets(
                 _fill_to_minimum(
                     safe_bullets,
-                    self._fallback_drafts("partial", post, post_source_id),
+                    fallback_drafts,
                     self._policy.min_bullets,
                     self._policy.max_bullets,
                 )
             )
 
-        return _to_api_bullets(
-            self._fallback_drafts(fallback_mode, post, post_source_id)[: self._policy.max_bullets]
-        )
+        return _to_api_bullets(fallback_drafts[: self._policy.max_bullets])
 
-    def _bullet_issues(self, bullet: BulletDraft, allowed_source_ids: set[str]) -> list[str]:
+    def _validated_fallback_drafts(
+        self,
+        fallback_mode: FallbackMode,
+        post: PostContext,
+        post_source_id: str,
+        allowed_source_ids: set[str],
+        source_text_by_id: Mapping[str, str],
+        snippet_only_source_ids: set[str] | None,
+    ) -> list[BulletDraft]:
+        fallback = _drafts_from_specs(
+            fallback_bullet_specs(
+                fallback_mode,
+                post,
+                post_source_id,
+                policy=self._policy,
+                source_text_by_id=source_text_by_id,
+                allowed_source_ids=allowed_source_ids,
+            )
+        )
+        validation = self.validate(
+            ExplanationDraft(bullets=fallback),
+            allowed_source_ids | {post_source_id},
+            fallback_mode=fallback_mode,
+            source_text_by_id=source_text_by_id,
+            snippet_only_source_ids=snippet_only_source_ids,
+        )
+        if len(validation.revised_bullets) >= self._policy.min_bullets:
+            return validation.revised_bullets[: self._policy.max_bullets]
+        direct = _drafts_from_specs(
+            direct_fallback_bullet_specs(post, post_source_id, policy=self._policy)
+        )
+        direct_validation = self.validate(
+            ExplanationDraft(bullets=direct),
+            allowed_source_ids | {post_source_id},
+            fallback_mode=fallback_mode,
+            source_text_by_id=source_text_by_id,
+            snippet_only_source_ids=snippet_only_source_ids,
+        )
+        if len(direct_validation.revised_bullets) >= self._policy.min_bullets:
+            return direct_validation.revised_bullets[: self._policy.max_bullets]
+        return direct[: self._policy.min_bullets]
+
+    def _bullet_issues(
+        self,
+        bullet: BulletDraft,
+        allowed_source_ids: set[str],
+        *,
+        source_text_by_id: Mapping[str, str] | None,
+        snippet_only_source_ids: set[str] | None,
+    ) -> list[str]:
         issues: list[str] = []
         if not bullet.source_ids:
             issues.append("uncited_output")
@@ -120,68 +198,21 @@ class OutputGuardrail:
             issues.append("unknown_citation")
         if self._policy.forbidden_output_hits(bullet.text):
             issues.append("leaked_instruction_or_secret")
+            issues.append("unsafe_echo")
         if text_appears_non_english(bullet.text):
             issues.append("non_english_output")
+        if not issues and source_text_by_id is not None:
+            support = check_bullet_support(
+                bullet.text,
+                bullet.source_ids,
+                dict(source_text_by_id),
+                snippet_only_source_ids=snippet_only_source_ids,
+            )
+            issues.extend(support.issues)
         return issues
 
-    def _fallback_drafts(
-        self,
-        fallback_mode: FallbackMode,
-        post: PostContext,
-        post_source_id: str,
-    ) -> list[BulletDraft]:
-        visible_text = _safe_visible_post_text(post, self._policy)
-        fallback_label = _fallback_label(fallback_mode)
-        visible_summary = (
-            f"{fallback_label} {visible_text}"
-            if visible_text.startswith("The visible post is not in English")
-            else f"{fallback_label} The visible Bluesky post says: {visible_text}"
-        )
-        return [
-            BulletDraft(
-                text=visible_summary,
-                source_ids=[post_source_id],
-            ),
-            BulletDraft(
-                text=(
-                    "No broader factual claim is made because the available evidence did "
-                    "not clear the citation and trust checks."
-                ),
-                source_ids=[post_source_id],
-            ),
-            BulletDraft(
-                text=(
-                    "The response is limited to source-backed context and keeps retrieved "
-                    "instructions treated as untrusted evidence."
-                ),
-                source_ids=[post_source_id],
-            ),
-        ]
-
-
-def _fallback_label(fallback_mode: FallbackMode) -> str:
-    labels: dict[FallbackMode, str] = {
-        "none": "Supported summary.",
-        "partial": "Partial answer.",
-        "safe_summary": "Safe summary.",
-        "abstain": "Abstention.",
-    }
-    return labels[fallback_mode]
-
-
-def _safe_visible_post_text(post: PostContext, policy: GuardrailPolicy) -> str:
-    visible_text = post.text or "The visible post has no text."
-    if policy.forbidden_output_hits(visible_text):
-        return (
-            "The visible post contains instruction-like or credential-seeking text "
-            "that was not echoed."
-        )
-    if _appears_non_english(post):
-        return (
-            "The visible post is not in English; this fallback does not translate or "
-            "expand it beyond source-backed evidence."
-        )
-    return compact_text(visible_text, limit=220)
+def _drafts_from_specs(specs: list[tuple[str, list[str]]]) -> list[BulletDraft]:
+    return [BulletDraft(text=text, source_ids=source_ids) for text, source_ids in specs]
 
 
 def _appears_non_english(post: PostContext) -> bool:
@@ -272,6 +303,11 @@ OutputIssue = Literal[
     "invalid_bullet_count",
     "uncited_output",
     "unknown_citation",
+    "unsupported_claim",
+    "weak_citation_support",
+    "off_topic_citation",
+    "needs_primary_source",
     "leaked_instruction_or_secret",
+    "unsafe_echo",
     "non_english_output",
 ]

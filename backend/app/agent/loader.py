@@ -57,7 +57,7 @@ def load_program(
     else:
         runner = HeuristicSignatureRunner()
         warnings.extend(provider.warnings)
-        warnings.append("dspy_runner_unavailable_using_deterministic_dev")
+        warnings.append("dspy_runner_unavailable_using_deterministic_fallback")
 
     program = BlueskyExplainer(
         runner=runner,

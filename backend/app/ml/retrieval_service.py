@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import cast
+from inspect import Parameter, signature
+from typing import Any, cast
 
 import app.ml.vector_store as vs
 from app.clients import search as sc
@@ -15,10 +16,13 @@ from app.guardrails.identifiers import safe_identifier
 from app.guardrails.prompt_injection import PromptInjectionScanner, sanitize_context_documents
 from app.ml import diagnostics as d
 from app.ml import image as img
+from app.ml import retrieval_backfill
+from app.ml import retrieval_collectors as rc
+from app.ml import source_quality as sq
 from app.ml.boundary import boundary_attr as ba
-from app.ml.boundary import boundary_text, bounded_items, safe_limit
+from app.ml.boundary import boundary_text, bounded_items
 from app.ml.c2_policy import unique_documents_by_id
-from app.ml.embeddings import EmbeddingProvider, OpenAIEmbeddingProvider, text_hash
+from app.ml.embeddings import EmbeddingProvider, OpenAIEmbeddingProvider
 from app.ml.rag_boundary import safe_last_diagnostics
 from app.ml.rerankers import Reranker, build_reranker
 from app.schemas.domain import ContextDocument, Evidence, PostContext
@@ -36,6 +40,9 @@ class RetrievalSettings:
     include_bluesky_search: bool = True
     include_web_search: bool = True
     linked_page_limit: int = 5
+    linked_page_concurrency: int = 4
+    search_concurrency: int = 4
+    retrieval_timeout_seconds: float = 25.0
     chunking: vs.ChunkingConfig = vs.DEFAULT_CHUNKING_CONFIG
 
 
@@ -72,7 +79,12 @@ class RetrievalService:
         search_queries, query_warnings = d.generate_search_queries_with_warnings(
             post, supplied_queries=queries, max_queries=opts.max_queries
         )
-        documents, warnings, blocks = await self._collect_documents(post, search_queries, opts)
+        documents, warnings, blocks = await self._collect_documents(
+            post,
+            search_queries,
+            opts,
+            deadline=rc.deadline(opts.retrieval_timeout_seconds),
+        )
         warnings = [*query_warnings, *warnings]
         documents, url_warnings, url_blocks = self._filter_safe_document_urls(documents)
         warnings.extend(url_warnings)
@@ -88,7 +100,18 @@ class RetrievalService:
                 warnings=warnings,
                 private_url_blocks=blocks,
             )
-        evidence, extra_flags = self._retrieve_evidence(search_queries, safe_documents, warnings)
+        query_text = "\n".join(search_queries)
+        safe_documents, source_quality = sq.annotate_source_quality(
+            post, query_text, safe_documents
+        )
+        safe_documents = sq.dedupe_equivalent_documents(safe_documents)
+        evidence, extra_flags = self._retrieve_evidence(
+            post,
+            search_queries,
+            safe_documents,
+            warnings,
+            evidence_limit=opts.evidence_limit,
+        )
         rag_diagnostics, diagnostic_warnings = safe_last_diagnostics(self._rag_service)
         prompt_flags = d.dedupe_values([*prompt_flags, *rag_diagnostics.prompt_injection_flags])
         return d.make_retrieval_result(
@@ -100,6 +123,7 @@ class RetrievalService:
             private_url_blocks=blocks,
             extra_guardrail_flags=extra_flags,
             reranker_scores=rag_diagnostics.reranker_scores,
+            source_quality=source_quality,
         )
 
     async def _collect_documents(
@@ -107,6 +131,8 @@ class RetrievalService:
         post: PostContext,
         queries: Sequence[str],
         settings: RetrievalSettings,
+        *,
+        deadline: float | None,
     ) -> tuple[list[ContextDocument], list[str], list[str]]:
         post_warnings = ba(post, "warnings", "post_warnings_field_failed")
         warnings = [*warning_strings(self._startup_warnings), *warning_strings(post_warnings)]
@@ -116,30 +142,31 @@ class RetrievalService:
             else ([], [])
         )
         warnings.extend(context_warnings)
-        if (
-            settings.include_thread_context
-            and self._app_settings.enable_image_understanding
-            and self._app_settings.openai_api_key is not None
-        ):
+        if settings.include_thread_context and self._app_settings.enable_image_understanding:
             documents = img.without_basic_image_alt_documents(documents)
             image_documents, image_warnings = self._image_context_documents(post)
             documents.extend(image_documents)
             warnings.extend(image_warnings)
         blocks = d.private_blocks_from_warnings(warnings)
         if settings.include_linked_pages:
-            linked_documents, link_warnings, link_blocks = await self._linked_page_documents(
+            linked_documents, link_warnings, link_blocks = await rc.collect_linked_page_documents(
                 ba(post, "links", "post_links_field_failed"),
+                fetcher=self._linked_page_fetcher,
                 limit=settings.linked_page_limit,
+                concurrency=settings.linked_page_concurrency,
+                timeout_seconds=rc.remaining_timeout(deadline),
             )
             documents.extend(linked_documents)
             warnings.extend(link_warnings)
             blocks.extend(link_blocks)
         providers = self._enabled_search_providers(settings)
         if settings.include_search and providers:
-            search_documents, search_warnings = await self._search_documents(
+            search_documents, search_warnings = await rc.collect_search_documents(
                 queries,
                 providers,
                 limit_per_provider=settings.search_limit_per_provider,
+                concurrency=settings.search_concurrency,
+                timeout_seconds=rc.remaining_timeout(deadline),
             )
             documents.extend(search_documents)
             warnings.extend(search_warnings)
@@ -154,13 +181,21 @@ class RetrievalService:
             ba(post, "images", "post_images_field_failed"), 20, "image_iter_failed"
         )
         image_refs, coercion_warnings = img.coerce_image_refs(images)
+        describe_image = (
+            (
+                lambda image: img.describe_image_with_openai(
+                    image,
+                    settings=self._app_settings,
+                )
+            )
+            if self._app_settings.openai_api_key is not None
+            else None
+        )
         result = img.build_image_context_documents(
             image_refs,
             vision_enabled=True,
-            describe_image=lambda image: img.describe_image_with_openai(
-                image,
-                settings=self._app_settings,
-            ),
+            describe_image=describe_image,
+            vision_model=self._app_settings.vision_model,
         )
         return img.runtime_image_documents(result.documents), [
             *image_iter_warnings,
@@ -181,73 +216,30 @@ class RetrievalService:
 
     def _retrieve_evidence(
         self,
+        post: PostContext,
         queries: Sequence[str],
         documents: list[ContextDocument],
         warnings: list[str],
+        *,
+        evidence_limit: int,
     ) -> tuple[list[Evidence], list[str]]:
         try:
-            return self._rag_service.retrieve("\n".join(queries), documents), []
+            query_text = "\n".join(queries)
+            namespace = vs.retrieval_namespace(
+                query_text,
+                documents,
+                request_key=ba(post, "at_uri", "post_at_uri_field_failed"),
+            )
+            evidence = _call_rag_retrieve(
+                self._rag_service, query_text, documents, namespace=namespace
+            )
+            quality_evidence = retrieval_backfill.with_quality_backfill(
+                documents, evidence, limit=evidence_limit
+            )
+            return quality_evidence, []
         except Exception as exc:
             warnings.append(f"retrieval_failed:{exc.__class__.__name__}")
             return [], ["retrieval_unavailable"]
-
-    async def _linked_page_documents(
-        self,
-        links: object,
-        *,
-        limit: int,
-    ) -> tuple[list[ContextDocument], list[str], list[str]]:
-        documents: list[ContextDocument] = []
-        warnings: list[str] = []
-        private_url_blocks: list[str] = []
-        link_limit = safe_limit(limit)
-        unique_links, overflow_count, link_iter_warnings = d.dedupe_limited_values_with_warnings(
-            links, link_limit, "linked_page_iter_failed"
-        )
-        warnings.extend(link_iter_warnings)
-        if overflow_count:
-            warnings.append(f"linked_page_limit_exceeded:{overflow_count}")
-        for index, url in enumerate(unique_links[:link_limit], start=1):
-            result = await self._linked_page_fetcher.fetch(
-                url,
-                source_id=f"LINK-{text_hash(boundary_text(url, 'link_url_text_failed'))[:12]}",
-            )
-            warnings.extend(result.warnings)
-            if result.blocked:
-                block = (
-                    f"blocked_link:{redact_url_for_warning(url)}:"
-                    f"{'|'.join(result.warnings)}"
-                )
-                private_url_blocks.append(block)
-                warnings.append(block)
-            if result.document is None:
-                continue
-            metadata = {
-                **result.document.metadata,
-                "post_link_rank": index,
-                "linked_from_post": True,
-            }
-            documents.append(result.document.model_copy(update={"metadata": metadata}))
-        return documents, warnings, private_url_blocks
-
-    async def _search_documents(
-        self,
-        queries: Sequence[str],
-        providers: list[sc.SearchProvider],
-        *,
-        limit_per_provider: int,
-    ) -> tuple[list[ContextDocument], list[str]]:
-        documents: list[ContextDocument] = []
-        warnings: list[str] = []
-        for query in queries:
-            bundle = await sc.collect_search_context(
-                query,
-                providers,
-                limit_per_provider=limit_per_provider,
-            )
-            documents.extend(bundle.documents)
-            warnings.extend(bundle.warnings)
-        return documents, warnings
 
     def _filter_safe_document_urls(
         self,
@@ -288,11 +280,9 @@ class RetrievalService:
                 settings.include_bluesky_search
                 or not isinstance(provider, sc.BlueskySearchProvider)
             )
-            and (
-                settings.include_web_search
-                or not isinstance(provider, sc.WebSearchProvider)
-            )
+            and (settings.include_web_search or not isinstance(provider, sc.WebSearchProvider))
         ]
+
 
 def build_retrieval_service(
     *,
@@ -337,7 +327,11 @@ def _vector_store_or_fallback(
     if vector_store is not None:
         return vector_store, []
     try:
-        return vs.QdrantVectorStore(url=settings.qdrant_url, path=settings.qdrant_path), []
+        return vs.QdrantVectorStore(
+            url=settings.qdrant_url,
+            path=settings.qdrant_path,
+            collection_scope=settings.embedding_model,
+        ), []
     except Exception as exc:
         warning = f"qdrant_unavailable_using_in_memory_vector_store:{exc.__class__.__name__}"
         return vs.InMemoryVectorStore(), [warning]
@@ -353,3 +347,31 @@ def _default_search_providers(
     if settings.include_web_search:
         providers.append(sc.WebSearchProvider(fetcher=fetcher))
     return providers
+
+
+def _call_rag_retrieve(
+    rag_service: Any,
+    query_text: str,
+    documents: list[ContextDocument],
+    *,
+    namespace: str,
+) -> list[Evidence]:
+    retrieve = rag_service.retrieve
+    if _accepts_namespace(retrieve):
+        return cast(list[Evidence], retrieve(query_text, documents, namespace=namespace))
+    return cast(list[Evidence], retrieve(query_text, documents))
+
+
+def _accepts_namespace(callable_obj: Any) -> bool:
+    try:
+        params = signature(callable_obj).parameters.values()
+    except (TypeError, ValueError):
+        return True
+    return any(
+        param.kind is Parameter.VAR_KEYWORD
+        or (
+            param.kind in {Parameter.KEYWORD_ONLY, Parameter.POSITIONAL_OR_KEYWORD}
+            and param.name == "namespace"
+        )
+        for param in params
+    )

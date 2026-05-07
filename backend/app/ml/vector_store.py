@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import importlib
 from collections.abc import Sequence
-from contextlib import suppress
-from dataclasses import dataclass, field
-from pathlib import Path
-from threading import RLock
-from typing import Any, Protocol
+from dataclasses import dataclass
+from uuid import uuid4
 
-from app.guardrails.prompt_injection import PromptInjectionScanner, sanitize_context_documents
+from app.guardrails.prompt_injection import (
+    PromptInjectionScanner,
+    PromptInjectionScanResult,
+    sanitize_context_documents,
+)
 from app.ml import rag_runtime as rr
 from app.ml.boundary import boundary_attr, boundary_text, bounded_items, safe_limit
 from app.ml.c2_policy import unique_documents_by_id
@@ -23,17 +23,30 @@ from app.ml.diagnostics import (
 from app.ml.embeddings import EmbeddingProvider, text_hash
 from app.ml.rag_boundary import RetrievalDiagnosticsState
 from app.ml.rerankers import RerankCandidate, Reranker, SimilarityReranker
-from app.ml.vector_payloads import (
-    chunk_metadata,
-    cosine_01,
-    metadata_mapping,
-    payload_mapping,
-    payload_value,
-    public_score,
-    qdrant_payload,
-    qdrant_point_id,
+from app.ml.vector_backends import (
+    DocumentChunk,
+    InMemoryVectorStore,
+    QdrantVectorStore,
+    VectorSearchResult,
+    VectorStore,
 )
+from app.ml.vector_payloads import chunk_metadata
 from app.schemas.domain import ContextDocument, Evidence
+
+__all__ = [
+    "CHUNKING_VARIANTS",
+    "DEFAULT_CHUNKING_CONFIG",
+    "ChunkingConfig",
+    "DocumentChunk",
+    "InMemoryVectorStore",
+    "QdrantVectorStore",
+    "RagService",
+    "VectorSearchResult",
+    "VectorStore",
+    "chunk_document",
+    "chunk_documents",
+    "retrieval_namespace",
+]
 
 
 @dataclass(frozen=True)
@@ -51,122 +64,20 @@ class ChunkingConfig:
             raise ValueError("chunk overlap must be smaller than chunk size")
 
 
+@dataclass(frozen=True)
+class _RetrievalInputs:
+    query_text: str
+    documents: list[ContextDocument]
+    warnings: list[str]
+    vector_store_backend: str
+
+
 CHUNKING_VARIANTS: tuple[ChunkingConfig, ...] = (
     ChunkingConfig(name="small_500_100", size=500, overlap=100),
     ChunkingConfig(name="medium_700_100", size=700, overlap=100),
     ChunkingConfig(name="large_900_150", size=900, overlap=150),
 )
 DEFAULT_CHUNKING_CONFIG = CHUNKING_VARIANTS[1]
-
-
-@dataclass(frozen=True)
-class DocumentChunk:
-    id: str
-    document_id: str
-    source_id: str
-    text: str
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class VectorSearchResult:
-    chunk: DocumentChunk
-    score: float
-
-
-class VectorStore(Protocol):
-    def recreate_collection(self, vector_size: int) -> None: ...
-
-    def upsert(self, chunks: Sequence[DocumentChunk], embeddings: Sequence[list[float]]) -> None:
-        ...
-
-    def query(self, embedding: list[float], limit: int) -> list[VectorSearchResult]: ...
-
-
-class InMemoryVectorStore:
-    backend_name = "in_memory_fallback"
-
-    def __init__(self) -> None:
-        self._items: list[tuple[DocumentChunk, list[float]]] = []
-
-    def recreate_collection(self, vector_size: int) -> None:
-        self._items = []
-
-    def upsert(self, chunks: Sequence[DocumentChunk], embeddings: Sequence[list[float]]) -> None:
-        self._items.extend(
-            (chunk, embedding)
-            for chunk, embedding in zip(chunks, embeddings, strict=True)
-        )
-
-    def query(self, embedding: list[float], limit: int) -> list[VectorSearchResult]:
-        limit_value = safe_limit(limit)
-        if limit_value == 0:
-            return []
-        results = [
-            VectorSearchResult(chunk=chunk, score=cosine_01(embedding, stored_embedding))
-            for chunk, stored_embedding in self._items
-        ]
-        return sorted(results, key=lambda result: result.score, reverse=True)[:limit_value]
-
-
-class QdrantVectorStore:
-    backend_name = "qdrant_vector_store"
-
-    def __init__(
-        self,
-        *,
-        url: str | None = None,
-        path: str | Path = ".cache/qdrant",
-        collection_name: str = "rapidcanvas_context",
-        client: Any | None = None,
-    ) -> None:
-        self._collection_name = collection_name
-        if client is not None:
-            self._client = client
-        else:
-            qdrant_client = importlib.import_module("qdrant_client")
-            client_kwargs = {"url": url} if url else {"path": str(path)}
-            self._client = qdrant_client.QdrantClient(**client_kwargs)
-
-    def recreate_collection(self, vector_size: int) -> None:
-        models = importlib.import_module("qdrant_client.models")
-        with suppress(Exception):
-            self._client.delete_collection(collection_name=self._collection_name)
-        self._client.create_collection(
-            collection_name=self._collection_name,
-            vectors_config=models.VectorParams(size=vector_size, distance=models.Distance.COSINE),
-        )
-
-    def upsert(self, chunks: Sequence[DocumentChunk], embeddings: Sequence[list[float]]) -> None:
-        models = importlib.import_module("qdrant_client.models")
-        points = [
-            models.PointStruct(
-                id=qdrant_point_id(chunk),
-                vector=embedding,
-                payload=qdrant_payload(chunk),
-            )
-            for chunk, embedding in zip(chunks, embeddings, strict=True)
-        ]
-        self._client.upsert(collection_name=self._collection_name, points=points)
-
-    def query(self, embedding: list[float], limit: int) -> list[VectorSearchResult]:
-        limit_value = safe_limit(limit)
-        if limit_value == 0:
-            return []
-        if hasattr(self._client, "query_points"):
-            response = self._client.query_points(
-                collection_name=self._collection_name,
-                query=embedding,
-                limit=limit_value,
-            )
-            points = response.points
-        else:
-            points = self._client.search(
-                collection_name=self._collection_name,
-                query_vector=embedding,
-                limit=limit_value,
-            )
-        return [_point_to_result(point) for point in points]
 
 
 class RagService:
@@ -189,39 +100,35 @@ class RagService:
         self._retrieve_limit = safe_limit(retrieve_limit)
         self._evidence_limit = safe_limit(evidence_limit)
         self._diagnostics_state = RetrievalDiagnosticsState()
-        self._lock = RLock()
 
     @property
     def last_diagnostics(self) -> RetrievalDiagnostics:
         return self._diagnostics_state.get()
 
-    def retrieve(self, query: str, documents: list[ContextDocument]) -> list[Evidence]:
-        with self._lock:
-            return self._retrieve_locked(query, documents)
-
-    def _retrieve_locked(self, query: str, documents: list[ContextDocument]) -> list[Evidence]:
-        self._record_diagnostics(RetrievalDiagnostics())
-        vector_store_backend = vector_store_backend_name(self._vector_store)
-        query_text = boundary_text(query, "rag_query_text_failed")
-        document_items, document_warnings = bounded_items(
-            documents, 200, "rag_documents_iter_failed")
-        documents = [doc for doc in document_items if isinstance(doc, ContextDocument)]
-        if invalid_count := len(document_items) - len(documents):
-            document_warnings.append(f"rag_documents_invalid:{invalid_count}")
-        if not query_text.strip() or not documents:
-            self._record_warning_diagnostics(document_warnings, vector_store_backend)
+    def retrieve(
+        self,
+        query: str,
+        documents: list[ContextDocument],
+        *,
+        namespace: str | None = None,
+    ) -> list[Evidence]:
+        retrieval_inputs = self._prepare_retrieval_inputs(query, documents)
+        if not retrieval_inputs.query_text.strip() or not retrieval_inputs.documents:
+            self._record_warning_diagnostics(
+                retrieval_inputs.warnings,
+                retrieval_inputs.vector_store_backend,
+            )
             return []
-        sanitized_documents, scans = sanitize_context_documents(documents, scanner=self._scanner)
+        sanitized_documents, scans = sanitize_context_documents(
+            retrieval_inputs.documents, scanner=self._scanner
+        )
         sanitized_documents = unique_documents_by_id(sanitized_documents)
         document_ids = {document.id for document in sanitized_documents}
-        diagnostics = retrieval_diagnostics(sanitized_documents, scans)
-        self._record_diagnostics(
-            RetrievalDiagnostics(
-                prompt_injection_flags=diagnostics.prompt_injection_flags,
-                warnings=tuple(diagnostic_warnings(
-                    [*document_warnings, *diagnostics.warnings], vector_store_backend
-                )),
-            )
+        self._record_input_diagnostics(
+            sanitized_documents,
+            scans,
+            retrieval_inputs.warnings,
+            retrieval_inputs.vector_store_backend,
         )
         if self._retrieve_limit <= 0 or self._evidence_limit <= 0:
             return []
@@ -229,9 +136,11 @@ class RagService:
         if not chunks:
             return []
         ranked, runtime_warnings, vector_store_backend = self._ranked_candidates(
-            query_text,
+            retrieval_inputs.query_text,
             chunks,
-            vector_store_backend,
+            retrieval_inputs.vector_store_backend,
+            namespace=namespace
+            or retrieval_namespace(retrieval_inputs.query_text, sanitized_documents),
         )
         if runtime_warnings:
             self._record_warning_diagnostics(runtime_warnings, vector_store_backend)
@@ -243,32 +152,83 @@ class RagService:
         self._record_diagnostics(
             RetrievalDiagnostics(
                 prompt_injection_flags=current_diagnostics.prompt_injection_flags,
-                warnings=tuple(diagnostic_warnings(
-                    [*current_diagnostics.warnings, *evidence_warnings],
-                    vector_store_backend,
-                )),
+                warnings=tuple(
+                    diagnostic_warnings(
+                        [*current_diagnostics.warnings, *evidence_warnings],
+                        vector_store_backend,
+                    )
+                ),
                 reranker_scores=reranker_scores,
             )
         )
         return evidence
+
+    def _prepare_retrieval_inputs(
+        self,
+        query: str,
+        documents: list[ContextDocument],
+    ) -> _RetrievalInputs:
+        self._record_diagnostics(RetrievalDiagnostics())
+        vector_store_backend = vector_store_backend_name(self._vector_store)
+        query_text = boundary_text(query, "rag_query_text_failed")
+        document_items, document_warnings = bounded_items(
+            documents, 200, "rag_documents_iter_failed"
+        )
+        safe_documents = [doc for doc in document_items if isinstance(doc, ContextDocument)]
+        if invalid_count := len(document_items) - len(safe_documents):
+            document_warnings.append(f"rag_documents_invalid:{invalid_count}")
+        return _RetrievalInputs(
+            query_text=query_text,
+            documents=safe_documents,
+            warnings=document_warnings,
+            vector_store_backend=vector_store_backend,
+        )
+
+    def _record_input_diagnostics(
+        self,
+        documents: list[ContextDocument],
+        scans: Sequence[PromptInjectionScanResult],
+        warnings: Sequence[str],
+        vector_store_backend: str,
+    ) -> None:
+        diagnostics = retrieval_diagnostics(documents, scans)
+        self._record_diagnostics(
+            RetrievalDiagnostics(
+                prompt_injection_flags=diagnostics.prompt_injection_flags,
+                warnings=tuple(
+                    diagnostic_warnings(
+                        [*warnings, *diagnostics.warnings],
+                        vector_store_backend,
+                    )
+                ),
+            )
+        )
 
     def _ranked_candidates(
         self,
         query_text: str,
         chunks: list[DocumentChunk],
         vector_store_backend: str,
+        *,
+        namespace: str,
     ) -> tuple[list[RerankCandidate[DocumentChunk]], list[str], str]:
-        ranked, runtime_warnings = self._ranked_with_store(query_text, chunks, self._vector_store)
+        ranked, runtime_warnings = self._ranked_with_store(
+            query_text, chunks, self._vector_store, namespace=namespace
+        )
         if runtime_warnings and not ranked and vector_store_backend == "qdrant_vector_store":
             fallback_ranked, fallback_warnings = self._ranked_with_store(
-                query_text, chunks, InMemoryVectorStore()
+                query_text, chunks, InMemoryVectorStore(), namespace=namespace
             )
             if fallback_ranked:
-                return fallback_ranked, [
-                    *runtime_warnings,
-                    "qdrant_runtime_failed_using_in_memory_fallback",
-                    *fallback_warnings,
-                ], "in_memory_fallback"
+                return (
+                    fallback_ranked,
+                    [
+                        *runtime_warnings,
+                        "qdrant_runtime_failed_using_in_memory_fallback",
+                        *fallback_warnings,
+                    ],
+                    "in_memory_fallback",
+                )
         return ranked, runtime_warnings, vector_store_backend
 
     def _ranked_with_store(
@@ -276,10 +236,13 @@ class RagService:
         query_text: str,
         chunks: list[DocumentChunk],
         vector_store: VectorStore,
+        *,
+        namespace: str,
     ) -> tuple[list[RerankCandidate[DocumentChunk]], list[str]]:
         return rr.ranked_rag_candidates(
             query_text=query_text,
             chunks=chunks,
+            namespace=namespace,
             embedding_provider=self._embedding_provider,
             vector_store=vector_store,
             reranker=self._reranker,
@@ -296,9 +259,9 @@ class RagService:
         self._record_diagnostics(
             RetrievalDiagnostics(
                 prompt_injection_flags=current.prompt_injection_flags,
-                warnings=tuple(diagnostic_warnings(
-                    [*current.warnings, *warnings], vector_store_backend
-                )),
+                warnings=tuple(
+                    diagnostic_warnings([*current.warnings, *warnings], vector_store_backend)
+                ),
             )
         )
 
@@ -319,10 +282,13 @@ def chunk_document(
     ).strip()
     if not text:
         return []
-    document_id = boundary_text(
-        boundary_attr(document, "id", "document_id_field_failed"),
-        "document_id_text_failed",
-    ) or "DOC-empty"
+    document_id = (
+        boundary_text(
+            boundary_attr(document, "id", "document_id_field_failed"),
+            "document_id_text_failed",
+        )
+        or "DOC-empty"
+    )
     chunks: list[DocumentChunk] = []
     start = 0
     index = 0
@@ -363,13 +329,13 @@ def chunk_documents(
     return [chunk for document in documents for chunk in chunk_document(document, config=config)]
 
 
-def _point_to_result(point: Any) -> VectorSearchResult:
-    payload = payload_mapping(getattr(point, "payload", {}) or {})
-    chunk = DocumentChunk(
-        id=boundary_text(payload_value(payload, "chunk_id"), "chunk_id_text_failed"),
-        document_id=boundary_text(payload_value(payload, "document_id"), "document_id_text_failed"),
-        source_id=boundary_text(payload_value(payload, "source_id"), "source_id_text_failed"),
-        text=boundary_text(payload_value(payload, "text"), "chunk_text_failed"),
-        metadata=metadata_mapping(payload_value(payload, "metadata", None)),
-    )
-    return VectorSearchResult(chunk=chunk, score=public_score(getattr(point, "score", 0.0)))
+def retrieval_namespace(
+    query: str,
+    documents: Sequence[ContextDocument],
+    *,
+    request_key: object = "",
+) -> str:
+    document_fingerprint = "|".join(document.id for document in documents[:20])
+    request_fingerprint = boundary_text(request_key, "request_namespace_key_failed")
+    stable_part = text_hash(f"{request_fingerprint}|{query}|{document_fingerprint}")[:12]
+    return f"retrieval-{stable_part}-{uuid4().hex[:12]}"

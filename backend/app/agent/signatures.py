@@ -78,7 +78,9 @@ SIGNATURE_DEFINITIONS: dict[str, SignatureDefinition] = {
         instructions=(
             "Validate citation coverage, unsupported claims, unsafe echoes, English-language "
             "bullet text, and output shape. Revise once in English when possible, using "
-            "source_id values from evidence instead of evidence item ids."
+            "source_id values from evidence instead of evidence item ids. Use explicit issue "
+            "labels: unsupported_claim, weak_citation_support, off_topic_citation, "
+            "needs_primary_source, unsafe_echo, and non_english_output."
         ),
         inputs={
             "post_text": "Target post text.",
@@ -87,7 +89,11 @@ SIGNATURE_DEFINITIONS: dict[str, SignatureDefinition] = {
         },
         outputs={
             "is_valid": "true or false.",
-            "issues_json": "JSON list of issue labels.",
+            "issues_json": (
+                "JSON list using explicit labels such as unsupported_claim, "
+                "weak_citation_support, off_topic_citation, needs_primary_source, "
+                "unsafe_echo, or non_english_output."
+            ),
             "revised_bullets_json": "JSON revised bullet list.",
         },
     ),

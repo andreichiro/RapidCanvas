@@ -1,59 +1,37 @@
-export type Bullet = {
-  text: string;
-  source_ids: string[];
-};
+import { parseExplainResponse, parseProvidersResponse } from "./validation";
 
-export type Source = {
-  id: string;
-  title: string;
-  url: string;
-  type: "thread" | "bluesky" | "web" | "image";
-  snippet: string;
-};
-
-export type Trace = {
-  category: string;
-  queries: string[];
-  warnings: string[];
-  latency_ms: number;
-  trust_score: number;
-  fallback_mode: "none" | "partial" | "abstain" | "safe_summary";
-  guardrail_flags: string[];
-  adapter_mode: "none" | "deterministic_dev";
-  adapter_notes: string[];
-};
-
-export type ExplainResponse = {
-  post: {
-    url: string;
-    author: string;
-    text: string;
-    created_at: string;
-  };
-  bullets: Bullet[];
-  sources: Source[];
-  trace: Trace;
-};
-
-export type ProviderInfo = {
-  name: string;
-  configured: boolean;
-  skipped_reason: string | null;
-  default_model: string | null;
-};
-
-export type ExplainRequest = {
-  post_url: string;
-  provider: string;
-  include_trace: boolean;
-  api_key?: string;
-};
+export type { Bullet, ExplainRequest, ExplainResponse, ProviderInfo, Source, Trace } from "./types";
+import { type ExplainRequest, type ExplainResponse, type ProviderInfo } from "./types";
 
 type ApiErrorPayload = {
-  detail?: string | { message?: string } | Array<{ msg?: string; message?: string }>;
+  code?: string;
+  error?: string;
+  detail?:
+    | string
+    | { code?: string; error?: string; message?: string; details?: string[]; reason?: string }
+    | Array<{ msg?: string; message?: string; type?: string }>;
+  message?: string;
 };
 
-class ApiHttpError extends Error {}
+type ParsedApiError = {
+  code?: string;
+  details: string[];
+  message: string;
+};
+
+export class ApiRequestError extends Error {
+  code?: string;
+  details: string[];
+  status?: number;
+
+  constructor(message: string, options: { code?: string; details?: string[]; status?: number } = {}) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.code = options.code;
+    this.details = options.details ?? [];
+    this.status = options.status;
+  }
+}
 
 const LOCAL_BACKEND_BASE_URL = "http://127.0.0.1:8000";
 
@@ -90,20 +68,35 @@ function isJsonResponse(response: Response): boolean {
   return (response.headers.get("Content-Type") ?? "").toLowerCase().includes("application/json");
 }
 
-async function readError(response: Response): Promise<string> {
+async function readStructuredError(response: Response): Promise<ParsedApiError> {
   const fallback = response.statusText || `Request failed with status ${response.status}.`;
 
   try {
     const payload = (await response.json()) as ApiErrorPayload;
+    const code = payload.code ?? payload.error;
+    if (typeof payload.message === "string" && payload.message.trim()) {
+      return { code, details: [], message: payload.message.trim() };
+    }
     if (typeof payload.detail === "string") {
-      return payload.detail;
+      return { code, details: [], message: payload.detail };
     }
     if (Array.isArray(payload.detail)) {
-      return payload.detail.map((item) => item.message ?? item.msg).filter(Boolean).join("; ") || fallback;
+      const details = payload.detail.map((item) => item.message ?? item.msg).filter(isString);
+      const detailCode = payload.detail.find((item) => typeof item.type === "string")?.type;
+      return { code: code ?? detailCode, details, message: details.join("; ") || fallback };
     }
-    return payload.detail?.message ?? fallback;
+    if (payload.detail) {
+      const detailCode = payload.detail.code ?? payload.detail.error;
+      const details = Array.isArray(payload.detail.details) ? payload.detail.details.filter(isString) : [];
+      return {
+        code: code ?? detailCode,
+        details,
+        message: payload.detail.message ?? payload.detail.reason ?? fallback,
+      };
+    }
+    return { code, details: [], message: fallback };
   } catch {
-    return fallback;
+    return { details: [], message: fallback };
   }
 }
 
@@ -114,9 +107,17 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   for (const [index, baseUrl] of bases.entries()) {
     const isLast = index === bases.length - 1;
     try {
+      if (init?.signal?.aborted) {
+        throw new DOMException("The operation was aborted.", "AbortError");
+      }
       const response = await fetch(apiUrl(baseUrl, path), init);
       if (!response.ok) {
-        const error = new ApiHttpError(await readError(response));
+        const parsedError = await readStructuredError(response);
+        const error = new ApiRequestError(parsedError.message, {
+          code: parsedError.code,
+          details: parsedError.details,
+          status: response.status,
+        });
         if (!isLast && response.status === 404) {
           lastError = error;
           continue;
@@ -133,10 +134,13 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
       }
       return (await response.json()) as T;
     } catch (caught) {
-      if (caught instanceof ApiHttpError) {
+      if (caught instanceof ApiRequestError) {
         throw caught;
       }
       const error = caught instanceof Error ? caught : new Error("Unable to reach the API server.");
+      if (init?.signal?.aborted) {
+        throw error;
+      }
       if (!isLast) {
         lastError = error;
         continue;
@@ -151,14 +155,20 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function fetchProviders(): Promise<ProviderInfo[]> {
-  const payload = await requestJson<{ providers: ProviderInfo[] }>("/api/providers");
-  return payload.providers;
+  const payload = await requestJson<unknown>("/api/providers");
+  return parseProvidersResponse(payload);
 }
 
-export async function explainPost(request: ExplainRequest): Promise<ExplainResponse> {
-  return requestJson<ExplainResponse>("/api/explain", {
+export async function explainPost(request: ExplainRequest, signal?: AbortSignal): Promise<ExplainResponse> {
+  const payload = await requestJson<unknown>("/api/explain", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal,
     body: JSON.stringify(request),
   });
+  return parseExplainResponse(payload);
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string";
 }

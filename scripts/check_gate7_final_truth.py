@@ -226,14 +226,18 @@ def check_runtime_truth(root: Path, errors: list[str]) -> None:
     schema = read(root / "backend/app/schemas/api.py")
     app = read(root / "frontend/src/App.tsx")
     form = read(root / "frontend/src/components/UrlForm.tsx")
-    gate5_marker = "gate5_service = _build_gate5_explainer"
-    fallback_marker = "retriever or ThreadContextEvidenceRetriever()"
+    runtime_marker = "runtime_service = _build_runtime_explainer"
+    fallback_marker = "retriever or ThreadContextFallbackRetriever()"
     need("RetrievalEvidenceRetriever" in deps, errors, "deps.py does not reference retrieval adapter")
-    need(gate5_marker in deps, errors, "deps.py does not attempt Gate 5 explainer")
+    need(runtime_marker in deps, errors, "deps.py does not attempt runtime explainer")
     need(fallback_marker in deps, errors, "deps.py missing thread-context fallback marker")
-    if gate5_marker in deps and fallback_marker in deps:
-        need(deps.index(gate5_marker) < deps.index(fallback_marker), errors, "thread fallback appears before Gate 5 path")
-    need("class ThreadContextEvidenceRetriever" in service, errors, "thread-context fallback missing")
+    if runtime_marker in deps and fallback_marker in deps:
+        need(
+            deps.index(runtime_marker) < deps.index(fallback_marker),
+            errors,
+            "thread fallback appears before runtime path",
+        )
+    need("class ThreadContextFallbackRetriever" in service, errors, "thread-context fallback missing")
     need("should_run_adaptive_round" in service, errors, "adaptive retrieval hook missing")
     need("adaptive_retrieval_round_2:" in service, errors, "adaptive trace warning missing")
     need(
