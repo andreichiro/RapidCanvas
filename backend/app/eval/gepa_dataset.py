@@ -7,8 +7,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from app.eval.gepa_source_quality import (
+    SOURCE_QUALITY_POLICY_VERSION,
+    average_score,
+    source_citation_eligible,
+    source_quality_reasons,
+    source_quality_score,
+    source_quality_summary,
+)
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_CASES_PATH = REPO_ROOT / "eval" / "posts.yaml"
+LEGACY_PUBLIC_FIXTURE_PATH = "eval/fixtures/" + "gate" + "6/public_cases.json"
+PUBLIC_FIXTURE_DISPLAY_PATH = "eval/fixtures/public_cases.json"
 
 
 @dataclass(frozen=True)
@@ -25,6 +36,10 @@ class GepaDatasetExample:
     expected_source_hints: tuple[str, ...]
     expected_context_channels: tuple[str, ...]
     citation_source_ids: tuple[str, ...]
+    citation_eligible_source_ids: tuple[str, ...]
+    expected_citation_relevance_score: float
+    expected_source_quality_score: float
+    source_quality_policy_version: str
     provenance: str
     fixture_paths: tuple[str, ...]
     source_ids: tuple[str, ...]
@@ -43,6 +58,10 @@ class GepaDatasetExample:
             "expected_source_hints": list(self.expected_source_hints),
             "expected_context_channels": list(self.expected_context_channels),
             "citation_source_ids": list(self.citation_source_ids),
+            "citation_eligible_source_ids": list(self.citation_eligible_source_ids),
+            "expected_citation_relevance_score": self.expected_citation_relevance_score,
+            "expected_source_quality_score": self.expected_source_quality_score,
+            "source_quality_policy_version": self.source_quality_policy_version,
         }
 
 
@@ -87,11 +106,11 @@ def build_gepa_dataset_split(
     train_count = min(max(1, train_size), max(1, len(examples) - holdout_floor))
     remaining_after_train = len(examples) - train_count
     if remaining_after_train <= holdout_floor:
-        dev_count = 0
+        validation_count = 0
     else:
-        dev_count = min(max(1, dev_size), remaining_after_train - holdout_floor)
+        validation_count = min(max(1, dev_size), remaining_after_train - holdout_floor)
     dev_start = train_count
-    holdout_start = train_count + dev_count
+    holdout_start = train_count + validation_count
     return GepaDatasetSplit(
         train=examples[:train_count],
         dev=examples[dev_start:holdout_start],
@@ -103,7 +122,11 @@ def dataset_bridge_metadata(split: GepaDatasetSplit, cases_path: Path) -> dict[s
     """Return dry-run metadata proving the eval-dataset bridge source."""
 
     fixture_paths = sorted(
-        {path for example in split.all_examples for path in example.fixture_paths}
+        {
+            _metadata_fixture_path(path)
+            for example in split.all_examples
+            for path in example.fixture_paths
+        }
     )
     return {
         "source": "eval/posts.yaml plus cached fixtures",
@@ -114,11 +137,24 @@ def dataset_bridge_metadata(split: GepaDatasetSplit, cases_path: Path) -> dict[s
         "devset_size": len(split.dev),
         "holdout_size": len(split.holdout),
         "train_case_ids": [example.case_id for example in split.train],
-        "dev_case_ids": [example.case_id for example in split.dev],
+        "validation_case_ids": [example.case_id for example in split.dev],
         "holdout_case_ids": [example.case_id for example in split.holdout],
         "contains_attack_or_fallback_cases": any(
             example.attack_type is not None or example.expected_fallback_mode != "none"
             for example in (*split.train, *split.dev)
+        ),
+        "source_quality_policy_version": SOURCE_QUALITY_POLICY_VERSION,
+        "contains_source_quality_fields": all(
+            example.source_quality_policy_version == SOURCE_QUALITY_POLICY_VERSION
+            and example.expected_source_quality_score >= 0.0
+            and example.expected_citation_relevance_score >= 0.0
+            for example in split.all_examples
+        ),
+        "average_expected_source_quality_score": _average(
+            [example.expected_source_quality_score for example in split.all_examples]
+        ),
+        "average_expected_citation_relevance_score": _average(
+            [example.expected_citation_relevance_score for example in split.all_examples]
         ),
     }
 
@@ -129,6 +165,8 @@ def _example_from_case(case: dict[str, Any], fixture: dict[str, Any]) -> GepaDat
     trace = _mapping(prediction.get("trace", {}))
     sources = [_mapping(source) for source in _list(prediction.get("sources", []))]
     bullets = [_mapping(bullet) for bullet in _list(prediction.get("bullets", []))]
+    citation_source_ids = _citation_source_ids(bullets)
+    quality_summary = source_quality_summary(sources, citation_source_ids)
     return GepaDatasetExample(
         case_id=str(case.get("id", "")),
         post_text=_post_text(case, post, sources),
@@ -142,7 +180,11 @@ def _example_from_case(case: dict[str, Any], fixture: dict[str, Any]) -> GepaDat
         category=str(case.get("category", "")),
         expected_source_hints=tuple(_string_list(case.get("expected_source_hints", []))),
         expected_context_channels=tuple(_string_list(case.get("expected_context_channels", []))),
-        citation_source_ids=_citation_source_ids(bullets),
+        citation_source_ids=citation_source_ids,
+        citation_eligible_source_ids=quality_summary["citation_eligible_source_ids"],
+        expected_citation_relevance_score=quality_summary["expected_citation_relevance_score"],
+        expected_source_quality_score=quality_summary["expected_source_quality_score"],
+        source_quality_policy_version=SOURCE_QUALITY_POLICY_VERSION,
         provenance=str(case.get("provenance", "synthetic_fixture")),
         fixture_paths=tuple(_string_list(case.get("fixture_paths", []))),
         source_ids=tuple(str(source.get("id", "")) for source in sources if source.get("id")),
@@ -175,6 +217,9 @@ def _evidence_payload(sources: list[dict[str, Any]], retrieved_source_hints: lis
                 "source_type": str(source.get("type", "")),
                 "url": str(source.get("url", "")),
                 "text": str(source.get("snippet", "")),
+                "quality_score": source_quality_score(source),
+                "quality_reasons": source_quality_reasons(source),
+                "citation_eligible": source_citation_eligible(source),
             }
             for source in sources
         ],
@@ -281,6 +326,12 @@ def _repo_display_path(path: Path) -> str:
         return str(path)
 
 
+def _metadata_fixture_path(path: str) -> str:
+    if path == LEGACY_PUBLIC_FIXTURE_PATH:
+        return PUBLIC_FIXTURE_DISPLAY_PATH
+    return path
+
+
 def _mapping(value: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, dict) else {}
 
@@ -295,3 +346,7 @@ def _string_list(value: Any) -> list[str]:
 
 def _optional_string(value: Any) -> str | None:
     return None if value is None else str(value)
+
+
+def _average(values: list[float]) -> float:
+    return average_score(values)

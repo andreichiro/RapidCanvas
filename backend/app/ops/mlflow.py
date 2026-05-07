@@ -17,6 +17,12 @@ from app.guardrails.policies import DEFAULT_POLICY
 EXPERIMENT_NAME = "bluesky-post-explainer"
 SENSITIVE_KEY_MARKERS = ("api_key", "apikey", "token", "secret", "password", "credential")
 SECRET_VALUE_RE = re.compile(r"\bsk-[A-Za-z0-9_-]{8,}\b")
+SOURCE_QUALITY_POLICY_VERSION = "source_quality_v1"
+DEFAULT_CHUNKING_NAME = "medium_700_100"
+DEFAULT_CHUNK_SIZE = 700
+DEFAULT_CHUNK_OVERLAP = 100
+DEFAULT_RETRIEVAL_CONCURRENCY = 1
+DEFAULT_RETRIEVAL_TIMEOUT_SECONDS = 8.0
 
 
 @dataclass(frozen=True)
@@ -33,7 +39,7 @@ class MlflowRunSummary:
 
 @dataclass(frozen=True)
 class MlflowSupportStatus:
-    """Dev D-callable status for MLflow logging support."""
+    """Callable status for MLflow logging support."""
 
     callable: bool
     tracking_uri: str
@@ -43,10 +49,11 @@ class MlflowSupportStatus:
     skip_reason: str | None = None
 
 
-def build_default_mlflow_params(settings: Settings) -> dict[str, str | bool]:
-    """Return the required Dev C parameter set for experiment tracking."""
+def build_default_mlflow_params(settings: Settings) -> dict[str, str | int | float | bool]:
+    """Return the required runtime parameter set for experiment tracking."""
 
     return {
+        "provider": "openai",
         "dspy_model": settings.dspy_model,
         "dspy_judge_model": settings.dspy_judge_model,
         "embedding_model": settings.embedding_model,
@@ -55,7 +62,45 @@ def build_default_mlflow_params(settings: Settings) -> dict[str, str | bool]:
         "hf_reranker_enabled": settings.enable_hf_reranker,
         "guardrail_policy_version": DEFAULT_POLICY.version,
         "prompt_injection_detector_version": "heuristic-policy-v1",
+        "source_quality_policy_version": SOURCE_QUALITY_POLICY_VERSION,
+        "retrieval_backend": _configured_retrieval_backend(settings),
+        "qdrant_url_configured": settings.qdrant_url is not None,
+        "qdrant_path_configured": bool(settings.qdrant_path),
+        "chunking_name": DEFAULT_CHUNKING_NAME,
+        "chunk_size": DEFAULT_CHUNK_SIZE,
+        "chunk_overlap": DEFAULT_CHUNK_OVERLAP,
+        "retrieval_max_queries": settings.retrieval_max_queries,
+        "retrieval_search_limit_per_provider": settings.retrieval_search_limit_per_provider,
+        "retrieval_linked_page_limit": settings.retrieval_linked_page_limit,
+        "retrieval_linked_page_concurrency": _setting(
+            settings,
+            "retrieval_linked_page_concurrency",
+            DEFAULT_RETRIEVAL_CONCURRENCY,
+        ),
+        "retrieval_search_concurrency": _setting(
+            settings,
+            "retrieval_search_concurrency",
+            DEFAULT_RETRIEVAL_CONCURRENCY,
+        ),
+        "retrieval_timeout_seconds": _setting(
+            settings,
+            "retrieval_timeout_seconds",
+            DEFAULT_RETRIEVAL_TIMEOUT_SECONDS,
+        ),
     }
+
+
+def _setting(settings: Settings, name: str, default: int | float) -> int | float:
+    value = getattr(settings, name, default)
+    return value if isinstance(value, (int, float)) else default
+
+
+def _configured_retrieval_backend(settings: Settings) -> str:
+    if settings.qdrant_url:
+        return "qdrant_vector_store"
+    if settings.qdrant_path:
+        return "qdrant_vector_store_local_path"
+    return "in_memory_fallback"
 
 
 def mlflow_support_status(settings: Settings) -> MlflowSupportStatus:
@@ -107,7 +152,7 @@ def build_quality_mlflow_payload(
     artifacts: Sequence[Path] = (),
     model_metadata: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build params, metrics, artifacts, and metadata for Dev D MLflow calls."""
+    """Build params, metrics, artifacts, and metadata for MLflow calls."""
 
     safe_provider = _redact_mapping(provider or {})
     params = {

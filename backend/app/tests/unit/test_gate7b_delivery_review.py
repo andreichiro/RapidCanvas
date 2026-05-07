@@ -33,6 +33,10 @@ REQUIRED_GEPA_FIELDS = {
     "expected_source_hints",
     "expected_context_channels",
     "citation_source_ids",
+    "citation_eligible_source_ids",
+    "expected_citation_relevance_score",
+    "expected_source_quality_score",
+    "source_quality_policy_version",
 }
 
 
@@ -67,9 +71,13 @@ def test_gate7b_gepa_bridge_contract_has_required_fields_and_holdout() -> None:
         assert payload.keys() >= REQUIRED_GEPA_FIELDS
         assert payload["post_text"]
         assert payload["expected_points"]
+        assert 0.0 <= payload["expected_source_quality_score"] <= 1.0
+        assert 0.0 <= payload["expected_citation_relevance_score"] <= 1.0
         assert "sources" in evidence
         assert "retrieved_source_hints" in evidence
         assert "relevant_source_snippets" in evidence
+        assert all("quality_score" in source for source in evidence["sources"])
+        assert all("citation_eligible" in source for source in evidence["sources"])
 
 
 def test_gate7b_saved_program_is_dataset_bridge_with_honest_gepa_status() -> None:
@@ -80,6 +88,7 @@ def test_gate7b_saved_program_is_dataset_bridge_with_honest_gepa_status() -> Non
     assert saved_program["dataset_bridge"] == expected_bridge
     if saved_program["mode"] == "real":
         compile_payload = saved_program["gepa_compile"]
+        artifact_status = saved_program["artifact_status"]
         compiled_path = (
             Path(OPTIMIZED_PROGRAM_PATH).parent / compile_payload["compiled_program_path"]
         )
@@ -87,10 +96,13 @@ def test_gate7b_saved_program_is_dataset_bridge_with_honest_gepa_status() -> Non
         assert compile_payload["compiled_program_path"] == "program_compiled"
         assert (compiled_path / "metadata.json").exists()
         assert (compiled_path / "program.pkl").exists()
+        assert artifact_status["kind"] == "real_compiled_dspy_artifact"
+        assert artifact_status["compiled_artifact_present"] is True
         assert any("Real GEPA compile produced" in note for note in saved_program["notes"])
     else:
         assert saved_program["mode"] == "dry_run"
         assert saved_program["gepa_compile"]["executed"] is False
+        assert saved_program["artifact_status"]["kind"] == "dry_run_metadata"
         assert saved_program["saved_at"] == "1970-01-01T00:00:00+00:00"
         assert any(
             "not a compiled optimized DSPy program" in note for note in saved_program["notes"]

@@ -39,6 +39,41 @@ def load_existing_real_program(output_path: Path) -> dict[str, Any] | None:
     return payload
 
 
+def optimized_program_artifact_status(
+    payload: dict[str, Any],
+    output_path: Path,
+) -> dict[str, Any]:
+    """Return explicit saved-program artifact status for review and MLflow logs."""
+
+    mode = str(payload.get("mode", "unknown"))
+    compiled_path = _compiled_path_from_payload(payload, output_path)
+    metadata_present = bool(compiled_path and (compiled_path / "metadata.json").is_file())
+    program_pickle_present = bool(compiled_path and (compiled_path / "program.pkl").is_file())
+    compiled_artifact_present = metadata_present and program_pickle_present
+    if mode == "real" and compiled_artifact_present:
+        kind = "real_compiled_dspy_artifact"
+        load_status = "loadable"
+    elif mode == "dry_run":
+        kind = "dry_run_metadata"
+        load_status = "metadata_only"
+    elif mode == "real":
+        kind = "incomplete_real_artifact"
+        load_status = "not_loadable"
+    else:
+        kind = "unknown_metadata"
+        load_status = "not_loadable"
+    return {
+        "kind": kind,
+        "mode": mode,
+        "compiled_artifact_present": compiled_artifact_present,
+        "compiled_program_path": compiled_path.name if compiled_path else None,
+        "metadata_json_present": metadata_present,
+        "program_pickle_present": program_pickle_present,
+        "load_status": load_status,
+        "description": _artifact_status_description(kind),
+    }
+
+
 def _read_json_object(path: Path) -> dict[str, Any] | None:
     if not path.exists():
         return None
@@ -66,3 +101,19 @@ def _compiled_program_artifacts_present(compiled_path: Path) -> bool:
     if not compiled_path.is_dir():
         return False
     return (compiled_path / "metadata.json").is_file() and (compiled_path / "program.pkl").is_file()
+
+
+def _artifact_status_description(kind: str) -> str:
+    if kind == "real_compiled_dspy_artifact":
+        return (
+            "Real GEPA compile saved a DSPy program directory with metadata.json "
+            "and program.pkl."
+        )
+    if kind == "dry_run_metadata":
+        return (
+            "Dry-run optimization saved deterministic metadata only; no compiled "
+            "DSPy artifact exists."
+        )
+    if kind == "incomplete_real_artifact":
+        return "Metadata claims a real compile, but required DSPy artifact files are missing."
+    return "Saved optimized-program metadata has an unrecognized mode or artifact shape."

@@ -268,11 +268,20 @@ backend/app/agent/optimized/program_compiled/
 
 The checked-in program metadata records the eval-dataset bridge and current
 optimization score. Loader use still depends on DSPy and provider credentials.
+The optimization dataset bridge also records citation-eligible source IDs,
+expected citation relevance, expected source-quality scores, and a
+source-quality policy version so weak or off-topic evidence can be penalized in
+future optimization runs. The saved program explicitly reports whether it is
+dry-run metadata or a loadable compiled DSPy artifact.
 
 `make mlflow-log` creates a local file-backed MLflow run and exercises
 `mlflow.dspy.log_model`. Docker Compose also exposes the MLflow UI on port 5000.
 This is local ops plumbing, not a hosted experiment workflow. `mlruns/` is
 ignored.
+The MLflow manifest captures provider metadata, models, chunk/retrieval
+settings, retrieval backend, vision status, source-quality policy, cached eval
+metrics, provider-comparison status, live-quality report snapshot,
+optimized-program artifact status, and a requirements-matrix snapshot.
 
 ## Tooling And Commands
 

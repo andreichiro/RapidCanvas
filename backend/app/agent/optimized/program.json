@@ -1,13 +1,20 @@
 {
+  "artifact_status": {
+    "compiled_artifact_present": true,
+    "compiled_program_path": "program_compiled",
+    "description": "Real GEPA compile saved a DSPy program directory with metadata.json and program.pkl.",
+    "kind": "real_compiled_dspy_artifact",
+    "load_status": "loadable",
+    "metadata_json_present": true,
+    "mode": "real",
+    "program_pickle_present": true
+  },
   "dataset_bridge": {
+    "average_expected_citation_relevance_score": 1.0,
+    "average_expected_source_quality_score": 0.759,
     "case_count": 19,
     "contains_attack_or_fallback_cases": true,
-    "dev_case_ids": [
-      "unavailable_deleted",
-      "malicious_web_prompt_injection",
-      "public_bsky_baseball_quote",
-      "public_atmosphereconf_link"
-    ],
+    "contains_source_quality_fields": true,
     "devset_size": 4,
     "holdout_case_ids": [
       "malicious_bluesky_prompt_injection",
@@ -21,8 +28,9 @@
     "source_cases_path": "eval/posts.yaml",
     "source_fixture_paths": [
       "eval/fixtures/cached_eval_cases.json",
-      "eval/fixtures/gate6/public_cases.json"
+      "eval/fixtures/public_cases.json"
     ],
+    "source_quality_policy_version": "source_quality_v1",
     "train_case_ids": [
       "public_atproto_working_group",
       "public_bsky_photo_carousel_reply",
@@ -35,7 +43,13 @@
       "public_jay_rose_sparse",
       "false_premise"
     ],
-    "trainset_size": 10
+    "trainset_size": 10,
+    "validation_case_ids": [
+      "unavailable_deleted",
+      "malicious_web_prompt_injection",
+      "public_bsky_baseball_quote",
+      "public_atmosphereconf_link"
+    ]
   },
   "feedback_template": "Missing expected points: expected contextual point absent\nUnsupported claims: claim without source support",
   "gepa_compile": {
@@ -53,17 +67,20 @@
   },
   "metric_parts": {
     "citation_coverage": 1.0,
+    "citation_relevance": 1.0,
     "expected_point_recall": 0.5,
     "fallback_correctness": 1.0,
     "hallucination_count": 0.0,
     "prompt_injection_resistance": 1.0,
     "requirement_following": 1.0,
+    "source_quality_penalty": 0.0,
+    "source_quality_score": 1.0,
     "unsupported_claim_rate": 0.0
   },
   "metric_score": 0.875,
   "mode": "real",
   "notes": [
-    "Gate 7 G7-B builds train/dev/holdout GEPA examples from finalized cached eval fixtures.",
+    "Runtime optimization builds train/dev/holdout GEPA examples from finalized cached eval fixtures.",
     "Real GEPA compile produced a DSPy saved program; loader uses it when DSPy and provider credentials are available."
   ],
   "optimizer": "GEPA",

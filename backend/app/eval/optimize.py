@@ -27,7 +27,11 @@ from app.eval.gepa_metric import (
     gepa_feedback_metric,
     textual_feedback,
 )
-from app.eval.gepa_persistence import load_existing_real_program, save_compiled_program
+from app.eval.gepa_persistence import (
+    load_existing_real_program,
+    optimized_program_artifact_status,
+    save_compiled_program,
+)
 from app.eval.gepa_validation import gepa_success_stats
 from app.guardrails.policies import DEFAULT_POLICY
 
@@ -56,7 +60,7 @@ def run_gepa_optimization(
 
     active_settings = settings or get_settings()
     if dry_run:
-        preserved_result = _preserved_real_result(output_path)
+        preserved_result = _preserved_real_result(output_path, cases_path)
         if preserved_result is not None:
             return preserved_result
     dataset_split = build_gepa_dataset_split(cases_path=cases_path)
@@ -89,10 +93,11 @@ def run_gepa_optimization(
         ),
         "notes": _program_notes(dry_run),
     }
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    serialized = json.dumps(saved_program, indent=2, sort_keys=True) + "\n"
-    if not output_path.exists() or output_path.read_text(encoding="utf-8") != serialized:
-        output_path.write_text(serialized, encoding="utf-8")
+    saved_program["artifact_status"] = optimized_program_artifact_status(
+        saved_program,
+        output_path,
+    )
+    _write_saved_program(output_path, saved_program)
     return OptimizationResult(
         output_path=output_path,
         metric_score=metric_score,
@@ -101,16 +106,35 @@ def run_gepa_optimization(
     )
 
 
-def _preserved_real_result(output_path: Path) -> OptimizationResult | None:
+def _preserved_real_result(output_path: Path, cases_path: Path) -> OptimizationResult | None:
     preserved = load_existing_real_program(output_path)
     if preserved is None:
         return None
+    metric_parts = _metric_parts(dry_run=False)
+    enriched = {
+        **preserved,
+        "schema_version": preserved.get("schema_version", 1),
+        "metric_score": combined_gepa_metric(metric_parts),
+        "metric_parts": asdict(metric_parts),
+        "dataset_bridge": dataset_bridge_metadata(build_gepa_dataset_split(cases_path), cases_path),
+        "policy_version": preserved.get("policy_version", DEFAULT_POLICY.version),
+        "notes": _program_notes(dry_run=False),
+    }
+    enriched["artifact_status"] = optimized_program_artifact_status(enriched, output_path)
+    _write_saved_program(output_path, enriched)
     return OptimizationResult(
         output_path=output_path,
-        metric_score=float(preserved.get("metric_score", 0.0)),
-        mode=str(preserved.get("mode", "real")),
-        saved_program=preserved,
+        metric_score=float(enriched.get("metric_score", 0.0)),
+        mode=str(enriched.get("mode", "real")),
+        saved_program=enriched,
     )
+
+
+def _write_saved_program(output_path: Path, saved_program: dict[str, Any]) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    serialized = json.dumps(saved_program, indent=2, sort_keys=True) + "\n"
+    if not output_path.exists() or output_path.read_text(encoding="utf-8") != serialized:
+        output_path.write_text(serialized, encoding="utf-8")
 
 
 def _saved_at(dry_run: bool) -> str:
@@ -121,8 +145,8 @@ def _saved_at(dry_run: bool) -> str:
 
 def _program_notes(dry_run: bool) -> list[str]:
     notes = [
-        "Gate 7 G7-B builds train/dev/holdout GEPA examples from finalized "
-        "cached eval fixtures."
+        "Runtime optimization builds train/dev/holdout GEPA examples "
+        "from finalized cached eval fixtures."
     ]
     if dry_run:
         notes.append(
@@ -140,9 +164,12 @@ def _metric_parts(dry_run: bool) -> GepaMetricParts:
     return GepaMetricParts(
         expected_point_recall=0.0 if dry_run else 0.5,
         citation_coverage=1.0,
+        citation_relevance=1.0,
         requirement_following=1.0,
         prompt_injection_resistance=1.0,
         fallback_correctness=1.0,
+        source_quality_score=1.0,
+        source_quality_penalty=0.0,
     )
 
 
@@ -239,6 +266,10 @@ def _build_optimization_student() -> Any:
             expected_source_hints: list[str] | None = None,
             expected_context_channels: list[str] | None = None,
             citation_source_ids: list[str] | None = None,
+            citation_eligible_source_ids: list[str] | None = None,
+            expected_citation_relevance_score: float | None = None,
+            expected_source_quality_score: float | None = None,
+            source_quality_policy_version: str | None = None,
         ) -> Any:
             del (
                 expected_points,
@@ -248,6 +279,10 @@ def _build_optimization_student() -> Any:
                 expected_source_hints,
                 expected_context_channels,
                 citation_source_ids,
+                citation_eligible_source_ids,
+                expected_citation_relevance_score,
+                expected_source_quality_score,
+                source_quality_policy_version,
             )
             return self.explain(post_text=post_text, evidence=evidence)
 
@@ -275,6 +310,10 @@ def _build_gepa_examples(
         "expected_source_hints",
         "expected_context_channels",
         "citation_source_ids",
+        "citation_eligible_source_ids",
+        "expected_citation_relevance_score",
+        "expected_source_quality_score",
+        "source_quality_policy_version",
     )
     return (
         [dspy.Example(**example).with_inputs(*input_fields) for example in raw_train],

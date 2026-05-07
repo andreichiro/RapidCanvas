@@ -9,7 +9,7 @@ from pydantic import SecretStr
 
 from app.agent.evidence_contract import normalize_retrieval_output
 from app.agent.loader import ProgramLoadResult, configure_dspy, load_program
-from app.agent.log_mlflow import _write_manifest
+from app.agent.log_mlflow import _mlflow_artifacts, _write_manifest
 from app.agent.providers import resolve_provider
 from app.config import Settings
 from app.ops import mlflow as mlflow_ops
@@ -183,9 +183,14 @@ def test_load_program_can_package_live_dspy_without_key() -> None:
 def test_mlflow_param_payload_includes_required_dev_c_fields() -> None:
     params = build_default_mlflow_params(Settings(openai_api_key=None))
 
+    assert params["provider"] == "openai"
     assert params["dspy_model"] == "openai/gpt-4.1-mini"
     assert params["guardrail_policy_version"] == "gate6-dev-c-v1"
     assert params["prompt_injection_detector_version"] == "heuristic-policy-v1"
+    assert params["source_quality_policy_version"] == "source_quality_v1"
+    assert params["retrieval_backend"] == "qdrant_vector_store_local_path"
+    assert params["chunking_name"] == "medium_700_100"
+    assert params["retrieval_timeout_seconds"] == 8.0
 
 
 def test_mlflow_manifest_records_real_gepa_optimization_status(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -204,7 +209,20 @@ def test_mlflow_manifest_records_real_gepa_optimization_status(tmp_path) -> None
                 "trainset_size": 10,
                 "devset_size": 4,
                 "holdout_size": 5,
+                "source_quality_policy_version": "source_quality_v1",
+                "average_expected_source_quality_score": 0.75,
+                "average_expected_citation_relevance_score": 1.0,
             },
+            "artifact_status": {
+                "kind": "real_compiled_dspy_artifact",
+                "compiled_artifact_present": True,
+            },
+        }
+        provider_metadata = {
+            "requested_provider": "openai",
+            "selected_provider": "openai",
+            "provider_model": "openai/gpt-4.1-mini",
+            "provider_configured": True,
         }
 
     manifest_path = _write_manifest(
@@ -222,9 +240,52 @@ def test_mlflow_manifest_records_real_gepa_optimization_status(tmp_path) -> None
     assert status["mode"] == "real"
     assert status["compile_executed"] is True
     assert status["compiled_program_path"] == "program_compiled"
+    assert status["artifact_kind"] == "real_compiled_dspy_artifact"
+    assert status["source_quality_policy_version"] == "source_quality_v1"
     assert status["dataset_case_count"] == 19
     assert status["trainset_size"] == 10
+    assert payload["provider"]["selected_provider"] == "openai"
+    assert payload["source_quality_policy_version"] == "source_quality_v1"
+    assert payload["retrieval_backend"] == "qdrant_vector_store_local_path"
+    assert payload["requirements_matrix_snapshot"]["row_count"] > 0
     assert "optimized_dspy_program_loaded" in payload["loader_warnings"]
+
+
+def test_mlflow_artifact_bundle_includes_eval_provider_live_matrix_and_optimized_paths(
+    tmp_path: Path,
+) -> None:
+    class FakeProgram:
+        optimized_config: dict[str, Any] = {}
+        provider_metadata: dict[str, Any] = {}
+
+    reports_dir = tmp_path / "reports"
+    (reports_dir / "eval").mkdir(parents=True)
+    (reports_dir / "eval" / "summary.json").write_text("{}")
+    (reports_dir / "provider_comparison.json").write_text("{}")
+    manifest = reports_dir / "mlflow_runtime_manifest.json"
+    manifest.write_text("{}")
+    optimized_path = tmp_path / "program.json"
+    optimized_path.write_text("{}")
+    compiled = tmp_path / "program_compiled"
+    compiled.mkdir()
+    (compiled / "metadata.json").write_text("{}")
+    (compiled / "program.pkl").write_text("fake")
+
+    artifacts = _mlflow_artifacts(
+        Settings(openai_api_key=None, reports_dir=str(reports_dir)),
+        manifest,
+        ProgramLoadResult(
+            program=cast(Any, FakeProgram()),
+            optimized_path=optimized_path,
+            warnings=[],
+        ),
+    )
+
+    artifact_names = {path.name for path in artifacts}
+    assert {"summary.json", "provider_comparison.json", "program.json", "program.pkl"} <= (
+        artifact_names
+    )
+    assert any(path.name == "requirements_matrix.md" for path in artifacts)
 
 
 def test_mlflow_fallback_run_writes_manifest_when_mlflow_missing(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]

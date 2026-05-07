@@ -37,6 +37,7 @@ def test_optimizer_dry_run_saves_loadable_program(tmp_path) -> None:  # type: ig
 
     assert result.output_path == output_path
     assert json.loads(output_path.read_text())["optimizer"] == "GEPA"
+    assert json.loads(output_path.read_text())["artifact_status"]["kind"] == "dry_run_metadata"
     assert loaded.optimized_path == output_path
     assert loaded.program.optimized_config["schema_version"] == 1
 
@@ -77,6 +78,35 @@ def test_combined_gepa_metric_penalizes_unsupported_claims() -> None:
 
     assert strong == 1.0
     assert weak < strong
+
+
+def test_combined_gepa_metric_penalizes_source_quality_and_citation_relevance() -> None:
+    strong = combined_gepa_metric(
+        GepaMetricParts(
+            expected_point_recall=1.0,
+            citation_coverage=1.0,
+            citation_relevance=1.0,
+            requirement_following=1.0,
+            prompt_injection_resistance=1.0,
+            fallback_correctness=1.0,
+            source_quality_score=1.0,
+        )
+    )
+    weak = combined_gepa_metric(
+        GepaMetricParts(
+            expected_point_recall=1.0,
+            citation_coverage=1.0,
+            citation_relevance=0.0,
+            requirement_following=1.0,
+            prompt_injection_resistance=1.0,
+            fallback_correctness=1.0,
+            source_quality_score=0.2,
+            source_quality_penalty=1.0,
+        )
+    )
+
+    assert strong == 1.0
+    assert weak < 0.8
 
 
 def test_gepa_feedback_metric_supports_dspy_evaluate_two_arg_call() -> None:
@@ -126,6 +156,9 @@ def test_gepa_dataset_examples_are_built_from_gate6_eval_fixtures() -> None:
     assert malicious_image.expected_fallback_mode == "partial"
     assert malicious_image.expected_context_channels == ("image",)
     assert "S1" in malicious_image.citation_source_ids
+    assert malicious_image.source_quality_policy_version == "source_quality_v1"
+    assert 0.0 <= malicious_image.expected_source_quality_score <= 1.0
+    assert "S2" in malicious_image.citation_eligible_source_ids
     assert "malicious alt text" in json.dumps(evidence_payload).lower()
     assert len(split.train) == 10
     assert len(split.dev) == 4
@@ -148,7 +181,11 @@ def test_optimizer_dry_run_records_eval_dataset_bridge_metadata(tmp_path) -> Non
     assert bridge["devset_size"] == 4
     assert bridge["holdout_size"] > 0
     assert bridge["contains_attack_or_fallback_cases"] is True
-    assert "eval/fixtures/gate6/public_cases.json" in bridge["source_fixture_paths"]
+    assert bridge["source_quality_policy_version"] == "source_quality_v1"
+    assert bridge["contains_source_quality_fields"] is True
+    assert 0.0 < bridge["average_expected_source_quality_score"] <= 1.0
+    assert 0.0 < bridge["average_expected_citation_relevance_score"] <= 1.0
+    assert "eval/fixtures/public_cases.json" in bridge["source_fixture_paths"]
     assert "eval/fixtures/cached_eval_cases.json" in bridge["source_fixture_paths"]
 
 
@@ -162,11 +199,14 @@ def test_optimizer_dry_run_preserves_existing_real_compiled_program(tmp_path) ->
     output_path.write_text(json.dumps(payload), encoding="utf-8")
 
     result = run_gepa_optimization(dry_run=True, output_path=output_path)
+    saved_payload = json.loads(output_path.read_text(encoding="utf-8"))
 
     assert result.mode == "real"
     assert result.metric_score == 0.875
-    assert result.saved_program == payload
-    assert json.loads(output_path.read_text(encoding="utf-8")) == payload
+    assert result.saved_program["gepa_compile"] == payload["gepa_compile"]
+    assert result.saved_program["artifact_status"]["kind"] == "real_compiled_dspy_artifact"
+    assert result.saved_program["metric_parts"]["source_quality_score"] == 1.0
+    assert saved_payload == result.saved_program
 
 
 def test_optimizer_dry_run_does_not_preserve_incomplete_real_program(tmp_path) -> None:  # type: ignore[no-untyped-def]
@@ -237,6 +277,7 @@ def test_optimizer_real_mode_calls_gepa_compile_with_train_and_val_sets(tmp_path
     assert result.mode == "real"
     assert payload["gepa_compile"]["executed"] is True
     assert payload["gepa_compile"]["compiled_program_path"] == "real-program_compiled"
+    assert payload["artifact_status"]["kind"] == "real_compiled_dspy_artifact"
     assert (tmp_path / "real-program_compiled" / "program.pkl").exists()
 
 
