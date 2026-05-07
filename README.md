@@ -275,6 +275,15 @@ reply/quote/link/image context, ambiguous acronyms, sparse context,
 unavailable/deleted posts, prompt injection, contradictory sources, and
 low-evidence behavior.
 
+The project follows a test-driven review strategy rather than relying on one
+large smoke test. `make deep-review` consolidates backend unit/integration tests
+(546), frontend component/runtime tests (45), secret hygiene, config validation,
+frontend audit/build, optional dependency resolution, requirement and staff
+matrix reviews, maintainability checks, API smoke, and frontend smoke. Focused
+tests cover citation support, source quality, robots/fetch safety, Bluesky
+normalization, Qdrant namespace isolation, request tracing, Docker preflight,
+runtime response validation, GEPA, MLflow, and live-quality scoring.
+
 CI runs `make deep-review` and `make eval-cached` on push, pull request, and
 manual dispatch. The separate `Manual Live Eval` workflow is `workflow_dispatch`
 only; it requires the repository `OPENAI_API_KEY` secret, runs the live eval and
